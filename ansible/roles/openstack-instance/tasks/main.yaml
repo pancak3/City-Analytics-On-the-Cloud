@@ -27,7 +27,18 @@
 - name: Get instance info
   os_server_info:
     server: '*'
-  register: os_instance_info
+  register: instance_info
+
+- name: Create list of IPs
+  set_fact:
+    instance_ips: "{{ instance_info.openstack_servers | map(attribute='public_v4') | list }}"
 
 - debug:
-    msg: "{{ os_instance_info.openstack_servers }}"
+    msg: 'IPs: {{ instance_ips }}'
+
+# Add hosts
+- name: Add host
+  add_host:
+    name: '{{ item }}'
+    groups: COMP90024
+  loop: '{{ instance_ips }}'
