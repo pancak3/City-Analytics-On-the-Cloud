@@ -1,8 +1,9 @@
 ---
 # Install dependencies required to execute openstack commands on host
 
-- name: Distribution
-  debug: msg="{{ ansible_distribution }}"
+# Print system disbribution
+# - name: Distribution
+#   debug: msg="{{ ansible_distribution }}"
 
 # Ubuntu
 # apt-get update

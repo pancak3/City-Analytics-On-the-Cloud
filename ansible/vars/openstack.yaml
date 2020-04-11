@@ -23,15 +23,14 @@ volumes:
     size: 40
 
 instances:
-  - name: ins1
+  - name: instance1
     volumes: ['vol1', 'vol2']
-  - name: ins2
+  - name: instance2
     volumes: ['vol3']
 
 instance:
   # ubuntu eoan 19.10
   image: 5f7281cb-111e-463d-b79d-b69cb76032a9
   flavor: uom.mse.2c9g
-  key_name: Steven
   # qh2-uom
   network: 7b90b4df-5e64-4e50-8abd-1e1339f092fa
