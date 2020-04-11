@@ -1,0 +1,17 @@
+# run on localhost
+- hosts: localhost
+
+  # variables (what to configure)
+  vars_files:
+    - vars/openstack.yaml
+
+  # load module for gathering useful variables about remote hosts
+  gather_facts: true
+
+  # call upon tasks
+  roles:
+    # prepares local machine
+    - role: prepare-local
+    - role: openstack-security-group
+    - role: openstack-volume
+    - role: openstack-instance

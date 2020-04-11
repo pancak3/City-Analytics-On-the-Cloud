@@ -1,0 +1,33 @@
+---
+# Initiate instances
+
+- name: Create instance
+  os_server:
+    name: '{{ item.name }}'
+    availability_zone: '{{ availability_zone }}'
+    # Base image
+    image: '{{ instance.image }}'
+    # Flavor
+    flavor: '{{ instance.flavor }}'
+    # SSH key name
+    key_name: '{{ instance.key_name }}'
+    # Security group
+    security_groups: '{{ security_groups | map(attribute="name") | list }}'
+    # Volume
+    volumes: '{{ item.volumes }}'
+    # Network
+    network: '{{ instance.network }}'
+    auto_floating_ip: yes
+    timeout: 600
+    wait: yes
+    state: present
+  loop: '{{ instances }}'
+  register: os_instance
+
+- name: Get instance info
+  os_server_info:
+    server: '*'
+  register: os_instance_info
+
+- debug:
+    msg: "{{ os_instance_info.openstack_servers }}"

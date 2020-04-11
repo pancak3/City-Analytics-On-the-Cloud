@@ -1,0 +1,11 @@
+---
+# Creates volumes
+
+- name: Create volume
+  os_volume:
+    display_name: '{{ item.display_name }}'
+    availability_zone: '{{ availability_zone }}'
+    size: '{{ item.size }}'
+    state: present
+    wait: yes
+  loop: '{{ volumes }}'

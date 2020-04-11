@@ -1,0 +1,37 @@
+availability_zone: melbourne-qh2-uom
+
+security_groups:
+  - name: ssh
+    description: 'ssh on port 22'
+    protocol: tcp
+    port_range_min: 22
+    port_range_max: 22
+    remote_ip_prefix: 0.0.0.0/0
+  - name: icmp
+    description: 'ping'
+    protocol: icmp
+    port_range_min: -1
+    port_range_max: -1
+    remote_ip_prefix: 0.0.0.0/0
+
+volumes:
+  - display_name: vol1
+    size: 20
+  - display_name: vol2
+    size: 20
+  - display_name: vol3
+    size: 40
+
+instances:
+  - name: ins1
+    volumes: ['vol1', 'vol2']
+  - name: ins2
+    volumes: ['vol3']
+
+instance:
+  # ubuntu eoan 19.10
+  image: 5f7281cb-111e-463d-b79d-b69cb76032a9
+  flavor: uom.mse.2c9g
+  key_name: Steven
+  # qh2-uom
+  network: 7b90b4df-5e64-4e50-8abd-1e1339f092fa
