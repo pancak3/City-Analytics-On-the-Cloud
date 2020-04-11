@@ -18,9 +18,9 @@
     # instance
     - role: openstack/instance
     # instance info
-    - role: openstack/instance_info
+    - role: openstack/instance-info
     # attach volume
-    - role: openstack/attach-volume
+    - role: openstack/refresh-configuration
 
 # Configure instances
 - hosts: COMP90024

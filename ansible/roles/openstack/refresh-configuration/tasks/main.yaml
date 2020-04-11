@@ -1,6 +1,6 @@
 # Attaches a volume to a compute host
 # https://stackoverflow.com/questions/50683069
-- name: attach volumes
+- name: Attach volumes
   tags: configure
   os_server_volume:
     state: present
