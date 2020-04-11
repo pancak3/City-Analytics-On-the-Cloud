@@ -13,8 +13,6 @@
     key_name: '{{ key_name }}'
     # Security group
     security_groups: '{{ security_groups | map(attribute="name") | list }}'
-    # Volume
-    volumes: '{{ item.volumes }}'
     # Network
     network: '{{ instance.network }}'
     auto_floating_ip: yes

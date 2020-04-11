@@ -1,0 +1,11 @@
+# Attaches a volume to a compute host
+# https://stackoverflow.com/questions/50683069
+- name: attach volumes
+  tags: configure
+  os_server_volume:
+    state: present
+    server: '{{ item.0.name }}'
+    volume: '{{ item.1 }}'
+  with_subelements:
+    - '{{ instances }}'
+    - volumes

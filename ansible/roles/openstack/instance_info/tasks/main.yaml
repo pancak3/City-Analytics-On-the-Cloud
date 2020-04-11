@@ -12,7 +12,6 @@
     instance_ips: "{{ instance_info.openstack_servers | map(attribute='public_v4') | list }}"
 
 - debug:
-    tags: instance_info
     msg: 'IPs: {{ instance_ips }}'
 
 # Add hosts

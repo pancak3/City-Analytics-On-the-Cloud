@@ -19,6 +19,8 @@
     - role: openstack/instance
     # instance info
     - role: openstack/instance_info
+    # attach volume
+    - role: openstack/attach-volume
 
 # Configure instances
 - hosts: COMP90024
@@ -29,3 +31,4 @@
 
   roles:
     - role: server/install-dependencies
+    - role: server/mount-volume
