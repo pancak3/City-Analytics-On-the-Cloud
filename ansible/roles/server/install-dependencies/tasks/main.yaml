@@ -1,0 +1,8 @@
+---
+- name: Install dependencies
+  become: yes
+  apt:
+    name: ['htop', 'git', 'python3', 'curl', 'wget', 'vim']
+    state: latest
+    install-recommends: no
+    update_cache: yes

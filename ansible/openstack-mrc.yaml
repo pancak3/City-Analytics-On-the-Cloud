@@ -1,20 +1,28 @@
-# run on localhost
+# Provision instances on localhost
 - hosts: localhost
 
   # load module for gathering useful variables about remote hosts
   gather_facts: true
 
-  # variables (what to configure)
+  # variables (how to provision)
   vars_files:
     - vars/openstack.yaml
 
   # call upon tasks
   roles:
     # prepares local machine
-    - role: prepare-local
+    - role: openstack/prepare-local
     # security groups
-    - role: openstack-security-group
+    - role: openstack/security-group
     # volumes
-    - role: openstack-volume
+    - role: openstack/volume
     # instance
-    - role: openstack-instance
+    - role: openstack/instance
+
+# Configure instances
+- hosts: COMP90024
+  vars_files:
+    - vars/configure.yaml
+
+  roles:
+    - role: server/install-dependencies
