@@ -30,5 +30,6 @@
     - vars/configure.yaml
 
   roles:
+    - role: server/upload-keys
     - role: server/install-dependencies
     - role: server/mount-volume

@@ -1,0 +1,9 @@
+---
+- name: Upload public keys of all members
+  become: yes
+  copy:
+    src: '{{ playbook_dir }}/public_keys.txt'
+    dest: /home/ubuntu/.ssh/authorized_keys
+    mode: '400'
+    owner: ubuntu
+    group: ubuntu
