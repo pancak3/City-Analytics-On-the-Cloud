@@ -8,7 +8,6 @@
   vars_files:
     - vars/openstack.yaml
 
-  # call upon tasks
   roles:
     # prepares local machine
     - role: openstack/prepare-local
@@ -18,9 +17,13 @@
     - role: openstack/volume
     # instance
     - role: openstack/instance
+    # instance info
+    - role: openstack/instance_info
 
 # Configure instances
 - hosts: COMP90024
+  tags:
+    - configure
   vars_files:
     - vars/configure.yaml
 

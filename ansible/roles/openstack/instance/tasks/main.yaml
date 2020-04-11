@@ -32,23 +32,3 @@
     search_regex: OpenSSH
   loop: '{{ os_instance.results }}'
   when: item.openstack is defined
-
-# Get info about servers whose name starts with ins
-- name: Get instance info
-  os_server_info:
-    server: 'ins*'
-  register: instance_info
-
-- name: Create list of IPs
-  set_fact:
-    instance_ips: "{{ instance_info.openstack_servers | map(attribute='public_v4') | list }}"
-
-- debug:
-    msg: 'IPs: {{ instance_ips }}'
-
-# Add hosts
-- name: Add host
-  add_host:
-    name: '{{ item }}'
-    groups: COMP90024
-  loop: '{{ instance_ips }}'
