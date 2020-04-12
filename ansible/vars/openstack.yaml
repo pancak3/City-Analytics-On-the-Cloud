@@ -21,20 +21,20 @@ security_groups:
     remote_ip_prefix: 0.0.0.0/0
 
 volumes:
-  - display_name: docker1
-    size: 20
-  - display_name: docker2
-    size: 20
   - display_name: data1
     size: 40
   - display_name: data2
     size: 40
+#   - display_name: docker1
+#    size: 20
+#   - display_name: docker2
+#     size: 20
 
 instances:
   - name: instance1
-    volumes: ['docker1', 'data1']
+    volumes: [{ name: 'data1', device: '/dev/vdb'}]
   - name: instance2
-    volumes: ['docker2', 'data2']
+    volumes: [{ name: 'data2', device: '/dev/vdb'}]
 
 instance:
   # ubuntu eoan 19.10

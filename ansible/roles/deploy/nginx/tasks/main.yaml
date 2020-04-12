@@ -19,7 +19,7 @@
     owner: '{{ ansible_user }}'
     group: '{{ ansible_user }}'
 
-- name: Run nginx
+- name: Setup nginx
   become: yes
   docker_compose:
     project_src: '{{ nginx_dir }}'

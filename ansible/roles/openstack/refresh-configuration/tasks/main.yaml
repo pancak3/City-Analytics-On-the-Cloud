@@ -5,7 +5,8 @@
   os_server_volume:
     state: present
     server: '{{ item.0.name }}'
-    volume: '{{ item.1 }}'
+    volume: '{{ item.1.name }}'
+    device: '{{ item.1.device }}'
   with_subelements:
     - '{{ instances }}'
     - volumes
