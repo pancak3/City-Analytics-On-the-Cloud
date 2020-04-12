@@ -1,0 +1,3 @@
+---
+nginx_dir: /data/nginx
+nginx_port: 80

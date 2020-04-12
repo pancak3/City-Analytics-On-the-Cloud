@@ -30,6 +30,13 @@
     - vars/configure.yaml
 
   roles:
+    # Upload public keys
     - role: server/upload-keys
+    # Install docker, and other useful utils
     - role: server/install-dependencies
+    # Mount volumes
     - role: server/mount-volume
+    # Restart docker to let it use new volume
+    - role: server/restart-docker
+    # Install nginx
+    - role: server/nginx
