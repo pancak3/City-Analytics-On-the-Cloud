@@ -35,12 +35,10 @@
     - role: openstack/proxy
     # Install docker, and other useful utils
     - role: server-setup/install-dependencies
-    # Proxy for ~/.docker/config.json
+    # Proxy
     - role: server-setup/docker-proxy
     # Mount volumes
     - role: server-setup/mount-volume
-    # Restart docker to let it use new volume
-    # - role: server/restart-docker
 
 # Deploy applications
 - hosts: COMP90024
