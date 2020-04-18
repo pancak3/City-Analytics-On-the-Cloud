@@ -13,11 +13,11 @@ chmod +x unimelb-comp90024-2020-grp-42-openrc.sh
 #     -u ubuntu --key-file=$KEY_FILE \
 #     -e "ansible_python_interpreter=/usr/bin/python3 key_name=$KEY_NAME" \
 #     --tags all \
-#     openstack-mrc.yaml
+#     main.yaml
 
 # Only run configure playbook
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook --ask-become-pass \
     -u ubuntu --key-file=$KEY_FILE \
     -e "ansible_python_interpreter=/usr/bin/python3 key_name=$KEY_NAME" \
-    --tags instance_info --tags configure \
+    --tags instance_info --tags server-setup --tags configure \
     main.yaml

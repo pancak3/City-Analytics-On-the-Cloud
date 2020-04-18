@@ -31,8 +31,12 @@
   roles:
     # Upload public keys
     - role: server-setup/upload-keys
+    # Proxy in /etc/environment
+    - role: openstack/proxy
     # Install docker, and other useful utils
     - role: server-setup/install-dependencies
+    # Proxy for ~/.docker/config.json
+    - role: server-setup/docker-proxy
     # Mount volumes
     - role: server-setup/mount-volume
     # Restart docker to let it use new volume

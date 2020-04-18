@@ -25,10 +25,6 @@ volumes:
     size: 40
   - display_name: data2
     size: 40
-#   - display_name: docker1
-#    size: 20
-#   - display_name: docker2
-#     size: 20
 
 instances:
   - name: instance1
@@ -40,5 +36,7 @@ instance:
   # ubuntu eoan 19.10
   image: 5f7281cb-111e-463d-b79d-b69cb76032a9
   flavor: uom.mse.2c9g
-  # qh2-uom
-  network: 7b90b4df-5e64-4e50-8abd-1e1339f092fa
+  # qh2-uom - not allowed, internal ips only... (discussion forum)
+  # network: 7b90b4df-5e64-4e50-8abd-1e1339f092fa
+  # qh2-uom-internal
+  network: f0c86d08-d45b-45c4-9216-b8abd6bc133c
