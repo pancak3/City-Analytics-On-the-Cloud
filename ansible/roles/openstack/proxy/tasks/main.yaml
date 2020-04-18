@@ -1,0 +1,10 @@
+---
+# Since internal vms require proxy to access external resources
+- name: Copy environment file from local to remote
+  become: yes
+  copy:
+    src: environment
+    dest: /etc/environment
+    owner: root
+    group: root
+    mode: 0644

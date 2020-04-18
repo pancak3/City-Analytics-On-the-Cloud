@@ -3,5 +3,3 @@
 volumes:
   - device: /dev/vdb
     mountpoint: /data
-#   - device: /dev/vdb
-#     mountpoint: /var/lib/docker

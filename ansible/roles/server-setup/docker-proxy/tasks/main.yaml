@@ -1,0 +1,16 @@
+---
+# Since internal vms require proxy to access external resources
+
+- name: Create .docker directory
+  file:
+    path: /home/ubuntu/.docker
+    state: directory
+
+- name: Configure docker client proxy
+  become: yes
+  copy:
+    src: config.json
+    dest: /home/ubuntu/.docker/config.json
+    owner: ubuntu
+    group: ubuntu
+    mode: 0644
