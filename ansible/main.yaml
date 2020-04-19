@@ -23,6 +23,7 @@
 
 # Setup servers
 - hosts: COMP90024
+  order: sorted
   tags:
     - server-setup
   vars_files:
@@ -42,6 +43,7 @@
 
 # Deploy applications
 - hosts: COMP90024
+  order: sorted
   tags:
     - configure
   vars_files:
@@ -49,4 +51,6 @@
 
   roles:
     # Setup nginx
-    - role: deploy/nginx
+    # - role: deploy/nginx
+    # Setup couch
+    - role: deploy/couch

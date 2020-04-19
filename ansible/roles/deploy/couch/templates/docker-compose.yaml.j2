@@ -1,0 +1,17 @@
+# https://hub.docker.com/_/couchdb
+
+version: '3'
+services:
+  couchdb:
+    image: couchdb:3
+    environment:
+      - COUCHDB_USER={{ couch.user }}
+      - COUCHDB_PASSWORD={{ couch.password }}
+      - COUCHDB_SECRET={{ couch.secret }}
+      - NODENAME={{ inventory_hostname }}
+    ports:
+      - "5984:5984"
+      - "4369:4369"
+      - "9100:9100"
+    volumes:
+      - {{ couch.data_dir }}:/opt/couchdb/data
