@@ -3,3 +3,12 @@
 volumes:
   - device: /dev/vdb
     mountpoint: /data
+
+# Couch variables
+couch:
+  user: 'comp90024'
+  password: 'pojeinaiShoh9Oo'
+  secret: 'aiB8ooj9cheikie'
+  dir: /data/couch
+  data_dir: ./data
+  node_count: 4

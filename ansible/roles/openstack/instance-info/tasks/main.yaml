@@ -9,7 +9,7 @@
 - name: Create list of IPs
   tags: instance_info
   set_fact:
-    instance_ips: "{{ instance_info.openstack_servers | map(attribute='public_v4') | list }}"
+    instance_ips: "{{ instance_info.openstack_servers | map(attribute='public_v4') | list | sort }}"
 
 - debug:
     msg: 'IPs: {{ instance_ips }}'

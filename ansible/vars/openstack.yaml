@@ -3,34 +3,57 @@ availability_zone: melbourne-qh2-uom
 security_groups:
   - name: ssh
     description: 'ssh on port 22'
-    protocol: tcp
-    port_range_min: 22
-    port_range_max: 22
-    remote_ip_prefix: 0.0.0.0/0
-  - name: icmp
-    description: 'ping'
-    protocol: icmp
-    port_range_min: -1
-    port_range_max: -1
-    remote_ip_prefix: 0.0.0.0/0
+    rules:
+      - protocol: tcp
+        port_range_min: 22
+        port_range_max: 22
+        remote_ip_prefix: 0.0.0.0/0
   - name: http
-    description: 'http'
-    protocol: tcp
-    port_range_min: 80
-    port_range_max: 80
-    remote_ip_prefix: 0.0.0.0/0
+    description: 'http/s'
+    rules:
+      - protocol: tcp
+        port_range_min: 80
+        port_range_max: 80
+        remote_ip_prefix: 0.0.0.0/0
+      - protocol: tcp
+        port_range_min: 443
+        port_range_max: 443
+        remote_ip_prefix: 0.0.0.0/0
+  - name: couch
+    description: 'couchdb'
+    rules:
+      - protocol: tcp
+        port_range_min: 5984
+        port_range_max: 5984
+        remote_ip_prefix: 0.0.0.0/0
+      - protocol: tcp
+        port_range_min: 4369
+        port_range_max: 4369
+        remote_ip_prefix: 0.0.0.0/0
+      - protocol: tcp
+        port_range_min: 9100
+        port_range_max: 9100
+        remote_ip_prefix: 0.0.0.0/0
 
 volumes:
   - display_name: data1
-    size: 40
+    size: 70
   - display_name: data2
-    size: 40
+    size: 60
+  - display_name: data3
+    size: 60
+  - display_name: data4
+    size: 60
 
 instances:
   - name: instance1
     volumes: [{ name: 'data1', device: '/dev/vdb'}]
   - name: instance2
     volumes: [{ name: 'data2', device: '/dev/vdb'}]
+  - name: instance3
+    volumes: [{ name: 'data3', device: '/dev/vdb'}]
+  - name: instance4
+    volumes: [{ name: 'data4', device: '/dev/vdb'}]
 
 instance:
   # ubuntu eoan 19.10

@@ -1,0 +1,163 @@
+---
+# Set up clustered CouchDB
+# http://docs.couchdb.org/en/stable/setup/cluster.html
+# https://docs.couchdb.org/en/stable/api/server/common.html#cluster-setup
+# https://stackoverflow.com/questions/40696130
+
+- name: Create couch directory
+  become: yes
+  file:
+    path: '{{ couch.dir }}'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+    recurse: yes
+    state: directory
+
+# Down
+- name: couch docker-compose down
+  become: yes
+  docker_compose:
+    project_src: '{{ couch.dir }}'
+    state: absent
+    remove_orphans: yes
+
+# Remove data directory
+- name: remove couch data directory
+  become: yes
+  file:
+    path: '{{ couch.dir }}/data'
+    state: absent
+
+# Create directory
+- name: Create couch data directory
+  become: yes
+  file:
+    path: '{{ couch.dir }}/data'
+    owner: '5984'
+    group: '5984'
+    recurse: yes
+    state: directory
+
+# Section 2.2.3, steps 1, 2, 3
+- name: Upload compose file
+  become: yes
+  template:
+    src: docker-compose.yaml.j2
+    dest: '{{ couch.dir }}/docker-compose.yaml'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+
+- name: couch docker-compose up
+  become: yes
+  docker_compose:
+    project_src: '{{ couch.dir }}'
+    pull: yes
+    state: present
+    remove_orphans: yes
+    recreate: smart
+
+- name: Wait for connection
+  wait_for:
+    port: 5984
+    timeout: 120
+
+# Check status on first node
+- name: Check couch status on first node
+  run_once: true
+  uri:
+    url: 'http://{{ couch.user }}:{{ couch.password }}@127.0.0.1:5984/_cluster_setup'
+    method: 'GET'
+    return_content: yes
+    force_basic_auth: yes
+  register: couch_cluster
+  until: couch_cluster.status == 200
+  retries: 12
+  delay: 5
+
+# Print queried status
+# - name: Print status
+#   debug: msg="{{ couch_cluster }}"
+
+# docker-compose will already enable cluster, so will probably be skipped
+- name: Setup couch on each node
+  uri:
+    url: 'http://{{ couch.user }}:{{ couch.password }}@{{ inventory_hostname }}:5984/_cluster_setup'
+    method: 'POST'
+    body: '{"action": "enable_cluster", "bind_address": "0.0.0.0", "username": "{{ couch.user }}", "password": "{{ couch.password }}", "node_count": {{ couch.node_count }}}'
+    body_format: json
+    force_basic_auth: yes
+  when: "couch_cluster.json.state == 'cluster_disabled'"
+
+# Get existing cluster_nodes
+- name: Get existing nodes in cluster
+  run_once: true
+  uri:
+    url: 'http://{{ couch.user }}:{{ couch.password }}@{{ inventory_hostname }}:5984/_membership'
+    method: 'GET'
+    return_content: yes
+    status_code: [200]
+    force_basic_auth: yes
+  register: couch_membership
+
+- name: Filter list of nodes already added
+  run_once: true
+  set_fact:
+    couch_cluster_nodes: "{{ couch_membership.json.cluster_nodes | regex_replace('couchdb@') }}"
+
+# Add nodes not present
+- name: Add nodes to cluster
+  run_once: true
+  uri:
+    url: 'http://{{ couch.user }}:{{ couch.password }}@{{ inventory_hostname }}:5984/_cluster_setup'
+    method: 'POST'
+    body: '{"action": "enable_cluster", "bind_address": "0.0.0.0", "username": "{{ couch.user }}", "password": "{{ couch.password }}", "port": 5984, "node_count": {{ couch.node_count }}, "remote_node": "{{ item }}", "remote_current_user": "{{ couch.user }}", "remote_current_password": "{{ couch.password }}" }'
+    body_format: json
+    force_basic_auth: yes
+    status_code: 201
+  with_items:
+    - "{{ groups['COMP90024'] | difference(couch_cluster_nodes) }}"
+  when: "couch_cluster.json.state == 'cluster_enabled'"
+
+# Add nodes not present
+- name: Add nodes to cluster
+  run_once: true
+  uri:
+    url: 'http://{{ couch.user }}:{{ couch.password }}@{{ inventory_hostname }}:5984/_cluster_setup'
+    method: 'POST'
+    body: '{"action": "add_node", "host":"{{ item }}", "port": 5984, "username": "{{ couch.user }}", "password":"{{ couch.password }}", "singlenode": false}'
+    body_format: json
+    force_basic_auth: yes
+    status_code: 201
+  with_items:
+    - "{{ groups['COMP90024'] | difference(couch_cluster_nodes) }}"
+  when: "couch_cluster.json.state == 'cluster_enabled'"
+
+# Trigger web interface refresh
+- name: Access /
+  run_once: true
+  uri:
+    url: 'http://{{ couch.user }}:{{ couch.password }}@{{ inventory_hostname }}:5984'
+    method: 'GET'
+    force_basic_auth: yes
+    status_code: 200
+
+# Finish setup
+- name: Finish cluster setup
+  run_once: true
+  uri:
+    url: 'http://{{ couch.user }}:{{ couch.password }}@{{ inventory_hostname }}:5984/_cluster_setup'
+    method: 'POST'
+    body: '{"action": "finish_cluster"}'
+    body_format: json
+    force_basic_auth: yes
+    status_code: 201
+
+# Check setup
+- name: Check couch cluster setup
+  uri:
+    url: 'http://{{ couch.user }}:{{ couch.password }}@127.0.0.1:5984/_cluster_setup'
+    method: 'GET'
+    return_content: yes
+    force_basic_auth: yes
+  register: couch_cluster
+  failed_when: "couch_cluster.json.state != 'cluster_finished'"
