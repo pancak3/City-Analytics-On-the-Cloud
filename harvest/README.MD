@@ -7,7 +7,7 @@
 ## Installation
 Install python libraries,
 ```
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 Configure Twitter API and CouchDB credentials,
 ```

@@ -8,7 +8,7 @@
 
 Install `ansible` and `openstack`
 ```
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 Create a file named `ssh_key.config`,
