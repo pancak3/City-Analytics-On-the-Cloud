@@ -9,7 +9,7 @@ services:
       - COUCHDB_PASSWORD={{ couch.password }}
       - COUCHDB_SECRET={{ couch.secret }}
       - NODENAME={{ inventory_hostname }}
-    command: "-setcookie {{ couch.secret }}"
+    command: "-setcookie {{ couch.cookie }}"
     ports:
       - "5984:5984"
       - "4369:4369"

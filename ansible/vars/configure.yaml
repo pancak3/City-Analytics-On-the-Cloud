@@ -9,6 +9,7 @@ couch:
   user: 'comp90024'
   password: 'pojeinaiShoh9Oo'
   secret: 'aiB8ooj9cheikie'
+  cookie: 'zaafaeKe7gaNal6'
   dir: /data/couch
   data_dir: ./data
   node_count: 4
