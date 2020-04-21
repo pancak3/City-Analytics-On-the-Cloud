@@ -13,6 +13,15 @@
     recurse: yes
     state: directory
 
+# Section 2.2.3, steps 1, 2, 3
+- name: Upload compose file
+  become: yes
+  template:
+    src: docker-compose.yaml.j2
+    dest: '{{ couch.dir }}/docker-compose.yaml'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+
 # Down
 - name: couch docker-compose down
   become: yes
@@ -38,15 +47,6 @@
     group: '5984'
     recurse: yes
     state: directory
-
-# Section 2.2.3, steps 1, 2, 3
-- name: Upload compose file
-  become: yes
-  template:
-    src: docker-compose.yaml.j2
-    dest: '{{ couch.dir }}/docker-compose.yaml'
-    owner: '{{ ansible_user }}'
-    group: '{{ ansible_user }}'
 
 - name: couch docker-compose up
   become: yes
