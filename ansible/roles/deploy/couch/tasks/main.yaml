@@ -21,13 +21,6 @@
     state: absent
     remove_orphans: yes
 
-# Remove data directory
-- name: remove couch data directory
-  become: yes
-  file:
-    path: '{{ couch.dir }}/data'
-    state: absent
-
 # Create directory
 - name: Create couch data directory
   become: yes

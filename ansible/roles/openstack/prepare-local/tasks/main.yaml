@@ -1,45 +1,9 @@
 ---
 # Install dependencies required to execute openstack commands on host
 
-# Print system disbribution
-# - name: Distribution
-#   debug: msg="{{ ansible_distribution }}"
-
-# Ubuntu
-# apt-get update
-- name: apt-get update
-  become: yes
-  apt:
-    update_cache: yes
-  when: ansible_distribution == "Ubuntu"
-
-# packages required, apt-get install ...
-- name: Install packages
-  become: yes
-  apt:
-    name: ['python-pip', 'pip']
-    state: latest
-  when: ansible_distribution == "Ubuntu"
-
-# Arch
-# pacman -Sy
-- name: pacman -Sy
-  become: yes
-  pacman:
-    update_cache: yes
-  when: ansible_distribution == "Archlinux"
-
-# packages required, pacman -S
-- name: Install packages
-  become: yes
-  pacman:
-    name: ['python', 'python-pip']
-    update_cache: yes
-  when: ansible_distribution == "Archlinux"
-
 # install openstacksdk with pip
 - name: Install openstacksdk and client with pip
-  become: yes
+  become: no
   pip:
     name: ['openstacksdk', 'python-openstackclient']
     state: latest
