@@ -5,12 +5,10 @@
 - pip3
   
 ## Installation
-Move to `ansible` directory,
-```
-cd ansible
-```
+
 Install `ansible` and `openstack`
 ```
+cd ansible
 pip install -r requirements.txt
 ```
 Create a file named `ssh_key.config` under `ansible`,
@@ -18,7 +16,7 @@ Create a file named `ssh_key.config` under `ansible`,
 ```
 cat ssh_key.config
 path/to/your/secret/key
-YourName
+NameOfKeyPairOnOpenstack
 ```
 
 Then, reset your OpenStack password [here](https://dashboard.rc.nectar.org.au/settings/reset-password/), 

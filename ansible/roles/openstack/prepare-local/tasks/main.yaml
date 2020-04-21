@@ -1,9 +1,0 @@
----
-# Install dependencies required to execute openstack commands on host
-
-# install openstacksdk with pip
-- name: Install openstacksdk and client with pip
-  become: no
-  pip:
-    name: ['openstacksdk', 'python-openstackclient']
-    state: latest
