@@ -21,6 +21,14 @@
     state: absent
     remove_orphans: yes
 
+# Remove data directory
+# When we want to restart from fresh installation
+# - name: remove couch data directory
+#   become: yes
+#   file:
+#     path: '{{ couch.dir }}/data'
+#     state: absent
+
 # Create directory
 - name: Create couch data directory
   become: yes
@@ -133,6 +141,7 @@
     method: 'GET'
     force_basic_auth: yes
     status_code: 200
+  when: "couch_cluster.json.state == 'cluster_enabled'"
 
 # Finish setup
 - name: Finish cluster setup
@@ -144,6 +153,7 @@
     body_format: json
     force_basic_auth: yes
     status_code: 201
+  when: "couch_cluster.json.state == 'cluster_enabled'"
 
 # Check setup
 - name: Check couch cluster setup
