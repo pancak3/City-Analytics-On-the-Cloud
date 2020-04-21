@@ -8,8 +8,6 @@
     - vars/openstack.yaml
 
   roles:
-    # prepares local machine
-    - role: openstack/prepare-local
     # security groups
     - role: openstack/security-group
     # volumes
