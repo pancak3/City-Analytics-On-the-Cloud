@@ -5,7 +5,7 @@ set -o errexit
 # Path to private key
 KEY_FILE=$(head -n 1 ssh_key.config)
 # Key name for VM
-KEY_NAME=$(head -n 1 ssh_key.config)
+KEY_NAME=$(tail -n 1 ssh_key.config)
 
 # Initialise cluster
 init() {
