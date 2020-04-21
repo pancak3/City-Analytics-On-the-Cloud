@@ -13,6 +13,15 @@
     recurse: yes
     state: directory
 
+# Section 2.2.3, steps 1, 2, 3
+- name: Upload compose file
+  become: yes
+  template:
+    src: docker-compose.yaml.j2
+    dest: '{{ couch.dir }}/docker-compose.yaml'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+
 # Down
 - name: couch docker-compose down
   become: yes
@@ -22,11 +31,12 @@
     remove_orphans: yes
 
 # Remove data directory
-- name: remove couch data directory
-  become: yes
-  file:
-    path: '{{ couch.dir }}/data'
-    state: absent
+# When we want to restart from fresh installation
+# - name: remove couch data directory
+#   become: yes
+#   file:
+#     path: '{{ couch.dir }}/data'
+#     state: absent
 
 # Create directory
 - name: Create couch data directory
@@ -37,15 +47,6 @@
     group: '5984'
     recurse: yes
     state: directory
-
-# Section 2.2.3, steps 1, 2, 3
-- name: Upload compose file
-  become: yes
-  template:
-    src: docker-compose.yaml.j2
-    dest: '{{ couch.dir }}/docker-compose.yaml'
-    owner: '{{ ansible_user }}'
-    group: '{{ ansible_user }}'
 
 - name: couch docker-compose up
   become: yes
@@ -140,6 +141,7 @@
     method: 'GET'
     force_basic_auth: yes
     status_code: 200
+  when: "couch_cluster.json.state == 'cluster_enabled'"
 
 # Finish setup
 - name: Finish cluster setup
@@ -151,6 +153,7 @@
     body_format: json
     force_basic_auth: yes
     status_code: 201
+  when: "couch_cluster.json.state == 'cluster_enabled'"
 
 # Check setup
 - name: Check couch cluster setup
