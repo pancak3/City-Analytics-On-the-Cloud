@@ -3,6 +3,8 @@ import couchdb.design
 
 user = 'admin'
 password = 'your password'
+
+
 class TweetStore(object):
     def __init__(self, dbname, url='http://127.0.0.1:5984/'):
         try:
@@ -11,7 +13,6 @@ class TweetStore(object):
             self._create_views()
         except couchdb.http.PreConditionFailed:
             self.db = self.server[dbname]
-
 
     def _create_views(self):
         count_map = 'function(doc) { emit(doc.id, 1); }'
@@ -26,7 +27,7 @@ class TweetStore(object):
         tw['_id'] = tw['id_str']
         self.db.save(tw)
 
-    def count_tweets(Sekf):
+    def count_tweets(self):
         for doc in self.db.view('twitter/count_tweets'):
             return doc.value
 
