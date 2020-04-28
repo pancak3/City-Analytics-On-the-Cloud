@@ -21,12 +21,17 @@ class Boundaries:
             logger.warning("[*] {} invalid.".format(filepath))
         finally:
             self.areas = {}
+            self.bds = []
             self.to_dict()
 
     def to_dict(self):
         for feature in self.json['features']:
             self.areas[feature["properties"]['feature_name']] = Area(feature["properties"]['feature_code'],
                                                                      feature['geometry']['coordinates'])
+        for area in self.areas.items():
+            for polygons in area[1].coordinates:
+                for polygon in polygons:
+                    self.bds.append(polygon)
 
 
 if __name__ == '__main__':

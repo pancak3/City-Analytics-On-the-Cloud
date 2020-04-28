@@ -30,6 +30,12 @@ class Crawler:
 
         return api, stream,
 
+    def get_search(self, **kwargs):
+        api = self.apis.get()
+        statuses = api.GetUserTimeline(**kwargs)
+        self.apis.put(api)
+        return statuses
+
 
 if __name__ == '__main__':
     from pprint import pprint
