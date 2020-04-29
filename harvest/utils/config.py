@@ -1,5 +1,6 @@
 import json
 import logging
+import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('Config')
@@ -47,6 +48,20 @@ class Config:
                                      t_json["password"])
             logger.debug(
                 "[*] Loaded CouchDB config -> {}://{}:{}".format(self.couch.protocol, self.couch.host, self.couch.port))
+        with open("harvest.json") as t:
+            h_json = json.loads(t.read())
+            self.registry_port = h_json['registry_port']
+            self.token = h_json['token']
+            self.melbourne_bbox = h_json['melbourne_bbox']
+
+
+def get_external_ip():
+    try:
+        respond = requests.get('http://ip-api.com/json')
+        res_json = json.loads(respond.text)
+        return res_json['query']
+    except IOError as e:
+        logger.warning('[*] Unable to get Hostname and IP: {}'.format(e))
 
 
 config = Config()

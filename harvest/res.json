@@ -1,0 +1,98 @@
+{
+  "created_at": "Tue Apr 28 17:49:55 +0000 2020",
+  "id": 1255192537066688512,
+  "id_str": "1255192537066688512",
+  "text": "@alexpartridge87 Surely, @siddharth3, there's a word for this...",
+  "truncated": false,
+  "entities": {
+    "hashtags": [],
+    "symbols": [],
+    "user_mentions": [
+      {
+        "screen_name": "alexpartridge87",
+        "name": "Alex Partridge",
+        "id": 791355133967888389,
+        "id_str": "791355133967888389",
+        "indices": [
+          0,
+          16
+        ]
+      },
+      {
+        "screen_name": "siddharth3",
+        "name": "Siddharth Singh",
+        "id": 20151889,
+        "id_str": "20151889",
+        "indices": [
+          25,
+          36
+        ]
+      }
+    ],
+    "urls": []
+  },
+  "source": "<a href=\"https://mobile.twitter.com\" rel=\"nofollow\">Twitter Web App</a>",
+  "in_reply_to_status_id": 1254777305630564360,
+  "in_reply_to_status_id_str": "1254777305630564360",
+  "in_reply_to_user_id": 791355133967888389,
+  "in_reply_to_user_id_str": "791355133967888389",
+  "in_reply_to_screen_name": "alexpartridge87",
+  "user": {
+    "id": 47856457,
+    "id_str": "47856457",
+    "name": "Pierre Fitter",
+    "screen_name": "pierrefitter",
+    "location": "Pale Blue Dot",
+    "description": "\"Run all the miles. Pet all the dogs.\"\n\n#BeatYesterday",
+    "url": null,
+    "entities": {
+      "description": {
+        "urls": []
+      }
+    },
+    "protected": false,
+    "followers_count": 7631,
+    "friends_count": 339,
+    "listed_count": 241,
+    "created_at": "Wed Jun 17 04:33:44 +0000 2009",
+    "favourites_count": 2595,
+    "utc_offset": null,
+    "time_zone": null,
+    "geo_enabled": false,
+    "verified": false,
+    "statuses_count": 110141,
+    "lang": null,
+    "contributors_enabled": false,
+    "is_translator": false,
+    "is_translation_enabled": false,
+    "profile_background_color": "131516",
+    "profile_background_image_url": "http://abs.twimg.com/images/themes/theme14/bg.gif",
+    "profile_background_image_url_https": "https://abs.twimg.com/images/themes/theme14/bg.gif",
+    "profile_background_tile": true,
+    "profile_image_url": "http://pbs.twimg.com/profile_images/1206285877648842752/4TktgNLy_normal.jpg",
+    "profile_image_url_https": "https://pbs.twimg.com/profile_images/1206285877648842752/4TktgNLy_normal.jpg",
+    "profile_banner_url": "https://pbs.twimg.com/profile_banners/47856457/1554721395",
+    "profile_link_color": "009999",
+    "profile_sidebar_border_color": "EEEEEE",
+    "profile_sidebar_fill_color": "EFEFEF",
+    "profile_text_color": "333333",
+    "profile_use_background_image": true,
+    "has_extended_profile": true,
+    "default_profile": false,
+    "default_profile_image": false,
+    "following": false,
+    "follow_request_sent": false,
+    "notifications": false,
+    "translator_type": "none"
+  },
+  "geo": null,
+  "coordinates": null,
+  "place": null,
+  "contributors": null,
+  "is_quote_status": false,
+  "retweet_count": 0,
+  "favorite_count": 0,
+  "favorited": false,
+  "retweeted": false,
+  "lang": "en"
+}
