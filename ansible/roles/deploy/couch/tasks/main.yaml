@@ -23,12 +23,12 @@
     group: '{{ ansible_user }}'
 
 # Down
-- name: couch docker-compose down
-  become: yes
-  docker_compose:
-    project_src: '{{ couch.dir }}'
-    state: absent
-    remove_orphans: yes
+# - name: couch docker-compose down
+#   become: yes
+#   docker_compose:
+#     project_src: '{{ couch.dir }}'
+#     state: absent
+#     remove_orphans: yes
 
 # Remove data directory
 # When we want to restart from fresh installation
