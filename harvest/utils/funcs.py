@@ -23,10 +23,14 @@ def bds_to_bboxes(bds_):
 
 
 def extract_status(status_):
-    extracted_status_ = {"id": status_.id,
+    if status_.place:
+        place_id = status_.place.id
+    else:
+        place_id = None
+    status_extracted_ = {"_id": status_.id_str,
                          'in_reply_to_status_id': status_.in_reply_to_status_id,
                          'in_reply_to_user_id': status_.in_reply_to_user_id,
-                         'place': status_.place,
+                         'place_id': place_id,
                          'retweet_count': status_.retweet_count,
                          'retweeted': status_.retweeted,
                          'source': status_.source,
@@ -37,7 +41,7 @@ def extract_status(status_):
                          'hashtags': status_.entities['hashtags'],
                          'symbols': status_.entities['symbols'],
                          'user_mentions': [user['id'] for user in status_.entities['user_mentions']]}
-    return extracted_status_
+    return status_extracted_
 
 
 def extract_timeline(crawler_, user_id):

@@ -9,7 +9,7 @@ from utils.config import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('Crawler')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class Crawler:
@@ -66,7 +66,7 @@ class StreamListener(tweepy.StreamListener):
         logger.warning("[*]  {}, error: {}".format(self.process_name, status_code))
 
     def on_connect(self):
-        logger.warning("[*]  Worker-{} stream connected.".format(self.process_name))
+        logger.debug("[*] Worker-{} stream connected.".format(self.process_name))
 
 
 if __name__ == '__main__':
