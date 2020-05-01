@@ -49,10 +49,11 @@ class Config:
             logger.debug(
                 "[*] Loaded CouchDB config -> {}://{}:{}".format(self.couch.protocol, self.couch.host, self.couch.port))
         with open("harvest.json") as t:
-            h_json = json.loads(t.read())
-            self.registry_port = h_json['registry_port']
-            self.token = h_json['token']
-            self.melbourne_bbox = h_json['melbourne_bbox']
+            harvest_json = json.loads(t.read())
+            self.registry_port = harvest_json['registry_port']
+            self.token = harvest_json['token']
+            self.melbourne_bbox = harvest_json['melbourne_bbox']
+            self.hash_algorithm = harvest_json['hash_algorithm']
 
 
 def get_external_ip():

@@ -4,7 +4,9 @@
 """
 import tweepy
 import logging
-from queue import Queue
+import hashlib
+from threading import Lock
+from collections import defaultdict
 from utils.config import config
 
 logging.basicConfig(level=logging.INFO)
@@ -12,44 +14,62 @@ logger = logging.getLogger('Crawler')
 logger.setLevel(logging.INFO)
 
 
+class APIStatus:
+    def __init__(self):
+        pass
+
+
 class Crawler:
 
     def __init__(self):
-        self.apis = Queue()
+        self.api_keys = {}
         for credential in config.twitter:
             api_key = credential.api_key
             api_secret_key = credential.api_secrete_key
             access_token = credential.access_token
             access_token_secret = credential.access_token_secret
-            auth = tweepy.OAuthHandler(api_key, api_secret_key)
-            auth.set_access_token(access_token, access_token_secret)
-            api_ = tweepy.API(auth)
-            self.apis.put(api_)
+            api_key_hash = self.hash(api_key)
+            self.api_keys[api_key_hash] = (api_key, api_secret_key, access_token, access_token_secret)
+
+        self.api = None
+        self.rate_limits = None
+        self.locks = defaultdict(Lock)
+
+    def init(self, hash_):
+        (api_key, api_secret_key, access_token, access_token_secret) = self.api_keys[hash_]
+        auth = tweepy.OAuthHandler(api_key, api_secret_key)
+        auth.set_access_token(access_token, access_token_secret)
+        self.api = tweepy.API(auth)
+        self.rate_limits = self.api.rate_limit_status()
 
     def reverse_geocode(self, **kwargs):
-        api_ = self.apis.get()
-        geo_details_ = api_.reverse_geocode(**kwargs)
-        self.apis.put(api_)
-        return geo_details_
+        return self.api.reverse_geocode(**kwargs)
 
     def search(self, **kwargs):
-        api_ = self.apis.get()
-        statuses_ = api_.search(**kwargs)
-        self.apis.put(api_)
-        return statuses_
+        return self.api.search(**kwargs)
 
     def stream_filter(self, process_name, q, **kwargs):
         stream_listener = StreamListener(process_name, q)
-        api_ = self.apis.get()
-        stream_ = tweepy.Stream(auth=api_.auth, listener=stream_listener)
-        self.apis.put(api_)
+        stream_ = tweepy.Stream(auth=self.api.auth, listener=stream_listener)
         stream_.filter(**kwargs)
 
     def user_timeline(self, **kwargs):
-        api_ = self.apis.get()
-        statuses_ = api_.user_timeline(**kwargs)
-        self.apis.put(api_)
-        return statuses_
+        return self.api.user_timeline(**kwargs)
+
+    def get_followers(self, **kwargs):
+        # Requests / 15-min window (user auth)	15
+        return self.api.followers(**kwargs)
+
+    def rate_limit_status(self):
+        # Requests / 15-min window (user auth)	180
+        # https://developer.twitter.com/en/docs/developer-utilities/rate-limit-status/api-reference/get-application-rate_limit_status
+        return self.api.rate_limit_status()
+
+    @staticmethod
+    def hash(api_key_):
+        h = hashlib.new(config.hash_algorithm)
+        h.update(bytes(api_key_, 'utf-8'))
+        return h.hexdigest()
 
 
 class StreamListener(tweepy.StreamListener):
@@ -73,30 +93,7 @@ if __name__ == '__main__':
     from pprint import pprint
 
     crawler = Crawler()
-    # geo_details = crawler.reverse_geocode(lat='-37.819',
-    #                                       long='144.968')
-    # # Melbourne geo_id: 01864a8a64df9dc4
-    # pprint(geo_details)
 
-    # statuses = crawler.search(lang='en',
-    #                           geocode='-37.819,144.968,30km',
-    #                           until='2020-04-28')
-    # f = open("res.json", "w+")
-    # import json
-    #
-    # for status in statuses:
-    #     f.write(json.dumps(status._json) + '\n')
-    # f.close()
-    # api = crawler.apis.get()
-    # myStreamListener = StreamListener(1)
-    # myStream = tweepy.Stream(auth=api.auth, listener=myStreamListener)
-    # # myStream.filter(languages=['en'],
-    # #                 locations=[144.593741856, -38.433859306, 144.593741856, -37.5112737225, 145.512528832,
-    # #                            -37.5112737225, 145.512528832, -38.433859306, 144.593741856, -38.433859306])
-    # myStream.filter(languages=['en'],
-    #                 locations=[144.0375, -38.6788, 146.1925, -36.9582])
-    # crawler.apis.put(api)
-    # statuses = crawler.user_timeline(id=47856457)
-
-    crawler.stream_filter(1, languages=['en'],
-                          locations=[144.0375, -38.6788, 146.1925, -36.9582])
+    rate_limit = crawler.rate_limit_status()
+    users = crawler.get_followers(screen_name='ronaldolatabo', cursor=-1)
+    print()

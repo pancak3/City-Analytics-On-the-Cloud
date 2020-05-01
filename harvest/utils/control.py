@@ -5,11 +5,11 @@ import json
 import queue
 
 from time import sleep
+from pprint import pprint
 from collections import defaultdict
 from utils.config import config
 from utils.database import CouchDB
 from utils.crawlers import Crawler
-from utils.funcs import extract_status
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('Control')
@@ -21,18 +21,17 @@ class Registry:
         self.ip = ip
         self.couch = CouchDB()
         self.client = self.couch.client
+        self.api_key_worker = {}
         self.lock = threading.Lock()
         self.working = {
             "credential_states": [None for i in range(len(config.twitter))],
             "stream_listeners": [],
             "user_readers": []
         }
-        self.msg_queue = queue.Queue()
+        self.conn_queue = queue.Queue()
         self.msg_queue_dict = defaultdict(queue.Queue)
-        self.workers = []
-        self.lock_workers = threading.Lock()
 
-    def create(self):
+    def update_db(self):
         if 'control' not in self.client.all_dbs():
             self.client.create_database('control')
 
@@ -58,30 +57,50 @@ class Registry:
         logger.debug('[*] Registry TCP server started at {}:{}'.format(self.ip, config.registry_port))
         while True:
             conn, addr = s.accept()
-            self.msg_queue.put((conn, addr))
+            self.conn_queue.put((conn, addr))
 
-    def msg_handler(self):
+    def conn_handler(self):
         while True:
+            while not self.conn_queue.empty():
+                (conn, addr) = self.conn_queue.get()
+                threading.Thread(target=self.msg_handler, args=(conn, addr,)).start()
             sleep(0.01)
-            while not self.msg_queue.empty():
-                (conn, addr) = self.msg_queue.get()
 
+    def msg_handler(self, conn, addr):
+        addr_str = "%s:%s" % (addr[0], addr[1])
+        while True:
+            try:
                 data = conn.recv(1024)
-                try:
-                    recv_json = json.loads(data)
-                    if 'token' in recv_json and recv_json['token'] == config.token:
-                        if recv_json['action'] == 'init':
-                            if recv_json['role'] == 'sender':
-                                addr_str = "%s:%s" % (addr[0], addr[1])
+                recv_json = json.loads(data)
+                if 'token' in recv_json and recv_json['token'] == config.token:
+                    if recv_json['action'] == 'init':
+                        if recv_json['role'] == 'sender':
+                            valid_api_key_hash = None
+                            self.lock.acquire()
+                            for api_key_hash in recv_json['api_keys_hashes']:
+                                if api_key_hash not in self.api_key_worker:
+                                    self.api_key_worker[api_key_hash] = (conn, addr)
+                                    valid_api_key_hash = api_key_hash
+                                    break
+                            self.lock.release()
+                            if valid_api_key_hash is None:
+                                msg = {'token': config.token, 'res': 'deny', 'msg': 'no valid api key'}
+                            else:
+                                msg = {'token': config.token, 'res': 'approve', 'api_key_hash': valid_api_key_hash}
                                 threading.Thread(target=self.receiver,
                                                  args=(conn, addr, self.msg_queue_dict[addr_str],)).start()
-                            elif recv_json['role'] == 'receiver':
-                                threading.Thread(target=self.sender,
-                                                 args=(
-                                                     conn, addr,
-                                                     self.msg_queue_dict[recv_json['sender_info']],)).start()
-                except json.JSONDecodeError as e:
-                    pass
+                            conn.send(bytes(json.dumps(msg), 'utf-8'))
+
+                        elif recv_json['role'] == 'receiver':
+                            threading.Thread(target=self.sender,
+                                             args=(
+                                                 conn, addr,
+                                                 self.msg_queue_dict[recv_json['sender_info']],)).start()
+            except json.JSONDecodeError as e:
+                pass
+            except socket.error as e:
+                logger.warning("Worker-{} disconnected: {}".format(addr_str, e))
+                break
 
     @staticmethod
     def receiver(conn, addr, msg_queue):
@@ -123,9 +142,9 @@ class Registry:
             pass
 
     def run(self):
-        self.create()
+        self.update_db()
         threading.Thread(target=self.tcp_server).start()
-        threading.Thread(target=self.msg_handler).start()
+        threading.Thread(target=self.conn_handler).start()
 
 
 class Worker:
@@ -139,32 +158,40 @@ class Worker:
         self.statuses = {}
         self.lock_statuses = threading.Lock()
         self.crawler = Crawler()
-
-        self.socket_send = self.get_socket(is_sender=True)
-        addr = self.socket_send.getsockname()
-        self.addr_str = "%s:%s" % (addr[0], addr[1])
-        self.socket_recv = self.get_socket(is_sender=False, sender_info=self.addr_str)
+        self.socket_send, self.socket_recv, valid_api_key_hash, addr_str = self.connect_reg()
+        self.crawler.init(valid_api_key_hash)
+        self.addr_str = addr_str
 
     def get_registry(self):
         registry = self.client['control']['registry']
         return registry['ip'], registry['port'], registry['token']
 
-    def get_socket(self, is_sender, sender_info=None):
+    def connect_reg(self):
         ip, port, token = self.get_registry()
-        s_ = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s_.connect((ip, port))
 
-        if is_sender:
-            addr = s_.getsockname()
-            addr_str = "%s:%s" % (addr[0], addr[1])
-            msg = {'action': 'init', 'role': 'sender', 'token': config.token}
-            logger.debug("[*] Worker-{}-sender connected to {}".format(addr_str, (ip, port)))
-        else:
-            msg = {'action': 'init', 'role': 'receiver', 'token': config.token, 'sender_info': sender_info}
-            logger.debug("[*] Worker-{}-receiver connected to {}".format(self.addr_str, (ip, port)))
-
-        s_.send(bytes(json.dumps(msg), 'utf-8'))
-        return s_
+        socket_sender = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket_sender.connect((ip, port))
+        addr = socket_sender.getsockname()
+        addr_str = "%s:%s" % (addr[0], addr[1])
+        msg = {'action': 'init', 'role': 'sender', 'token': config.token,
+               'api_keys_hashes': list(self.crawler.api_keys)}
+        socket_sender.send(bytes(json.dumps(msg), 'utf-8'))
+        msg = socket_sender.recv(1024)
+        msg_json = json.loads(msg)
+        if 'token' in msg_json and msg_json['token'] == config.token:
+            if msg_json['res'] == 'approve':
+                valid_api_key_hash = msg_json['api_key_hash']
+                socket_receiver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                socket_receiver.connect((ip, port))
+                msg = {'action': 'init', 'role': 'receiver', 'token': config.token, 'sender_info': addr_str}
+                socket_receiver.send(bytes(json.dumps(msg), 'utf-8'))
+                logger.debug("[*] Worker-{} connected to {}".format(addr_str, (ip, port)))
+                return socket_sender, socket_receiver, valid_api_key_hash, addr_str
+            else:
+                logger.info("[!] No valid api key. Exit.")
+                exit(0)
+        logger.info("[!] Registry didn't respond correctly. Exit. -> {}".format(msg))
+        exit(0)
 
     def msg_receiver(self):
         while True:
@@ -194,14 +221,6 @@ class Worker:
                                          kwargs={'languages': ['en'],
                                                  'locations': msg_json['data']['locations']}
                                          ).start()
-                        # run two in case of disconnecting as doc recommended
-                        # https://developer.twitter.com/en/docs/tweets/filter-realtime/guides/connecting
-                        # sleep(5)
-                        # threading.Thread(target=self.crawler.stream_filter,
-                        #                  args=(self.ip, self.res_queue,),
-                        #                  kwargs={'languages': ['en'],
-                        #                          'locations': msg_json['data']['locations']}
-                        #                  ).start()
                     elif task == 'save':
                         self.lock_statuses.acquire()
                         status = self.statuses[msg_json['id_str']]
@@ -220,22 +239,10 @@ class Worker:
             if not self.stream_res_queue.empty():
                 status = self.stream_res_queue.get()
                 self.save_status(status, is_stream=True)
-                # msg = {
-                #     "action": "ask",
-                #     "data": {
-                #         "id_str": status.id_str
-                #     },
-                #     "token": config.token
-                # }
-                # self.to_send.put(json.dumps(msg))
-                # self.lock_statuses.acquire()
-                # self.statuses[status.id_str] = status
-                # self.lock_statuses.release()
-                # logger.debug("[*] Worker-{} got status: {}".format(self.ip, status.id_str))
             else:
                 sleep(0.01)
 
-    def save_status(self, status_, is_stream):
+    def save_status(self, status_, is_stream=False):
         # use id_str
         # The string representation of the unique identifier for this Tweet.
         # Implementations should use this rather than the large integer in id
@@ -252,16 +259,12 @@ class Worker:
                 user_json = status_.author._json
                 user_json['_id'] = status_.author.id_str
                 self.client['stream_users'].create_document(user_json)
-                logger.debug("[*] Worker-{} saved user: {}".format(self.addr_str, status_.author.id_str))
-            else:
-                logger.debug("[*] Worker-{} ignored user: {}".format(self.addr_str, status_.author.id_str))
+                logger.debug("[*] Worker-{} saved to stream users: {}".format(self.addr_str, status_.author.id_str))
         if status_.author.id_str not in self.client['all_users']:
             user_json = status_.author._json
             user_json['_id'] = status_.author.id_str
             self.client['all_users'].create_document(user_json)
-            logger.debug("[*] Worker-{} saved user: {}".format(self.addr_str, status_.author.id_str))
-        else:
-            logger.debug("[*] Worker-{} ignored user: {}".format(self.addr_str, status_.author.id_str))
+            logger.debug("[*] Worker-{} saved to all users: {}".format(self.addr_str, status_.author.id_str))
 
     def check_db(self):
         if 'statues' not in self.client.all_dbs():
@@ -284,4 +287,3 @@ class Worker:
         threading.Thread(target=self.msg_sender).start()
         threading.Thread(target=self.msg_receiver).start()
         threading.Thread(target=self.msg_received_handler).start()
-        threading.Thread(target=self.status_handler).start()
