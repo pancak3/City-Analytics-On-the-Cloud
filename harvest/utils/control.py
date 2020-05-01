@@ -4,7 +4,7 @@ import threading
 import json
 import queue
 
-from time import sleep
+from time import sleep, time
 from pprint import pprint
 from collections import defaultdict
 from utils.config import config
@@ -14,6 +14,12 @@ from utils.crawlers import Crawler
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('Control')
 logger.setLevel(logging.DEBUG)
+
+
+class Task:
+    def __init__(self, _type, ids):
+        self.type = _type
+        self.ids = ids
 
 
 class Registry:
@@ -30,6 +36,7 @@ class Registry:
         }
         self.conn_queue = queue.Queue()
         self.msg_queue_dict = defaultdict(queue.Queue)
+        self.tasks_queue = queue.Queue()
 
     def update_db(self):
         if 'control' not in self.client.all_dbs():
@@ -102,6 +109,41 @@ class Registry:
                 logger.warning("Worker-{} disconnected: {}".format(addr_str, e))
                 break
 
+    def tasks_generator(self):
+        while True:
+            if 'all_users' in self.client.all_dbs():
+                all_users = self.client['all_users']
+                task_timeline_ids = []
+
+                for user in all_users:
+                    if 'timeline_updated_at' not in user:
+                        user['timeline_updated_at'] = 0
+                        user.save()
+                    if int(time()) - user['timeline_updated_at'] > config.timeline_updating_window:
+                        task_timeline_ids.append(user['id_str'])
+                if len(task_timeline_ids):
+                    for i in range(0, len(task_timeline_ids), config.task_chunk_size):
+                        self.tasks_queue.put(Task('timeline', task_timeline_ids[i:i + config.task_chunk_size]))
+
+            if 'stream_users' in self.client.all_dbs():
+                stream_users = self.client['stream_users']
+                task_friend_ids = []
+
+                for user in stream_users:
+                    if 'friends_updated_at' not in user:
+                        user['friends_updated_at'] = 0
+                        user.save()
+                    if int(time()) - user['friends_updated_at'] > config.friends_updating_window:
+                        task_friend_ids.append(user['id_str'])
+                if len(task_friend_ids):
+                    for i in range(0, len(task_friend_ids), config.task_chunk_size):
+                        self.tasks_queue.put(Task('friends', task_friend_ids[i:i + config.task_chunk_size]))
+            sleep(0.01)
+
+    def master(self):
+        # Broadcast tasks and manage task states
+        pass
+
     @staticmethod
     def receiver(conn, addr, msg_queue):
         while True:
@@ -145,6 +187,8 @@ class Registry:
         self.update_db()
         threading.Thread(target=self.tcp_server).start()
         threading.Thread(target=self.conn_handler).start()
+        threading.Thread(target=self.tasks_generator).start()
+        threading.Thread(target=self.master).start()
 
 
 class Worker:
