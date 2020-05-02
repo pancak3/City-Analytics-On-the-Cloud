@@ -1,0 +1,20 @@
+{
+  "registry_port": 8673,
+  "token": "ai@5uc.eUo?s",
+  "hash_algorithm": "ripemd160",
+  "melbourne_bbox": [
+    144.0375,
+    -38.6788,
+    146.1925,
+    -36.9582
+  ],
+  "victoria_bbox": [
+    140.9617,
+    -39.1592,
+    149.9767,
+    -33.9806
+  ],
+  "timeline_updating_window": 172800,
+  "friends_updating_window": 172800,
+  "task_chunk_size": 20
+}
