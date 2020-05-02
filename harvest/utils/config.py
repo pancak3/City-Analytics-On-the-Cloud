@@ -53,6 +53,7 @@ class Config:
             self.registry_port = harvest_json['registry_port']
             self.token = harvest_json['token']
             self.melbourne_bbox = harvest_json['melbourne_bbox']
+            self.victoria_bbox = harvest_json['victoria_bbox']
             self.hash_algorithm = harvest_json['hash_algorithm']
             self.timeline_updating_window = harvest_json['timeline_updating_window']
             self.friends_updating_window = harvest_json['friends_updating_window']

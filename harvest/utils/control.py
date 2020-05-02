@@ -17,9 +17,11 @@ logger.setLevel(logging.DEBUG)
 
 
 class Task:
-    def __init__(self, _type, ids):
+    def __init__(self, _id, _type, ids, assigned=False):
+        self.id = _id
         self.type = _type
         self.ids = ids
+        self.assigned = assigned
 
 
 class Registry:
@@ -36,7 +38,19 @@ class Registry:
         }
         self.conn_queue = queue.Queue()
         self.msg_queue_dict = defaultdict(queue.Queue)
+        self.lock_msg_queue_dict = threading.Lock()
         self.tasks_queue = queue.Queue()
+        self.tasks = {}
+        self.lock_tasks = threading.Lock()
+        self.task_id = 0
+        self.lock_task_id = threading.Lock()
+
+    def get_task_id(self):
+        self.lock_task_id.acquire()
+        self.task_id += 1
+        task_id_ = self.task_id
+        self.lock_task_id.release()
+        return task_id_
 
     def update_db(self):
         if 'control' not in self.client.all_dbs():
@@ -67,6 +81,7 @@ class Registry:
             self.conn_queue.put((conn, addr))
 
     def conn_handler(self):
+        logger.info("[*] ConnectionHandler started.")
         while True:
             while not self.conn_queue.empty():
                 (conn, addr) = self.conn_queue.get()
@@ -82,6 +97,7 @@ class Registry:
                 if 'token' in recv_json and recv_json['token'] == config.token:
                     if recv_json['action'] == 'init':
                         if recv_json['role'] == 'sender':
+                            # Worker send API key hashes to ask which it can use
                             valid_api_key_hash = None
                             self.lock.acquire()
                             for api_key_hash in recv_json['api_keys_hashes']:
@@ -94,15 +110,32 @@ class Registry:
                                 msg = {'token': config.token, 'res': 'deny', 'msg': 'no valid api key'}
                             else:
                                 msg = {'token': config.token, 'res': 'approve', 'api_key_hash': valid_api_key_hash}
+                                self.lock_msg_queue_dict.acquire()
                                 threading.Thread(target=self.receiver,
                                                  args=(conn, addr, self.msg_queue_dict[addr_str],)).start()
+                                self.lock_msg_queue_dict.release()
                             conn.send(bytes(json.dumps(msg), 'utf-8'))
 
                         elif recv_json['role'] == 'receiver':
+                            self.lock_msg_queue_dict.acquire()
                             threading.Thread(target=self.sender,
                                              args=(
                                                  conn, addr,
                                                  self.msg_queue_dict[recv_json['sender_info']],)).start()
+                            self.lock_msg_queue_dict.release()
+                    if recv_json['action'] == 'take_task':
+                        task_assigned = False
+                        self.lock_tasks.acquire()
+                        if not self.tasks[recv_json['task_id']].assigned:
+                            self.tasks[recv_json['task_id']].assigned = True
+                            task_assigned = True
+                        self.lock_tasks.release()
+                        if not task_assigned:
+                            task = self.tasks[recv_json['task_id']]
+                            msg = {'token': config.token, 'task': 'take_task', 'type': task.type, 'ids': task.ids}
+                            self.msg_queue_dict[addr_str].put(json.dumps(msg))
+                        pass
+
             except json.JSONDecodeError as e:
                 pass
             except socket.error as e:
@@ -110,38 +143,70 @@ class Registry:
                 break
 
     def tasks_generator(self):
+        logger.info("[*] TaskGenerator started.")
         while True:
-            if 'all_users' in self.client.all_dbs():
-                all_users = self.client['all_users']
-                task_timeline_ids = []
-
-                for user in all_users:
-                    if 'timeline_updated_at' not in user:
-                        user['timeline_updated_at'] = 0
-                        user.save()
-                    if int(time()) - user['timeline_updated_at'] > config.timeline_updating_window:
-                        task_timeline_ids.append(user['id_str'])
-                if len(task_timeline_ids):
-                    for i in range(0, len(task_timeline_ids), config.task_chunk_size):
-                        self.tasks_queue.put(Task('timeline', task_timeline_ids[i:i + config.task_chunk_size]))
-
-            if 'stream_users' in self.client.all_dbs():
-                stream_users = self.client['stream_users']
-                task_friend_ids = []
-
-                for user in stream_users:
-                    if 'friends_updated_at' not in user:
-                        user['friends_updated_at'] = 0
-                        user.save()
-                    if int(time()) - user['friends_updated_at'] > config.friends_updating_window:
-                        task_friend_ids.append(user['id_str'])
-                if len(task_friend_ids):
-                    for i in range(0, len(task_friend_ids), config.task_chunk_size):
-                        self.tasks_queue.put(Task('friends', task_friend_ids[i:i + config.task_chunk_size]))
+            self.generate_tasks('all_users', 'timeline')
+            self.generate_tasks('stream_users', 'friends')
             sleep(0.01)
 
+    def generate_tasks(self, user_db_name, task_type):
+        column_name = task_type + '_updated_at'
+        if user_db_name in self.client.all_dbs():
+            all_users = self.client[user_db_name]
+            task_ids = []
+
+            for user in all_users:
+                if column_name not in user:
+                    user[column_name] = 0
+                    user.save()
+                timestamp = int(time())
+                if timestamp - user[column_name] > config.timeline_updating_window:
+                    task_ids.append(user['id_str'])
+                    user[column_name] = timestamp
+                    user.save()
+            if len(task_ids):
+                count = 0
+                for i in range(0, len(task_ids), config.task_chunk_size):
+                    task_id = self.get_task_id()
+                    task = Task(task_id, task_type, task_ids[i:i + config.task_chunk_size])
+                    self.lock_tasks.acquire()
+                    self.tasks[task_id] = task
+                    self.lock_tasks.release()
+                    self.tasks_queue.put(task)
+                    count += 1
+                logger.debug("Generated {} {} tasks".format(count, task_type))
+
     def master(self):
+        logger.info("[*] Master started.")
         # Broadcast tasks and manage task states
+
+        while True:
+            while not self.tasks_queue.empty():
+                task = self.tasks_queue.get()
+                msg = {'token': config.token, 'task': 'task', 'type': task.type, 'task_id': task.id}
+
+                # copy out to avoid occupying msg_queue long time
+                self.lock_msg_queue_dict.acquire()
+                msg_queue_dict = self.msg_queue_dict.copy()
+                self.lock_msg_queue_dict.release()
+
+                # <put_back> flag: to avoid there is no worker connected or workers are all busy
+                put_back = True
+                for msg_item in msg_queue_dict.items():
+                    self.lock_tasks.acquire()
+                    if self.tasks[task.id].assigned:
+                        self.lock_tasks.release()
+                        put_back = False
+                        break
+                    else:
+                        # msg queue
+                        msg_item[1].put(json.dumps(msg))
+                        self.lock_tasks.release()
+                if put_back:
+                    self.tasks_queue.put(task)
+            sleep(0.01)
+
+    def broadcast_task(self, task):
         pass
 
     @staticmethod
@@ -166,7 +231,7 @@ class Registry:
         try:
             msg = {"task": "stream",
                    "data": {
-                       "locations": config.melbourne_bbox},
+                       "locations": config.victoria_bbox},
                    "token": config.token
                    }
             conn.send(bytes(json.dumps(msg), 'utf-8'))
@@ -176,7 +241,7 @@ class Registry:
                     msg = msg_queue.get()
                     try:
                         conn.send(bytes(msg, 'utf-8'))
-                        logger.debug("[*] Sent  to {}: {} ".format(addr, msg))
+                        logger.debug("[*] Sent to {}: {} ".format(addr, msg))
                     except socket.error as e:
                         msg_queue.put(msg)
                 sleep(0.01)
@@ -197,10 +262,8 @@ class Worker:
         self.couch = CouchDB()
         self.client = self.couch.client
         self.stream_res_queue = queue.Queue()
-        self.received = queue.Queue()
-        self.to_send = queue.Queue()
-        self.statuses = {}
-        self.lock_statuses = threading.Lock()
+        self.msg_received = queue.Queue()
+        self.msg_to_send = queue.Queue()
         self.crawler = Crawler()
         self.socket_send, self.socket_recv, valid_api_key_hash, addr_str = self.connect_reg()
         self.crawler.init(valid_api_key_hash)
@@ -240,21 +303,21 @@ class Worker:
     def msg_receiver(self):
         while True:
             msg = self.socket_recv.recv(1024)
-            self.received.put(msg)
+            self.msg_received.put(msg)
             sleep(0.01)
 
     def msg_sender(self):
         while True:
-            while not self.to_send.empty():
-                msg = self.to_send.get()
+            while not self.msg_to_send.empty():
+                msg = self.msg_to_send.get()
                 self.socket_send.send(bytes(msg, 'utf-8'))
                 logger.debug("[*] Worker-{} sent: {}".format(self.addr_str, msg))
             sleep(0.01)
 
     def msg_received_handler(self):
         while True:
-            if not self.received.empty():
-                msg = self.received.get()
+            if not self.msg_received.empty():
+                msg = self.msg_received.get()
                 msg_json = json.loads(msg)
                 if 'token' in msg_json and msg_json['token'] == config.token:
                     logger.debug("[*] Worker-{} received: {}".format(self.addr_str, msg))
@@ -265,18 +328,18 @@ class Worker:
                                          kwargs={'languages': ['en'],
                                                  'locations': msg_json['data']['locations']}
                                          ).start()
-                    elif task == 'save':
-                        self.lock_statuses.acquire()
-                        status = self.statuses[msg_json['id_str']]
-                        del self.statuses[msg_json['id_str']]
-                        self.lock_statuses.release()
-                        self.save_status(status)
-                    elif task == 'abandon':
-                        self.lock_statuses.acquire()
-                        del self.statuses[msg_json['id_str']]
-                        self.lock_statuses.release()
+                    # msg = {'token': config.token, 'task': 'task', 'type': task.type}
+                    elif task == 'task':
+                        if self.have_quota(msg_json['type']):
+                            msg = {'token': config.token, 'action': 'take_task', 'task_id': msg_json['task_id']}
+                            self.msg_to_send.put(json.dumps(msg))
+                    elif task == 'take_task':
+                        logger.debug("Worker-{} got task: {}".format(self.addr_str, msg))
             else:
                 sleep(0.01)
+
+    def have_quota(self, type_):
+        return True
 
     def status_handler(self):
         while True:

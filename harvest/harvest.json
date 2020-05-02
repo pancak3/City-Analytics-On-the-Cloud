@@ -8,6 +8,12 @@
     146.1925,
     -36.9582
   ],
+  "victoria_bbox": [
+    140.9617,
+    -39.1592,
+    149.9767,
+    -33.9806
+  ],
   "timeline_updating_window": 172800,
   "friends_updating_window": 172800,
   "task_chunk_size": 20
