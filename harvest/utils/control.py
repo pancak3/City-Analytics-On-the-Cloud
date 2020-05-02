@@ -252,8 +252,9 @@ class Registry:
         self.update_db()
         threading.Thread(target=self.tcp_server).start()
         threading.Thread(target=self.conn_handler).start()
-        threading.Thread(target=self.tasks_generator).start()
-        threading.Thread(target=self.master).start()
+        # TODO: use view to generate tasks
+        # threading.Thread(target=self.tasks_generator).start()
+        # threading.Thread(target=self.master).start()
 
 
 class Worker:
