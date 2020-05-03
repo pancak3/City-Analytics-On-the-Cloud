@@ -52,3 +52,5 @@
     - role: deploy/clone
     # Setup couch
     - role: deploy/couch
+    # Setup app
+    - role: deploy/app

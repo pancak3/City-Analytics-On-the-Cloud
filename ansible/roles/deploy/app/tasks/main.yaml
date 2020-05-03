@@ -2,7 +2,9 @@
 # Run nginx servers using docker-compose
 # Adapted from wordpress in week 5 materials
 
+# Only applicable to first node
 - name: Create directory
+  run_once: true
   become: yes
   file:
     path: '{{ app_dir }}'
@@ -11,11 +13,12 @@
     recurse: yes
     state: directory
 
-- name: Setup nginx
+- name: Setup app
+  run_once: true
   become: yes
   docker_compose:
-    project_src: '{{ nginx_dir }}'
-    pull: yes
+    project_src: '{{ repository }}/app'
+    pull: no
     state: present
     remove_orphans: yes
     recreate: smart

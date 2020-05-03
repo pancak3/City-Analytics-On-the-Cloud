@@ -22,3 +22,4 @@ repository:
 # App variables
 app:
   dir: /data/app
+  tag: comp90024_app
