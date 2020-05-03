@@ -2,8 +2,18 @@
 - name: Upload public keys of all members
   become: yes
   copy:
-    src: '{{ playbook_dir }}/public_keys.txt'
+    src: '{{ playbook_dir }}/keys/public_keys.txt'
     dest: /home/ubuntu/.ssh/authorized_keys
+    mode: '400'
+    owner: ubuntu
+    group: ubuntu
+
+# Upload private deploy key
+- name: Upload deploy key
+  become: yes
+  copy:
+    src: '{{ playbook_dir }}/keys/comp90024'
+    dest: /home/ubuntu/.ssh/id_rsa
     mode: '400'
     owner: ubuntu
     group: ubuntu

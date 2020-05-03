@@ -14,5 +14,11 @@ couch:
   data_dir: ./data
   node_count: 4
 
+# The Github repository
+repository:
+  url: 'git@github.com:comp90024-2020/City-Analytics-On-the-Cloud.git'
+  dest: /data/repo
+
+# App variables
 app:
   dir: /data/app

@@ -1,4 +1,29 @@
 ---
-# Clones app from git
-- name: git clone repository
+# Clones repo from git
+# https://unix.stackexchange.com/questions/68826
+# https://help.github.com/en/github/authenticating-to-github/using-ssh-over-the-https-port
+- name: Create directory
   become: yes
+  file:
+    path: '{{ repository.dest }}'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+    recurse: yes
+    state: directory
+
+- name: Upload ~/.ssh/config with git proxy
+  become: yes
+  copy:
+    src: config
+    dest: /home/ubuntu/.ssh/config
+    owner: ubuntu
+    group: ubuntu
+    mode: 0400
+
+- name: git clone repository
+  git:
+    repo: '{{ repository.url }}'
+    dest: '{{ repository.dest }}'
+    ssh_opts: '-F /home/ubuntu/.ssh/config'
+    accept_hostkey: yes
+    update: yes

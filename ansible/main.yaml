@@ -28,7 +28,7 @@
     - vars/configure.yaml
 
   roles:
-    # Upload public keys
+    # Upload public keys and private deploy key
     - role: server-setup/upload-keys
     # Proxy in /etc/environment
     - role: openstack/proxy
@@ -48,7 +48,7 @@
     - vars/configure.yaml
 
   roles:
-    # Setup nginx
-    # - role: deploy/nginx
+    # Clone repository
+    - role: deploy/clone
     # Setup couch
     - role: deploy/couch

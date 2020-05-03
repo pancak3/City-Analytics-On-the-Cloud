@@ -11,8 +11,6 @@
     recurse: yes
     state: directory
 
-
-
 - name: Setup nginx
   become: yes
   docker_compose:

@@ -3,7 +3,7 @@
 - name: Install dependencies
   become: yes
   apt:
-    name: ['htop', 'git', 'python3', 'curl', 'wget', 'vim', 'python3-pip', 'jq', "vnstat"]
+    name: ['htop', 'git', 'python3', 'curl', 'wget', 'vim', 'python3-pip', 'jq', "vnstat", "socat"]
     state: latest
     install-recommends: no
     update_cache: yes
