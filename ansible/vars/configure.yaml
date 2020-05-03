@@ -13,3 +13,6 @@ couch:
   dir: /data/couch
   data_dir: ./data
   node_count: 4
+
+app:
+  dir: /data/app

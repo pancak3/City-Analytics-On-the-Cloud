@@ -1,0 +1,4 @@
+---
+# Clones app from git
+- name: git clone repository
+  become: yes

@@ -1,3 +1,5 @@
 unimelb-comp90024-2020-grp-42-openrc.sh
 .idea
 ./*.json
+node_modules/
+build/

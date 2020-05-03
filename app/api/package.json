@@ -1,0 +1,14 @@
+{
+  "name": "comp90024-2020-42-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "author": "Group 42",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
