@@ -37,3 +37,10 @@
   pip:
     name: ['docker-compose']
     state: latest
+
+- name: 'Add ubuntu to docker group'
+  become: yes
+  user:
+    name: 'ubuntu'
+    groups: 'docker'
+    append: 'yes'

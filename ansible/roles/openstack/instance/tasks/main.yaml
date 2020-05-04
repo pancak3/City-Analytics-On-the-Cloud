@@ -25,6 +25,7 @@
   register: os_instance
 
 - name: Wait for connection
+  no_log: yes
   wait_for:
     host: "{{ item.openstack.public_v4 }}"
     port: 22

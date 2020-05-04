@@ -3,22 +3,23 @@
 # Adapted from wordpress in week 5 materials
 
 # Only applicable to first node
-- name: Create directory
-  run_once: true
-  become: yes
-  file:
-    path: '{{ app_dir }}'
-    owner: '{{ ansible_user }}'
-    group: '{{ ansible_user }}'
-    recurse: yes
-    state: directory
+# - name: Create directory
+#   run_once: true
+#   become: yes
+#   file:
+#     path: '{{ app.dir }}'
+#     owner: '{{ ansible_user }}'
+#     group: '{{ ansible_user }}'
+#     recurse: yes
+#     state: directory
 
+# Use docker-compose to up -d app
 - name: Setup app
   run_once: true
-  become: yes
   docker_compose:
-    project_src: '{{ repository }}/app'
-    pull: no
+    project_src: '{{ repository.dest }}/app'
+    build: yes
     state: present
     remove_orphans: yes
     recreate: smart
+  retries: 5

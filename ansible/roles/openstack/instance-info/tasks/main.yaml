@@ -11,8 +11,8 @@
   set_fact:
     instance_ips: "{{ instance_info.openstack_servers | map(attribute='public_v4') | list | sort }}"
 
-- debug:
-    msg: 'IPs: {{ instance_ips }}'
+# - debug:
+#     msg: 'IPs: {{ instance_ips }}'
 
 # Add hosts
 - name: Add host
