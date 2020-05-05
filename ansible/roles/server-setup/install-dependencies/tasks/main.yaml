@@ -8,6 +8,10 @@
     install-recommends: no
     update_cache: yes
 
+# Install docker SDK
+- pip:
+    name: docker
+
 # Docker
 # Adapted from, MIT license:
 # https://docs.ansible.com/ansible/latest/modules/apt_repository_module.html
@@ -19,10 +23,11 @@
     id: '9DC858229FC7DD38854AE2D88D81803C0EBFCD88'
     url: 'https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg'
 
+# Add repository, but use eoan for now
 - name: Add docker apt repository
   become: yes
   apt_repository:
-    repo: 'deb [arch=amd64] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable'
+    repo: 'deb [arch=amd64] https://download.docker.com/linux/{{ ansible_distribution | lower }} eoan stable'
     state: present
 
 - name: Install docker
@@ -38,7 +43,7 @@
     name: ['docker-compose']
     state: latest
 
-- name: 'Add ubuntu to docker group'
+- name: Add ubuntu to docker group
   become: yes
   user:
     name: 'ubuntu'

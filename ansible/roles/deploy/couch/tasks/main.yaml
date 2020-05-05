@@ -63,8 +63,7 @@
     timeout: 120
 
 # Check status on first node
-- name: Check couch status on first node
-  run_once: true
+- name: Check couch status
   uri:
     url: 'http://{{ couch.user }}:{{ couch.password }}@127.0.0.1:5984/_cluster_setup'
     method: 'GET'
@@ -164,3 +163,6 @@
     force_basic_auth: yes
   register: couch_cluster
   failed_when: "couch_cluster.json.state != 'cluster_finished'"
+  until: couch_cluster.status == 200
+  retries: 12
+  delay: 5

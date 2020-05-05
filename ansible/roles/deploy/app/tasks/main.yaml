@@ -22,4 +22,3 @@
     state: present
     remove_orphans: yes
     recreate: smart
-  retries: 5
