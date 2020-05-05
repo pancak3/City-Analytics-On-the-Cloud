@@ -56,8 +56,8 @@ instances:
     volumes: [{ name: 'data4', device: '/dev/vdb'}]
 
 instance:
-  # ubuntu eoan 19.10
-  image: 5f7281cb-111e-463d-b79d-b69cb76032a9
+  # ubuntu 20.04 LTS (Focal)
+  image: f3200167-dcd9-4a00-a99a-d2e8e57246d1
   flavor: uom.mse.2c9g
   # qh2-uom - not allowed, internal ips only... (discussion forum)
   # network: 7b90b4df-5e64-4e50-8abd-1e1339f092fa
