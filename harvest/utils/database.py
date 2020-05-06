@@ -28,5 +28,12 @@ class CouchDB:
 
 if __name__ == '__main__':
     couch = CouchDB()
-    couch.dump_db('statues', 'statues.json')
-    couch.dump_db('all_users', 'all_users.json')
+    # couch.dump_db('statues', 'statues.json')
+    # couch.dump_db('all_users', 'all_users.json')
+    for user in couch.client['all_users']:
+        user['timeline_updated_at'] = 0
+        user.save()
+    for user in couch.client['stream_users']:
+        user['friends_updated_at'] = 0
+        user.save()
+    print('done')

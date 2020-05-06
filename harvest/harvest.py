@@ -1,6 +1,7 @@
 import argparse
 import logging
-from utils.control import *
+from utils.registry import Registry
+from utils.worker import Worker
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('Harvest')
