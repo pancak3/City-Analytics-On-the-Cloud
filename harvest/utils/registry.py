@@ -4,8 +4,10 @@ import threading
 import json
 import queue
 
+from os import kill, getpid
 from cloudant.design_document import DesignDocument, Document
 from time import sleep, time
+from signal import SIGUSR1
 from collections import defaultdict
 from utils.config import config
 from utils.database import CouchDB
@@ -136,8 +138,8 @@ class Registry:
                 conn, addr = s.accept()
                 self.conn_queue.put((conn, addr))
         except OSError as e:
-            logger.error('[!] 0.0.0.0:{} :'.format(config.registry_port, e))
-            exit(1)
+            logger.error('[!] Cannot bind to 0.0.0.0:{}.'.format(config.registry_port))
+            kill(getpid(), SIGUSR1)
 
     def conn_handler(self):
         logger.info("[*] ConnectionHandler started.")
@@ -148,67 +150,71 @@ class Registry:
             sleep(0.01)
 
     def msg_handler(self, conn, addr):
-        addr_str = "%s:%s" % (addr[0], addr[1])
+        data = ''
         while True:
             try:
-                data = conn.recv(1024)
-                recv_json = json.loads(data)
-                if 'token' in recv_json and recv_json['token'] == config.token:
-                    if recv_json['action'] == 'init':
-                        if recv_json['role'] == 'sender':
-                            # Worker send API key hashes to ask which it can use
-                            valid_api_key_hash = None
-                            self.lock_api_key_worker.acquire()
-                            for api_key_hash in recv_json['api_keys_hashes']:
-                                if api_key_hash not in self.api_key_worker:
-                                    self.api_key_worker[api_key_hash] = addr
-                                    valid_api_key_hash = api_key_hash
-                                    break
-                            self.lock_api_key_worker.release()
-                            if valid_api_key_hash is None:
-                                msg = {'token': config.token, 'res': 'deny', 'msg': 'no valid api key'}
-                            else:
-                                worker_id = self.get_worker_id()
-                                worker_data = WorkerData(worker_id, conn, addr, valid_api_key_hash)
+                data += str(conn.recv(1024), 'utf-8')
+                while data.find('\n') != -1:
+                    first_pos = data.find('\n')
+                    recv_json = json.loads(data[:first_pos])
+                    if 'token' in recv_json and recv_json['token'] == config.token:
+                        if recv_json['action'] == 'init':
+                            if recv_json['role'] == 'sender':
+                                # Worker send API key hashes to ask which it can use
+                                valid_api_key_hash = None
+                                self.lock_api_key_worker.acquire()
+                                for api_key_hash in recv_json['api_keys_hashes']:
+                                    if api_key_hash not in self.api_key_worker:
+                                        self.api_key_worker[api_key_hash] = addr
+                                        valid_api_key_hash = api_key_hash
+                                        break
+                                self.lock_api_key_worker.release()
+                                if valid_api_key_hash is None:
+                                    msg = {'token': config.token, 'res': 'deny', 'msg': 'no valid api key'}
+                                else:
+                                    worker_id = self.get_worker_id()
+                                    worker_data = WorkerData(worker_id, conn, addr, valid_api_key_hash)
+                                    self.lock_worker_data.acquire()
+                                    self.worker_data[worker_id] = worker_data
+                                    self.lock_worker_data.release()
+
+                                    # msg queue dict used to broadcast
+                                    self.lock_msg_queue_dict.acquire()
+                                    self.msg_queue_dict[worker_id] = worker_data.msg_queue
+                                    self.lock_msg_queue_dict.release()
+
+                                    threading.Thread(target=self.receiver, args=(worker_data,)).start()
+
+                                    msg = {'token': config.token, 'res': 'use_api_key',
+                                           'api_key_hash': valid_api_key_hash, 'worker_id': worker_id}
+
+                                conn.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
+
+                            elif recv_json['role'] == 'receiver':
+                                worker_id = recv_json['worker_id']
+
                                 self.lock_worker_data.acquire()
-                                self.worker_data[worker_id] = worker_data
+                                self.worker_data[worker_id].sender_conn = conn
+                                self.worker_data[worker_id].sender_addr = addr
+                                worker_data = self.worker_data[worker_id]
                                 self.lock_worker_data.release()
 
-                                # msg queue dict used to broadcast
-                                self.lock_msg_queue_dict.acquire()
-                                self.msg_queue_dict[worker_id] = worker_data.msg_queue
-                                self.lock_msg_queue_dict.release()
+                                threading.Thread(target=self.sender, args=(worker_data,)).start()
 
-                                threading.Thread(target=self.receiver, args=(worker_data,)).start()
-
-                                msg = {'token': config.token, 'res': 'use_api_key',
-                                       'api_key_hash': valid_api_key_hash, 'worker_id': worker_id}
-
-                            conn.send(bytes(json.dumps(msg), 'utf-8'))
-
-                        elif recv_json['role'] == 'receiver':
-                            worker_id = recv_json['worker_id']
-
-                            self.lock_worker_data.acquire()
-                            self.worker_data[worker_id].sender_conn = conn
-                            self.worker_data[worker_id].sender_addr = addr
-                            worker_data = self.worker_data[worker_id]
-                            self.lock_worker_data.release()
-
-                            threading.Thread(target=self.sender, args=(worker_data,)).start()
-
-                    if recv_json['action'] == 'take_task':
-                        task_assigned = False
-                        self.lock_tasks.acquire()
-                        if not self.tasks[recv_json['task_id']].status:
-                            self.tasks[recv_json['task_id']].status = 'assigned'
-                            task_assigned = True
-                        self.lock_tasks.release()
-                        if not task_assigned:
-                            task = self.tasks[recv_json['task_id']]
-                            msg = {'token': config.token, 'task': 'take_task', 'type': task.type, 'ids': task.ids}
-                            self.msg_queue_dict[recv_json['worker_id']].put(json.dumps(msg))
-                        pass
+                        if recv_json['action'] == 'take_task':
+                            task_assigned = False
+                            self.lock_tasks.acquire()
+                            if not self.tasks[recv_json['task_id']].status:
+                                self.tasks[recv_json['task_id']].status = 'assigned'
+                                task_assigned = True
+                            self.lock_tasks.release()
+                            if not task_assigned:
+                                task = self.tasks[recv_json['task_id']]
+                                msg = {'token': config.token, 'task': 'take_task', 'task_id': recv_json['task_id'],
+                                       'type': task.type, 'ids': task.ids}
+                                self.msg_queue_dict[recv_json['worker_id']].put(json.dumps(msg))
+                            pass
+                    data = data[first_pos + 1:]
 
             except json.JSONDecodeError as e:
                 pass
@@ -242,6 +248,7 @@ class Registry:
                     self.tasks_queue.put(task)
                     count += 1
                 logger.debug("Generated {} {} tasks using {} seconds.".format(count, task_type, time() - start_time))
+        logger.debug("Finished generating {} tasks.".format(task_type))
 
     def master(self):
         logger.info("[*] Master started.")
@@ -257,31 +264,40 @@ class Registry:
                 msg_queue_dict = self.msg_queue_dict.copy()
                 self.lock_msg_queue_dict.release()
 
+                put_back = True
                 for msg_item in msg_queue_dict.items():
                     self.lock_tasks.acquire()
                     if self.tasks[task.id].status == 'not_assigned':
                         msg_item[1].put(json.dumps(msg))
+                        put_back = False
                         self.lock_tasks.release()
                     else:
                         self.lock_tasks.release()
                         break
-
+                if put_back:
+                    self.tasks_queue.put(task)
             sleep(0.01)
 
     def broadcast_task(self, task):
         pass
 
     def receiver(self, worker_data):
+        data = ''
         while True:
             try:
-                recv_json = json.loads(worker_data.receiver_conn.recv(1024))
-                if 'token' in recv_json and recv_json['token'] == config.token:
-                    if recv_json['action'] == 'ask':
-                        logger.debug(
-                            "[*] Ask from Worker-{}: {} ".format(worker_data.worker_id, recv_json['data']['id_str']))
-                        msg = {'task': 'save', 'id_str': recv_json['data']['id_str'], 'token': config.token}
-                        worker_data.msg_queue.put(json.dumps(msg))
-                pass
+                data += str(worker_data.receiver_conn.recv(1024), 'utf-8')
+                while data.find('\n') != -1:
+                    first_pos = data.find('\n')
+                    recv_json = json.loads(data[:first_pos])
+                    if 'token' in recv_json and recv_json['token'] == config.token:
+                        if recv_json['action'] == 'ask':
+                            logger.debug(
+                                "[*] Ask from Worker-{}: {} ".format(worker_data.worker_id,
+                                                                     recv_json['data']['id_str']))
+                            msg = {'task': 'save', 'id_str': recv_json['data']['id_str'], 'token': config.token}
+                            worker_data.msg_queue.put(json.dumps(msg))
+                    data = data[first_pos + 1:]
+
             except socket.error as e:
                 self.remove_worker(worker_data)
                 logger.warning("[*] Worker-{} exit.".format(worker_data.worker_id))
@@ -314,13 +330,13 @@ class Registry:
                        "locations": config.victoria_bbox},
                    "token": config.token
                    }
-            worker_data.sender_conn.send(bytes(json.dumps(msg), 'utf-8'))
+            worker_data.sender_conn.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
             logger.debug('[*] Sent stream task to Worker-{}.'.format(worker_data.worker_id))
             while True:
                 while not worker_data.msg_queue.empty():
                     msg = worker_data.msg_queue.get()
                     try:
-                        worker_data.sender_conn.send(bytes(msg, 'utf-8'))
+                        worker_data.sender_conn.send(bytes(msg + '\n', 'utf-8'))
                         logger.debug("[*] Sent to Worker-{}: {} ".format(worker_data.worker_id, msg))
                     except socket.error:
                         worker_data.msg_queue.put(msg)
@@ -334,5 +350,5 @@ class Registry:
         self.check_views()
         threading.Thread(target=self.tcp_server).start()
         threading.Thread(target=self.conn_handler).start()
-        threading.Thread(target=self.tasks_generator).start()
-        threading.Thread(target=self.master).start()
+        # threading.Thread(target=self.tasks_generator).start()
+        # threading.Thread(target=self.master).start()

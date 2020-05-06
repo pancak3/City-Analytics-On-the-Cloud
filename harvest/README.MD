@@ -41,6 +41,6 @@ cat twitter.json
 
 ## Documentations
 
-- [cloudant](https://python-cloudant.readthedocs.io/en/latest/cloudant.html)
-- [python-twitter](https://python-twitter.readthedocs.io/en/latest/twitter.html)
+- [cloudant](https://python-cloudant.readthedocs.io/en/latest/)
+- [tweepy](http://docs.tweepy.org/en/v3.8.0/)
 - [Twitter Dev](https://developer.twitter.com/en/docs)
