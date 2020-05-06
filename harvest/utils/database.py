@@ -16,6 +16,7 @@ class CouchDB:
             logger.debug("[*] CouchDB connected -> {}".format(config.couch.url))
         except HTTPError as e:
             logger.error("[*] CouchDB connecting failed:\n\t{}".format(e))
+            exit(1)
 
     def dump_db(self, db_name, output_path):
         if db_name in self.client.all_dbs():

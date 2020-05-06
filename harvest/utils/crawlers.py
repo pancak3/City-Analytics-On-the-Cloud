@@ -5,8 +5,10 @@
 import tweepy
 import logging
 import hashlib
+
 from threading import Lock
 from collections import defaultdict
+from time import sleep
 from utils.config import config
 
 logging.basicConfig(level=logging.INFO)
@@ -60,11 +62,6 @@ class Crawler:
         # Requests / 15-min window (user auth)	15
         return self.api.followers(**kwargs)
 
-    def rate_limit_status(self):
-        # Requests / 15-min window (user auth)	180
-        # https://developer.twitter.com/en/docs/developer-utilities/rate-limit-status/api-reference/get-application-rate_limit_status
-        return self.api.rate_limit_status()
-
     @staticmethod
     def hash(api_key_):
         h = hashlib.new(config.hash_algorithm)
@@ -76,6 +73,7 @@ class StreamListener(tweepy.StreamListener):
     def __init__(self, process_name, res_queue, **kw):
         self.process_name = process_name
         self.res_queue = res_queue
+        self.err_count = 0
         super(StreamListener, self).__init__(**kw)
 
     def on_status(self, status):
@@ -83,7 +81,18 @@ class StreamListener(tweepy.StreamListener):
         logger.debug("[*]  {}, status: {}".format(self.process_name, status._json))
 
     def on_error(self, status_code):
-        logger.warning("[*]  {}, error: {}".format(self.process_name, status_code))
+        self.err_count += 1
+        wait_for = self.err_count ** 5
+        if wait_for < 120:
+            logger.warning(
+                "[*]  Worker-{}, error: {}. Sleep {} seconds".format(self.process_name, status_code, wait_for))
+            sleep(wait_for)
+            exit(1)
+        else:
+            logger.warning(
+                "[*]  Worker-{}, error: {}. {} errs happened, exit.".format(self.process_name, status_code, wait_for,
+                                                                            self.err_count))
+            exit(1)
 
     def on_connect(self):
         logger.debug("[*] Worker-{} stream connected.".format(self.process_name))
@@ -93,7 +102,9 @@ if __name__ == '__main__':
     from pprint import pprint
 
     crawler = Crawler()
-
-    rate_limit = crawler.rate_limit_status()
+    for item in crawler.api_keys.items():
+        crawler.init(item[0])
+        rate_limit = crawler.api.rate_limit_status()
+        break
     users = crawler.get_followers(screen_name='ronaldolatabo', cursor=-1)
     print()
