@@ -8,8 +8,10 @@ services:
         - DB_USERNAME={{ couch.user }}
         - DB_PASSWORD={{ couch.password }}
     networks:
-        - comp90024
+        - couch_comp90024
 
+# Network setup, adapted from:
+# https://stackoverflow.com/questions/38088279
 networks:
-  comp90024:
-    driver: bridge
+  couch_comp90024:
+    external: true
