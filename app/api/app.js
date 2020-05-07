@@ -1,11 +1,12 @@
-const path = require('path');
+const path = requrie('path');
 const express = require('express');
 const cors = require('cors');
 const proxy = require('express-http-proxy');
 const app = express();
 
-const username = process.env.DB_USERNAME;
-const password = process.env.DB_PASSWORD;
+const db_username = process.env.DB_USERNAME;
+const db_password = process.env.DB_PASSWORD;
+const db_port = process.env.DB_PORT;
 
 // For local development, bad practice for production use
 app.use(cors());
@@ -19,7 +20,7 @@ app.get('/', (req, res) => {
 });
 
 // Database status
-app.get('/api', proxy(`http://${username}:${password}@couchdb`));
+app.get('/api', proxy(`http://${db_username}:${db_password}@couchdb:${db_port}`));
 
 // Frontend
 app.get('*', function(req, res) {

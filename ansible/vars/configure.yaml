@@ -10,6 +10,7 @@ couch:
   password: 'pojeinaiShoh9Oo'
   secret: 'aiB8ooj9cheikie'
   cookie: 'zaafaeKe7gaNal6'
+  port: 5984
   dir: /data/couch
   data_dir: ./data
   node_count: 4
