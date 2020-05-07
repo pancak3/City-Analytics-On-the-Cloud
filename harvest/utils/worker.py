@@ -3,8 +3,13 @@ import socket
 import threading
 import json
 import queue
+import tweepy
 
+from os import kill, getpid
+from signal import SIGUSR1
+from math import ceil
 from time import sleep, time
+from collections import defaultdict
 from urllib3.exceptions import ReadTimeoutError, ProtocolError
 from utils.config import config
 from utils.database import CouchDB
@@ -16,11 +21,9 @@ logger.setLevel(logging.DEBUG)
 
 
 class Task:
-    def __init__(self, _id, _type, ids, status='not_assigned'):
-        self.id = _id
+    def __init__(self, _type, _ids):
         self.type = _type
-        self.ids = ids
-        self.status = status
+        self.user_ids = _ids
 
 
 class WorkerData:
@@ -43,18 +46,23 @@ class Worker:
         self.msg_received = queue.Queue()
         self.msg_to_send = queue.Queue()
         self.crawler = Crawler()
+        self.reg_ip, self.reg_port, self.token = self.get_registry()
         self.socket_send, self.socket_recv, valid_api_key_hash, worker_id = self.connect_reg()
         self.crawler.init(valid_api_key_hash)
         self.worker_id = worker_id
-
         self.task_queue = queue.Queue()
+        self.lock_rate_limit = threading.Lock()
+        self.active_time = True
+        self.lock_active_time = threading.Lock()
+        self.has_task = False
+        self.lock_exit = threading.Lock()
 
     def get_registry(self):
         registry = self.client['control']['registry']
         return registry['ip'], registry['port'], registry['token']
 
     def connect_reg(self):
-        reg_ip, reg_port, token = self.get_registry()
+        reg_ip, reg_port, token = self.reg_ip, self.reg_port, self.token
 
         try:
             socket_sender = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -103,9 +111,33 @@ class Worker:
         while True:
             while not self.msg_to_send.empty():
                 msg = self.msg_to_send.get()
-                self.socket_send.send(bytes(msg + '\n', 'utf-8'))
-                logger.debug("[*] Worker-{} sent: {}".format(self.worker_id, msg))
+                try:
+                    self.socket_send.send(bytes(msg + '\n', 'utf-8'))
+                except BrokenPipeError as e:
+                    self.lock_exit.acquire()
+                    self.lock_exit.release()
+                    logger.warning("[*] Registry-{}:{} down: {}".format(self.reg_ip, self.reg_port, msg))
+                    kill(getpid(), SIGUSR1)
+                    break
+                # logger.debug("[*] Worker-{} sent: {}".format(self.worker_id, msg))
             sleep(0.01)
+
+    def keep_alive(self):
+        msg = {'token': config.token, 'action': 'ping', 'worker_id': self.worker_id}
+        self.lock_active_time.acquire()
+        self.active_time = int(time())
+        self.lock_active_time.release()
+        while True:
+            self.msg_to_send.put(json.dumps(msg))
+            sleep(config.heartbeat_time)
+
+            self.lock_active_time.acquire()
+            if int(time()) - self.active_time > config.max_heartbeat_lost_time:
+                self.lock_exit.acquire()
+                self.lock_exit.release()
+                logger.info("[!] Lost heartbeat for {} seconds, exit.".format(config.max_heartbeat_lost_time))
+                kill(getpid(), SIGUSR1)
+            self.lock_active_time.release()
 
     def msg_received_handler(self):
         while True:
@@ -117,75 +149,162 @@ class Worker:
                         # logger.debug("[*] Worker-{} received: {}".format(self.worker_id, msg))
                         task = msg_json['task']
                         if task == 'stream':
+                            # continue
                             threading.Thread(target=self.stream,
                                              args=(msg_json['data']['locations'],)).start()
-                        # msg = {'token': config.token, 'task': 'task', 'type': task.type}
                         elif task == 'task':
-                            if self.hav_quota(msg_json['type']):
-                                msg = {'token': config.token, 'action': 'take_task', 'worker_id': self.worker_id,
-                                       'task_id': msg_json['task_id']}
-                                self.msg_to_send.put(json.dumps(msg))
-                        elif task == 'take_task':
                             logger.debug("Worker-{} got task: {}".format(self.worker_id, msg))
-                            task = Task(msg_json['task_id'], msg_json['type'], msg_json['ids'])
-                            self.task_queue.put(task)
+                            if len(msg_json['friends_ids']):
+                                task = Task('friends', msg_json['friends_ids'])
+                                self.task_queue.put(task)
+                            if len(msg_json['timeline_ids']):
+                                task = Task('timeline', msg_json['timeline_ids'])
+                                self.task_queue.put(task)
+                        elif task == 'pong':
+                            self.lock_active_time.acquire()
+                            self.active_time = int(time())
+                            self.lock_active_time.release()
 
                 except json.decoder.JSONDecodeError as e:
-                    logger.error("Worker-{} received invalid json: {}".format(self.worker_id, msg))
+                    logger.error("Worker-{} received invalid json: {} \n{}".format(self.worker_id, e, msg))
                 except KeyError as e:
-                    logger.error("Worker-{} received invalid json: {}".format(self.worker_id, msg))
+                    logger.error("Worker-{} received invalid json; KeyError: {}\n{}".format(self.worker_id, e, msg))
             else:
                 sleep(0.01)
 
-    def hav_quota(self, type_):
-        return True
+    def decrease_rate_limit(self, entry):
+        self.lock_rate_limit.acquire()
+        if entry == 'friends':
+            if self.crawler.rate_limits['resources']['friendships']['/friendships/lookup']['remaining'] > 0:
+                self.crawler.rate_limits['resources']['friendships']['/friendships/lookup']['remaining'] -= 1
+                self.lock_rate_limit.release()
+                return True
+            else:
+                self.lock_rate_limit.release()
+                return False
+
+        elif entry == 'followers':
+            if self.crawler.rate_limits['resources']['followers']['/followers/ids']['remaining'] > 0:
+                self.crawler.rate_limits['resources']['followers']['/followers/ids']['remaining'] -= 1
+                self.lock_rate_limit.release()
+                return True
+            else:
+                self.lock_rate_limit.release()
+                return False
+
+        elif entry == 'timeline':
+            if self.crawler.rate_limits['resources']['statuses']['/statuses/user_timeline']['remaining'] > 0:
+                self.crawler.rate_limits['resources']['statuses']['/statuses/user_timeline']['remaining'] -= 1
+                self.lock_rate_limit.release()
+                return True
+            else:
+                self.lock_rate_limit.release()
+                return False
+        else:
+            self.lock_rate_limit.release()
+            return False
+
+    def get_rate_limit(self):
+        rate_limit = defaultdict(int)
+        self.lock_rate_limit.acquire()
+        now_timestamp = int(time())
+
+        # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-friends-ids
+        # Requests / 15-min window (user auth)	15
+        reset = self.crawler.rate_limits['resources']['friendships']['/friendships/lookup']['reset']
+        if now_timestamp - reset > 900:
+            self.crawler.rate_limits['resources']['friendships']['/friendships/lookup']['reset'] += ceil(
+                (now_timestamp - reset) / 900) * 900
+            remaining = self.crawler.rate_limits['resources']['friendships']['/friendships/lookup']['limit']
+            self.crawler.rate_limits['resources']['friendships']['/friendships/lookup']['remaining'] = remaining
+        else:
+            remaining = self.crawler.rate_limits['resources']['friendships']['/friendships/lookup']['remaining']
+        rate_limit['friends'] = remaining
+
+        # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-followers-ids
+        # Requests / 15-min window (user auth)	15
+        reset = self.crawler.rate_limits['resources']['followers']['/followers/ids']['reset']
+        if now_timestamp - reset > 900:
+            self.crawler.rate_limits['resources']['followers']['/followers/ids']['reset'] += ceil(
+                (now_timestamp - reset) / 900) * 900
+            remaining = self.crawler.rate_limits['resources']['followers']['/followers/ids']['limit']
+            self.crawler.rate_limits['resources']['followers']['/followers/ids']['remaining'] = remaining
+        else:
+            remaining = self.crawler.rate_limits['resources']['followers']['/followers/ids']['remaining']
+        rate_limit['followers'] = remaining
+
+        # https://developer.twitter.com/en/docs/tweets/timelines/api-reference/get-statuses-user_timeline
+        # Requests / 15-min window (user auth)	900
+        reset = self.crawler.rate_limits['resources']['statuses']['/statuses/user_timeline']['reset']
+        if now_timestamp - reset > 900:
+            self.crawler.rate_limits['resources']['statuses']['/statuses/user_timeline']['reset'] += ceil(
+                (now_timestamp - reset) / 900) * 900
+            remaining = self.crawler.rate_limits['resources']['statuses']['/statuses/user_timeline']['limit']
+            self.crawler.rate_limits['resources']['statuses']['/statuses/user_timeline']['remaining'] = remaining
+        else:
+            remaining = self.crawler.rate_limits['resources']['statuses']['/statuses/user_timeline']['remaining']
+        self.lock_rate_limit.release()
+
+        rate_limit['timeline'] = remaining
+        return rate_limit
 
     def task_handler(self):
+        has_required = False
+        last_time_sent = int(time())
         while True:
-            while not self.task_queue.empty():
-                task = self.task_queue.get()
-                if self.hav_quota(task.type):
+            if self.task_queue.empty():
+                if not has_required:
+                    rate_limit = self.get_rate_limit()
+                    msg = dict(rate_limit)
+                    quota = 0
+                    for key, value in msg.items():
+                        quota += value
+                    if quota > 0:
+                        msg['worker_id'] = self.worker_id
+                        msg['token'] = config.token
+                        msg['action'] = 'ask_for_task'
+                    self.msg_to_send.put(json.dumps(msg))
+                    last_time_sent = int(time())
+                    has_required = True
+                else:
+                    if int(time()) - last_time_sent > 5:
+                        has_required = False
+                    sleep(0.01)
+            else:
+
+                while not self.task_queue.empty():
+                    self.lock_exit.acquire()
+                    task = self.task_queue.get()
                     if task.type == 'timeline':
-                        for user_id in task.ids:
-                            statuses = self.crawler.api.user_timeline(id=user_id, count=200)
+                        for timeline_user_id in task.user_ids:
+                            logger.debug("[-] Getting user-{}'s timeline.".format(timeline_user_id))
+                            statuses = self.crawler.get_user_timeline(id=timeline_user_id)
                             for status in statuses:
                                 self.save_status(status)
+
+                            self.client['all_users'][timeline_user_id]['timeline_updated_at'] = int(time())
+                            self.client['all_users'][timeline_user_id].save()
                             sleep(1)
 
                     if task.type == 'friends':
-                        for stream_user_id in task.ids:
-                            follower_ids_set = set()
-                            follower_ids_res = self.crawler.api.followers_ids(id=stream_user_id, cursor=-1)
-                            follower_ids_set.update(set(follower_ids_res[0]))
-                            next_cursor = follower_ids_res[1][0]
-                            # get all the followers by page
-                            while next_cursor:
-                                sleep(1)
-                                follower_ids_res = self.crawler.api.followers_ids(id=stream_user_id, cursor=next_cursor)
-                                follower_ids_set.update(set(follower_ids_res[0]))
-                                next_cursor = follower_ids_res[1][1]
-
-                            friend_ids_set = set()
-
-                            friend_ids_res = self.crawler.api.friends_ids(id=stream_user_id, cursor=-1)
-                            friend_ids_set.update(set(friend_ids_res[0]))
-                            next_cursor = friend_ids_res[1][0]
-                            # get all the followers by page
-                            while next_cursor:
-                                sleep(1)
-                                friend_ids_res = self.crawler.api.friends_ids(id=stream_user_id, cursor=next_cursor)
-                                friend_ids_set.update(set(friend_ids_res[0]))
-                                next_cursor = friend_ids_res[1][1]
-
+                        for stream_user_id in task.user_ids:
+                            logger.debug("[-] Getting user-{}'s friends.".format(stream_user_id))
+                            follower_ids_set = self.crawler.get_followers_ids(id=stream_user_id)
+                            friend_ids_set = self.crawler.get_friends_ids(id=stream_user_id)
                             mutual_follow = list(follower_ids_set.intersection(friend_ids_set))
+                            users_res = self.crawler.look_up_users(mutual_follow)
+                            for user in users_res:
+                                self.save_user(user, 'all_users')
 
-                            # Note, this method is not in tweepy official doc but in its source file
-                            # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-users-lookup
-                            for i in range(0, len(mutual_follow), 100):
-                                users_res = self.crawler.api.lookup_users(user_ids=mutual_follow[i:i + 100])
-                                for user in users_res:
-                                    self.save_user(user, 'all_users')
-                                sleep(1)
+                            self.client['stream_users'][stream_user_id]['friends_updated_at'] = int(time())
+                            self.client['stream_users'][stream_user_id].save()
+                            sleep(1)
+                    self.lock_exit.release()
+
+                self.lock_rate_limit.acquire()
+                self.crawler.rate_limits = self.crawler.get_rate_limit_status()
+                self.lock_rate_limit.release()
+                has_required = False
 
     def status_handler(self):
         while True:
@@ -201,7 +320,7 @@ class Worker:
             user_json['_id'] = user_.id_str
             user_json['timeline_updated_at'] = 0
             self.client[db_name_].create_document(user_json)
-            # prevent proxy err (Qifan's proxy against GTW)
+            # prevent proxy err (Qifan's proxy against GFW)
             sleep(0.01)
             logger.debug("[*] Worker-{} saved user to {}: {}".format(self.worker_id, db_name_, user_.id_str))
         else:
@@ -216,6 +335,8 @@ class Worker:
             status_json = status_._json
             status_json['_id'] = status_.id_str
             self.client['statues'].create_document(status_json)
+            # prevent proxy err (Qifan's proxy against GFW)
+            sleep(0.01)
             logger.debug("[*] Worker-{} saved status: {}".format(self.worker_id, status_.id_str))
         else:
             logger.debug("[*] Worker-{} ignored status: {}".format(self.worker_id, status_.id_str))
@@ -269,3 +390,4 @@ class Worker:
         threading.Thread(target=self.msg_receiver).start()
         threading.Thread(target=self.msg_received_handler).start()
         threading.Thread(target=self.task_handler).start()
+        threading.Thread(target=self.keep_alive).start()

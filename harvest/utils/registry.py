@@ -5,9 +5,9 @@ import json
 import queue
 
 from os import kill, getpid
+from signal import SIGUSR1
 from cloudant.design_document import DesignDocument, Document
 from time import sleep, time
-from signal import SIGUSR1
 from collections import defaultdict
 from utils.config import config
 from utils.database import CouchDB
@@ -55,29 +55,22 @@ class Registry:
         self.msg_queue_dict = defaultdict(queue.Queue)
         self.lock_msg_queue_dict = threading.Lock()
 
-        self.tasks_queue = queue.Queue()
-        self.tasks = {}
-        self.lock_tasks = threading.Lock()
-        self.task_id = 0
-        self.lock_task_id = threading.Lock()
-
         self.worker_id = 0
+        self.active_workers = set()
         self.lock_worker_id = threading.Lock()
+
         self.worker_data = {}
         self.lock_worker_data = threading.Lock()
 
-    def get_task_id(self):
-        self.lock_task_id.acquire()
-        self.task_id += 1
-        id_tmp = self.task_id
-        self.lock_task_id.release()
-        return id_tmp
+        self.tasks_friends = queue.Queue()
+        self.tasks_timeline = queue.Queue()
 
     def get_worker_id(self):
-        self.lock_task_id.acquire()
+        self.lock_worker_id.acquire()
         self.worker_id += 1
         id_tmp = self.worker_id
-        self.lock_task_id.release()
+        self.active_workers.add(id_tmp)
+        self.lock_worker_id.release()
         return id_tmp
 
     def update_db(self):
@@ -201,19 +194,6 @@ class Registry:
 
                                 threading.Thread(target=self.sender, args=(worker_data,)).start()
 
-                        if recv_json['action'] == 'take_task':
-                            task_assigned = False
-                            self.lock_tasks.acquire()
-                            if not self.tasks[recv_json['task_id']].status:
-                                self.tasks[recv_json['task_id']].status = 'assigned'
-                                task_assigned = True
-                            self.lock_tasks.release()
-                            if not task_assigned:
-                                task = self.tasks[recv_json['task_id']]
-                                msg = {'token': config.token, 'task': 'take_task', 'task_id': recv_json['task_id'],
-                                       'type': task.type, 'ids': task.ids}
-                                self.msg_queue_dict[recv_json['worker_id']].put(json.dumps(msg))
-                            pass
                     data = data[first_pos + 1:]
 
             except json.JSONDecodeError as e:
@@ -226,63 +206,29 @@ class Registry:
         while True:
             self.generate_tasks('all_users', 'timeline')
             self.generate_tasks('stream_users', 'friends')
-            sleep(config.timeline_updating_window / 2)
+            to_sleep = (config.timeline_updating_window + config.friends_updating_window) / 4
+            # to_sleep = 3600 * 2
+            logger.info("[*] TaskGenerator waits for {} seconds.".format(to_sleep))
+            sleep(to_sleep)
 
     def generate_tasks(self, user_db_name, task_type):
         start_time = time()
         logger.debug("Start to generate {} tasks.".format(task_type))
-
         if user_db_name in self.client.all_dbs():
-            task_ids = []
+            count = 0
             result = self.client[user_db_name].get_view_result('_design/' + task_type, 'need_updating')
             for doc in result:
-                task_ids.append(doc['key'])
-            if len(task_ids):
-                count = 0
-                for i in range(0, len(task_ids), config.task_chunk_size):
-                    task_id = self.get_task_id()
-                    task = Task(task_id, task_type, task_ids[i:i + config.task_chunk_size])
-                    self.lock_tasks.acquire()
-                    self.tasks[task_id] = task
-                    self.lock_tasks.release()
-                    self.tasks_queue.put(task)
-                    count += 1
-                logger.debug("Generated {} {} tasks using {} seconds.".format(count, task_type, time() - start_time))
+                count += 1
+                if task_type == 'friends':
+                    self.tasks_friends.put(doc['key'])
+                elif task_type == 'timeline':
+                    self.tasks_timeline.put(doc['key'])
+            logger.debug("Generated {} {} tasks using {} seconds.".format(count, task_type, time() - start_time))
         logger.debug("Finished generating {} tasks.".format(task_type))
-
-    def master(self):
-        logger.info("[*] Master started.")
-        # Broadcast tasks and manage task states
-
-        while True:
-            while not self.tasks_queue.empty():
-                task = self.tasks_queue.get()
-                msg = {'token': config.token, 'task': 'task', 'type': task.type, 'task_id': task.id}
-
-                # copy out to avoid occupying msg_queue long time
-                self.lock_msg_queue_dict.acquire()
-                msg_queue_dict = self.msg_queue_dict.copy()
-                self.lock_msg_queue_dict.release()
-
-                put_back = True
-                for msg_item in msg_queue_dict.items():
-                    self.lock_tasks.acquire()
-                    if self.tasks[task.id].status == 'not_assigned':
-                        msg_item[1].put(json.dumps(msg))
-                        put_back = False
-                        self.lock_tasks.release()
-                    else:
-                        self.lock_tasks.release()
-                        break
-                if put_back:
-                    self.tasks_queue.put(task)
-            sleep(0.01)
-
-    def broadcast_task(self, task):
-        pass
 
     def receiver(self, worker_data):
         data = ''
+        active_time = int(time())
         while True:
             try:
                 data += str(worker_data.receiver_conn.recv(1024), 'utf-8')
@@ -290,24 +236,54 @@ class Registry:
                     first_pos = data.find('\n')
                     recv_json = json.loads(data[:first_pos])
                     if 'token' in recv_json and recv_json['token'] == config.token:
-                        if recv_json['action'] == 'ask':
-                            logger.debug(
-                                "[*] Ask from Worker-{}: {} ".format(worker_data.worker_id,
-                                                                     recv_json['data']['id_str']))
-                            msg = {'task': 'save', 'id_str': recv_json['data']['id_str'], 'token': config.token}
+                        if recv_json['action'] == 'ping':
+                            msg = {'token': config.token, 'task': 'pong'}
                             worker_data.msg_queue.put(json.dumps(msg))
+                            active_time = int(time())
+                        if recv_json['action'] == 'ask_for_task':
+                            logger.debug(
+                                "Got ask for task from Worker-{}: {}".format(recv_json['worker_id'], recv_json))
+                            msg = {'token': config.token, 'task': 'task',
+                                   'friends_ids': [], 'timeline_ids': []}
+                            has_task = False
+                            if recv_json['friends'] > 0 and recv_json['followers'] > 0:
+                                try:
+                                    user_id = self.tasks_friends.get(timeout=0.01)
+                                    msg['friends_ids'].append(user_id)
+                                    has_task = True
+                                except TimeoutError:
+                                    pass
+                            if recv_json['timeline'] > 0:
+                                try:
+                                    user_id = self.tasks_timeline.get(timeout=0.01)
+                                    msg['timeline_ids'].append(user_id)
+                                    has_task = True
+                                except TimeoutError:
+                                    pass
+                            if has_task:
+                                worker_data.msg_queue.put(json.dumps(msg))
+                                logger.debug(
+                                    "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, json.dumps(msg)))
                     data = data[first_pos + 1:]
 
             except socket.error as e:
-                self.remove_worker(worker_data)
-                logger.warning("[*] Worker-{} exit.".format(worker_data.worker_id))
+                self.remove_worker(worker_data, e)
                 break
             except json.JSONDecodeError as e:
-                self.remove_worker(worker_data)
+                self.remove_worker(worker_data, e)
                 break
+            if int(time()) - active_time > config.max_heartbeat_lost_time:
+                self.remove_worker(worker_data, 'Lost heartbeat for {} seconds.'.format(config.max_heartbeat_lost_time))
+                break
+            # Check worker status
+            self.lock_worker_id.acquire()
+            if worker_data.worker_id not in self.active_workers:
+                self.lock_worker_id.release()
+                break
+            self.lock_worker_id.release()
             sleep(0.01)
 
-    def remove_worker(self, worker_data):
+    def remove_worker(self, worker_data, e):
         self.lock_worker_data.acquire()
         del self.worker_data[worker_data.worker_id]
         self.lock_worker_data.release()
@@ -320,10 +296,14 @@ class Registry:
         del self.api_key_worker[worker_data.api_key_hash]
         self.lock_api_key_worker.release()
 
-        logger.warning("[*] Worker-{} exit.".format(worker_data.worker_id))
+        self.lock_worker_id.acquire()
+        self.active_workers.remove(worker_data.worker_id)
+        self.lock_worker_id.release()
+
+        logger.warning("[-] Worker-{} exit: {}".format(worker_data.worker_id, e))
 
     def sender(self, worker_data):
-        logger.debug('[*] Worker-{} connected.'.format(worker_data.worker_id))
+        logger.debug('[-] Worker-{} connected.'.format(worker_data.worker_id))
         try:
             msg = {"task": "stream",
                    "data": {
@@ -337,12 +317,18 @@ class Registry:
                     msg = worker_data.msg_queue.get()
                     try:
                         worker_data.sender_conn.send(bytes(msg + '\n', 'utf-8'))
-                        logger.debug("[*] Sent to Worker-{}: {} ".format(worker_data.worker_id, msg))
+                        # logger.debug("[*] Sent to Worker-{}: {} ".format(worker_data.worker_id, msg))
                     except socket.error:
                         worker_data.msg_queue.put(msg)
+                # Check worker status
+                self.lock_worker_id.acquire()
+                if worker_data.worker_id not in self.active_workers:
+                    self.lock_worker_id.release()
+                    break
+                self.lock_worker_id.release()
                 sleep(0.01)
-        except socket.error:
-            self.remove_worker(worker_data)
+        except socket.error as e:
+            self.remove_worker(worker_data, e)
 
     def run(self):
         self.update_db()
@@ -350,5 +336,4 @@ class Registry:
         self.check_views()
         threading.Thread(target=self.tcp_server).start()
         threading.Thread(target=self.conn_handler).start()
-        # threading.Thread(target=self.tasks_generator).start()
-        # threading.Thread(target=self.master).start()
+        threading.Thread(target=self.tasks_generator).start()

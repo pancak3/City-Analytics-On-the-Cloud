@@ -14,7 +14,10 @@
     149.9767,
     -33.9806
   ],
-  "timeline_updating_window": 172800,
-  "friends_updating_window": 172800,
-  "task_chunk_size": 20
+  "timeline_updating_window": 3600,
+  "friends_updating_window": 3600,
+  "task_chunk_size": 20,
+  "heartbeat_time": 5,
+  "max_heartbeat_lost_time": 60,
+  "user_timeline_max_statues": 1000
 }

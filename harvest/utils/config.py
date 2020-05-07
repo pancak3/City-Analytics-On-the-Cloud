@@ -58,6 +58,9 @@ class Config:
             self.timeline_updating_window = harvest_json['timeline_updating_window']
             self.friends_updating_window = harvest_json['friends_updating_window']
             self.task_chunk_size = harvest_json['task_chunk_size']
+            self.heartbeat_time = harvest_json['heartbeat_time']
+            self.max_heartbeat_lost_time = harvest_json['max_heartbeat_lost_time']
+            self.user_timeline_max_statues = harvest_json['user_timeline_max_statues']
 
 
 def get_external_ip():
