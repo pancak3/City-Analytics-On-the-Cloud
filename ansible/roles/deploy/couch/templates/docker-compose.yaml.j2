@@ -16,3 +16,9 @@ services:
       - "9100:9100"
     volumes:
       - {{ couch.data_dir }}:/opt/couchdb/data
+    networks:
+      - comp90024
+
+networks:
+  comp90024:
+    name: comp90024_network
