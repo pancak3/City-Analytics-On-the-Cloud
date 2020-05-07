@@ -1,4 +1,4 @@
-const path = requrie('path');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const proxy = require('express-http-proxy');
