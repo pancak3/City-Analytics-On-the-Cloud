@@ -1,7 +1,7 @@
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const proxy = require('express-http-proxy');
+const request = require('request');
 const app = express();
 
 const db_username = process.env.DB_USERNAME;
@@ -20,7 +20,9 @@ app.get('/', (req, res) => {
 });
 
 // Database status
-app.get('/api', proxy(`http://couchdb:${db_port}`));
+app.get('/api', (req, res) => {
+    return request(`http://couchdb:5984`).pipe(res);
+});
 
 // Frontend
 app.get('*', function(req, res) {
