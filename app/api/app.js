@@ -20,7 +20,7 @@ app.get('/', (req, res) => {
 });
 
 // Database status
-app.get('/api', proxy(`http://${db_username}:${db_password}@couchdb:${db_port}`));
+app.get('/api', proxy(`http://couchdb:${db_port}`));
 
 // Frontend
 app.get('*', function(req, res) {
