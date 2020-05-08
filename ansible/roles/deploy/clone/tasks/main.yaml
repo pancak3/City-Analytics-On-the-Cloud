@@ -27,3 +27,4 @@
     ssh_opts: '-F /home/ubuntu/.ssh/config'
     accept_hostkey: yes
     update: yes
+    force: yes
