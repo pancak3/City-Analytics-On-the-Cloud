@@ -50,6 +50,8 @@
   roles:
     # Clone repository
     - role: deploy/clone
+    # Down all apps
+    - role: deploy/down
     # Setup couch
     - role: deploy/couch
     # Setup app

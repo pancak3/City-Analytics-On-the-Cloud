@@ -1,0 +1,11 @@
+---
+# Prune
+- name: docker system prune
+  become: yes
+  command: docker system prune -f
+
+# # Take down all services/apps
+# # https://gist.github.com/evanscottgray/8571828
+# - name: stop all docker services/apps
+#   become: yes
+#   command: docker kill $(docker ps -q)
