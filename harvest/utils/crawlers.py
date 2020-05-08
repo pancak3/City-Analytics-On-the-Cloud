@@ -133,6 +133,8 @@ class Crawler:
         return friends_ids_set
 
     def get_user_timeline(self, **kwargs):
+        # up to a maximum of 200 per distinct request
+        # https://developer.twitter.com/en/docs/tweets/timelines/api-reference/get-statuses-user_timeline
         statuses = []
         for status in self.limit_handled(
                 tweepy.Cursor(self.api.user_timeline, **kwargs).items(config.user_timeline_max_statues), 'timeline'):
