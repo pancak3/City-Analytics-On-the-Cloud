@@ -307,13 +307,19 @@ class Worker:
         return rate_limit
 
     @staticmethod
-    def save_doc(doc):
-        try:
-            doc.save()
-            sleep(0.01)
-        except Exception:
-            # prevent unexpected err
-            pass
+    def save_doc(doc, update=None):
+        count = 0
+        while count < config.max_save_tries:
+            try:
+                if update is not None:
+                    doc[update] = int(time())
+                doc.save()
+                sleep(0.01)
+                break
+            except Exception:
+                # prevent unexpected err
+                count += 1
+                sleep(0.01)
 
     def timeline(self, user_ids):
         now_time = int(time())
@@ -330,14 +336,12 @@ class Worker:
             for status in statuses:
                 self.save_status(status_=status, caller='Timeline')
 
-            if timeline_user_id in self.client['all_users']:
-                self.client['all_users'][timeline_user_id]['timeline_updated_at'] = int(time())
-                self.save_doc(self.client['all_users'][timeline_user_id])
-
             # Get stream user's timeline first.
             if timeline_user_id in self.client['stream_users']:
-                self.client['stream_users'][timeline_user_id]['timeline_updated_at'] = int(time())
-                self.save_doc(self.client['stream_users'][timeline_user_id])
+                self.save_doc(self.client['stream_users'][timeline_user_id], 'timeline_updated_at')
+
+            if timeline_user_id in self.client['all_users']:
+                self.save_doc(self.client['all_users'][timeline_user_id], 'timeline_updated_at')
 
             logger.debug("[-] Worker-{} finished user-{}'s timeline task.".format(self.worker_id, timeline_user_id))
         self.running_timeline.dec()
@@ -365,8 +369,7 @@ class Worker:
             users_res = self.crawler.look_up_users(mutual_follow)
             for user in users_res:
                 self.save_user(user_=user, db_name_='all_users', caller='Friends')
-            self.client['stream_users'][stream_user_id]['friends_updated_at'] = int(time())
-            self.save_doc(self.client['stream_users'][stream_user_id])
+            self.save_doc(self.client['stream_users'][stream_user_id], 'friends_updated_at')
             self.client['all_users'][stream_user_id]['follower_ids'] = list(follower_ids_set)
             self.client['all_users'][stream_user_id]['friend_ids'] = list(friend_ids_set)
             self.client['all_users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
@@ -440,7 +443,8 @@ class Worker:
             if user_.id_str not in self.client[db_name_]:
                 user_json = user_._json
                 user_json['_id'] = user_.id_str
-                user_json['friends_updated_at'] = 0
+                if is_stream:
+                    user_json['friends_updated_at'] = 0
                 user_json['timeline_updated_at'] = 0
                 self.client[db_name_].create_document(user_json)
                 logger.debug(

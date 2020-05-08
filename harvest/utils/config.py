@@ -65,6 +65,7 @@ class Config:
             self.max_network_err = harvest_json['max_network_err']
             self.friends_max_ids = harvest_json['friends_max_ids']
             self.tasks_generating_window = harvest_json['tasks_generating_window']
+            self.max_save_tries = harvest_json['max_save_tries']
 
 
 def get_external_ip():

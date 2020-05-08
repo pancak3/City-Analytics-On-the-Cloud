@@ -16,12 +16,13 @@
   ],
   "timeline_updating_window": 86400,
   "friends_updating_window": 86400,
-  "tasks_generating_window": 3600,
+  "tasks_generating_window": 18000,
   "task_chunk_size": 20,
   "heartbeat_time": 5,
   "max_heartbeat_lost_time": 300,
   "user_timeline_max_statues": 300,
   "friends_max_ids": 300,
   "network_err_reconnect_time": 5,
-  "max_network_err": 6
+  "max_network_err": 6,
+  "max_save_tries": 5
 }
