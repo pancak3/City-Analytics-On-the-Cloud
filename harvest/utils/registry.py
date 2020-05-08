@@ -67,8 +67,13 @@ class Registry:
         self.worker_data = {}
         self.lock_worker_data = threading.Lock()
 
-        self.tasks_friends = queue.Queue()
-        self.tasks_timeline = queue.Queue()
+        self.friends_tasks = queue.Queue()
+        self.timeline_tasks = queue.Queue()
+
+        self.friends_tasks_updated_time = 0
+        self.timeline_tasks_updated_time = 0
+        self.lock_friends_tasks_updated_time = threading.Lock()
+        self.lock_timeline_tasks_updated_time = threading.Lock()
 
     def get_worker_id(self):
         self.lock_worker_id.acquire()
@@ -102,21 +107,24 @@ class Registry:
         design_doc = Document(self.client['stream_users'], '_design/friends')
         if not design_doc.exists():
             design_doc = DesignDocument(self.client['stream_users'], '_design/friends')
-            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("friends_updated_at")){doc.friends_updated_at=0;}if (timestamp - doc.friends_updated_at > '+str(config.friends_updating_window)+'){emit(doc._id, doc.friends_updated_at);}}'
+            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("friends_updated_at")){doc.friends_updated_at=0;}if (timestamp - doc.friends_updated_at > ' + str(
+                config.friends_updating_window) + '){emit(doc._id, doc.friends_updated_at);}}'
             design_doc.add_view('need_updating', map_fun)
             design_doc.save()
 
         design_doc = Document(self.client['all_users'], '_design/timeline')
         if not design_doc.exists():
             design_doc = DesignDocument(self.client['all_users'], '_design/timeline')
-            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > '+str(config.timeline_updating_window)+'){emit(doc._id, doc.timeline_updated_at);}}'
+            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > ' + str(
+                config.timeline_updating_window) + '){emit(doc._id, doc.timeline_updated_at);}}'
             design_doc.add_view('need_updating', map_fun)
             design_doc.save()
 
         design_doc = Document(self.client['stream_users'], '_design/stream_user_timeline')
         if not design_doc.exists():
             design_doc = DesignDocument(self.client['stream_users'], '_design/stream_user_timeline')
-            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > '+str(config.timeline_updating_window)+'){emit(doc._id, doc.timeline_updated_at);}}'
+            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > ' + str(
+                config.timeline_updating_window) + '){emit(doc._id, doc.timeline_updated_at);}}'
             design_doc.add_view('need_updating', map_fun)
             design_doc.save()
 
@@ -221,7 +229,7 @@ class Registry:
             to_sleep = config.tasks_generating_window
             # logger.info("[*] TaskGenerator waits for {} seconds.".format(to_sleep))
             while to_sleep > 0:
-                if not self.tasks_friends.qsize() and not self.tasks_timeline.qsize():
+                if not self.friends_tasks.qsize() or not self.timeline_tasks.qsize():
                     sleep(5)
                     break
                 else:
@@ -232,9 +240,15 @@ class Registry:
 
     def generate_tasks(self, user_db_name, task_type):
         if task_type == 'friends':
-            self.tasks_friends = queue.Queue()
+            self.friends_tasks = queue.Queue()
+            self.lock_friends_tasks_updated_time.acquire()
+            self.friends_tasks_updated_time = int(time())
+            self.lock_friends_tasks_updated_time.release()
         elif task_type == 'timeline':
-            self.tasks_timeline = queue.Queue()
+            self.timeline_tasks = queue.Queue()
+            self.lock_timeline_tasks_updated_time.acquire()
+            self.timeline_tasks_updated_time = int(time())
+            self.lock_timeline_tasks_updated_time.release()
         start_time = time()
         logger.debug("Start to generate {} tasks.".format(task_type))
         if user_db_name in self.client.all_dbs():
@@ -243,11 +257,11 @@ class Registry:
             for doc in result:
                 count += 1
                 if task_type == 'friends':
-                    self.tasks_friends.put(doc['key'])
+                    self.friends_tasks.put(doc['key'])
                 elif task_type == 'timeline':
-                    self.tasks_timeline.put(doc['key'])
+                    self.timeline_tasks.put(doc['key'])
                 elif task_type == 'stream_user_timeline':
-                    self.tasks_timeline.put(doc['key'])
+                    self.timeline_tasks.put(doc['key'])
             logger.debug("Generated {} {} tasks in {} seconds.".format(count, task_type, time() - start_time))
             return count
         logger.debug("Finished generating {} tasks.".format(task_type))
@@ -272,27 +286,44 @@ class Registry:
                                 "Got ask for task from Worker-{}: {}".format(recv_json['worker_id'], recv_json))
                             if 'friends' in recv_json and 'followers' in recv_json and recv_json['friends'] > 0 and \
                                     recv_json['followers'] > 0:
-                                logger.debug("[-] Has {} friends tasks in queue.".format(self.tasks_friends.qsize()))
-                                try:
-                                    user_id = self.tasks_friends.get(timeout=0.01)
-                                    msg = {'token': config.token, 'task': 'task', 'friends_ids': [user_id]}
-                                    worker_data.msg_queue.put(json.dumps(msg))
-                                    logger.debug(
-                                        "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id,
-                                                                                 json.dumps(msg)))
-                                except queue.Empty:
-                                    pass
+                                logger.debug("[-] Has {} friends tasks in queue.".format(self.friends_tasks.qsize()))
+                                if self.friends_tasks.empty():
+                                    self.lock_friends_tasks_updated_time.acquire()
+                                    if int(time()) - self.friends_tasks_updated_time > 5:
+                                        self.lock_friends_tasks_updated_time.release()
+                                        self.generate_tasks('stream_users', 'friends')
+                                    else:
+                                        self.lock_friends_tasks_updated_time.release()
+                                else:
+                                    try:
+                                        user_id = self.friends_tasks.get(timeout=0.01)
+                                        msg = {'token': config.token, 'task': 'task', 'friends_ids': [user_id]}
+                                        worker_data.msg_queue.put(json.dumps(msg))
+                                        logger.debug(
+                                            "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id,
+                                                                                     json.dumps(msg)))
+                                    except queue.Empty:
+                                        pass
                             if 'timeline' in recv_json and recv_json['timeline'] > 0:
-                                logger.debug("[-] Has {} timeline tasks in queue.".format(self.tasks_timeline.qsize()))
-                                try:
-                                    user_id = self.tasks_timeline.get(timeout=0.01)
-                                    msg = {'token': config.token, 'task': 'task', 'timeline_ids': [user_id]}
-                                    worker_data.msg_queue.put(json.dumps(msg))
-                                    logger.debug(
-                                        "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id,
-                                                                                 json.dumps(msg)))
-                                except queue.Empty:
-                                    pass
+                                logger.debug("[-] Has {} timeline tasks in queue.".format(self.timeline_tasks.qsize()))
+                                if self.timeline_tasks.empty():
+                                    self.lock_timeline_tasks_updated_time.acquire()
+                                    if int(time()) - self.timeline_tasks_updated_time > 5:
+                                        self.lock_timeline_tasks_updated_time.release()
+                                        if not self.generate_tasks('stream_users', 'stream_user_timeline'):
+                                            self.generate_tasks('all_users', 'timeline')
+                                    else:
+                                        self.lock_timeline_tasks_updated_time.release()
+                                else:
+                                    try:
+                                        user_id = self.timeline_tasks.get(timeout=0.01)
+                                        msg = {'token': config.token, 'task': 'task', 'timeline_ids': [user_id]}
+                                        worker_data.msg_queue.put(json.dumps(msg))
+                                        logger.debug(
+                                            "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id,
+                                                                                     json.dumps(msg)))
+                                    except queue.Empty:
+                                        pass
                     data = data[first_pos + 1:]
 
             except socket.error as e:
