@@ -12,6 +12,14 @@
     owner: '{{ ansible_user }}'
     group: '{{ ansible_user }}'
 
+- name: Upload couchdb config of harvesters
+  become: yes
+  template:
+    src: couchdb.json.j2
+    dest: '{{ repository.dest }}/harvest/couchdb.yaml'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+
 # Use docker-compose to up -d master
 - name: Start master
   run_once: true
