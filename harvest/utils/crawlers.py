@@ -47,8 +47,8 @@ class Crawler:
         self.api = tweepy.API(auth)
         self.update_rate_limit_status()
 
-    def stream_filter(self, process_name, q, **kwargs):
-        stream_listener = StreamListener(process_name, q)
+    def stream_filter(self, id_, q, **kwargs):
+        stream_listener = StreamListener(id_, q)
         stream_ = tweepy.Stream(auth=self.api.auth, listener=stream_listener)
         stream_.filter(**kwargs)
 
@@ -166,32 +166,31 @@ class Crawler:
 
 
 class StreamListener(tweepy.StreamListener):
-    def __init__(self, process_name, res_queue, **kw):
-        self.process_name = process_name
+    def __init__(self, id_, res_queue, **kw):
+        self.id = id_
         self.res_queue = res_queue
         self.err_count = 0
         super(StreamListener, self).__init__(**kw)
 
     def on_status(self, status):
         self.res_queue.put(status)
-        logger.debug("[*]  {}, status: {}".format(self.process_name, status._json))
+        logger.debug("[*]  {}, status: {}".format(self.id, status._json))
 
     def on_error(self, status_code):
         self.err_count += 1
         wait_for = self.err_count ** 5
         if wait_for < 120:
             logger.warning(
-                "[*]  Worker-{}, error: {}. Sleep {} seconds".format(self.process_name, status_code, wait_for))
+                "[*]  Worker-{}, error: {}. Sleep {} seconds".format(self.id, status_code, wait_for))
             sleep(wait_for)
-            exit(1)
+            raise BaseException
         else:
             logger.warning(
-                "[*]  Worker-{}, error: {}. {} errs happened, exit.".format(self.process_name, status_code, wait_for,
-                                                                            self.err_count))
-            exit(1)
+                "[*]  Worker-{}, error: {}. {} errs happened, exit.".format(self.id, status_code, self.err_count))
+            raise BaseException
 
     def on_connect(self):
-        logger.debug("[*] Worker-{} stream connected.".format(self.process_name))
+        logger.debug("[*] Worker-{} stream connected.".format(self.id))
 
 
 if __name__ == '__main__':

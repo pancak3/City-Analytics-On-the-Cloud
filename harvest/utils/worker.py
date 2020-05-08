@@ -507,11 +507,12 @@ class Worker:
             kill(getpid(), SIGUSR1)
         else:
             try:
-                threading.Thread(target=self.crawler.stream_filter,
-                                 args=(self.worker_id, self.stream_res_queue,),
-                                 kwargs={'languages': ['en'],
-                                         'locations': bbox_}
-                                 ).start()
+                self.crawler.stream_filter(self.worker_id, self.stream_res_queue, languages='en', locations=bbox_)
+                # threading.Thread(target=self.crawler.stream_filter,
+                #                  args=(self.worker_id, self.stream_res_queue,),
+                #                  kwargs={'languages': ['en'],
+                #                          'locations': bbox_}
+                #                  ).start()
             except Exception:
                 logger.warning("Worker-{} stream err: {}".format(self.worker_id, traceback.format_exc()))
                 sleep(count ** 2)
