@@ -48,10 +48,10 @@
     - vars/configure.yaml
 
   roles:
+    # Shutdown all apps and prune (for debugging)
+    # - role: deploy/down
     # Clone repository
     - role: deploy/clone
-    # Down all apps
-    - role: deploy/down
     # Setup couch
     - role: deploy/couch
     # Setup app
