@@ -1,0 +1,9 @@
+version: '3'
+services:
+  harvest_worker:
+    build: ./
+    command: "worker {{ master_ip }}"
+
+networks:
+  couch_comp90024:
+    external: true

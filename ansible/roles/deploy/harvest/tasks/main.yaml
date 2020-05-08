@@ -1,0 +1,33 @@
+---
+# Deploys harvesters
+- set_fact:
+    master_ip: '{{ groups["COMP90024"][0] }}'
+
+# Upload worker files
+- name: Upload worker compose file
+  become: yes
+  template:
+    src: docker-compose.yaml.j2
+    dest: '{{ repository.dest }}/harvest/docker-compose.yaml'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+
+# Use docker-compose to up -d master
+- name: Start master
+  run_once: true
+  docker_compose:
+    files: ['docker-compose-master.yml']
+    project_src: '{{ repository.dest }}/harvest'
+    build: yes
+    state: present
+    remove_orphans: yes
+    recreate: smart
+
+# Use docker-compose to up -d workers
+- name: Start workers
+  docker_compose:
+    project_src: '{{ repository.dest }}/harvest'
+    build: yes
+    state: present
+    remove_orphans: yes
+    recreate: smart

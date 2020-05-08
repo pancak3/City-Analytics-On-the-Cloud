@@ -54,3 +54,5 @@
     - role: deploy/couch
     # Setup app
     - role: deploy/app
+    # Setup harvesters
+    - role: deploy/harvest

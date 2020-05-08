@@ -8,4 +8,4 @@ WORKDIR /app
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Command
-CMD [ "pypy3", "harvest.py" ]
+ENTRYPOINT [ "pypy3", "harvest.py" ]
