@@ -66,6 +66,7 @@
 # Remove nodes from cluster, execute one at a time
 # https://serverfault.com/questions/736452
 - include: remove_cluster.yml
+  run_once: true
   delegate_to: "{{ current_host }}"
   with_items: '{{ groups["COMP90024"] }}'
   loop_control:
