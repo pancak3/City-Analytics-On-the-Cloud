@@ -103,29 +103,31 @@ class Registry:
             logger.debug('[*] Registry updated in database: {}:{}'.format(self.ip, config.registry_port))
 
     def check_views(self):
+        # Make view result ascending
+        # https://stackoverflow.com/questions/40463629
 
         design_doc = Document(self.client['stream_users'], '_design/friends')
         if not design_doc.exists():
             design_doc = DesignDocument(self.client['stream_users'], '_design/friends')
-            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("friends_updated_at")){doc.friends_updated_at=0;}if (timestamp - doc.friends_updated_at > ' + str(
-                config.friends_updating_window) + '){emit(doc._id, doc.friends_updated_at);}}'
-            design_doc.add_view('need_updating', map_fun)
+            map_func = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("friends_updated_at")){doc.friends_updated_at=0;}if (timestamp - doc.friends_updated_at > ' + str(
+                config.friends_updating_window) + '){emit([doc.friends_updated_at, doc._id]);}}'
+            design_doc.add_view('need_updating', map_func)
             design_doc.save()
 
         design_doc = Document(self.client['all_users'], '_design/timeline')
         if not design_doc.exists():
             design_doc = DesignDocument(self.client['all_users'], '_design/timeline')
-            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > ' + str(
-                config.timeline_updating_window) + '){emit(doc._id, doc.timeline_updated_at);}}'
-            design_doc.add_view('need_updating', map_fun)
+            map_func = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > ' + str(
+                config.timeline_updating_window) + '){emit([doc.timeline_updated_at, doc._id]);}}'
+            design_doc.add_view('need_updating', map_func)
             design_doc.save()
 
         design_doc = Document(self.client['stream_users'], '_design/stream_user_timeline')
         if not design_doc.exists():
             design_doc = DesignDocument(self.client['stream_users'], '_design/stream_user_timeline')
-            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > ' + str(
-                config.timeline_updating_window) + '){emit(doc._id, doc.timeline_updated_at);}}'
-            design_doc.add_view('need_updating', map_fun)
+            map_func = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > ' + str(
+                config.timeline_updating_window) + '){emit([doc.timeline_updated_at, doc._id]);}}'
+            design_doc.add_view('need_updating', map_func)
             design_doc.save()
 
     def check_db(self):
@@ -257,11 +259,11 @@ class Registry:
             for doc in result:
                 count += 1
                 if task_type == 'friends':
-                    self.friends_tasks.put(doc['key'])
+                    self.friends_tasks.put(doc['id'])
                 elif task_type == 'timeline':
-                    self.timeline_tasks.put(doc['key'])
+                    self.timeline_tasks.put(doc['id'])
                 elif task_type == 'stream_user_timeline':
-                    self.timeline_tasks.put(doc['key'])
+                    self.timeline_tasks.put(doc['id'])
             logger.debug("Generated {} {} tasks in {:.2} seconds.".format(count, task_type, time() - start_time))
             return count
         logger.debug("Finished generating {} tasks.".format(task_type))
