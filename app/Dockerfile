@@ -9,7 +9,7 @@ FROM node:14-alpine
 
 # Copy files
 COPY ./api /app
-COPY --from=client /build /app/client
+COPY --from=client /build/build /app/client
 WORKDIR /app
 
 # Install deps
