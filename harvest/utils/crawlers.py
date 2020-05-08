@@ -15,7 +15,7 @@ from utils.config import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('Crawler')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 class APIStatus:
@@ -50,6 +50,8 @@ class Crawler:
     def stream_filter(self, id_, q, **kwargs):
         stream_listener = StreamListener(id_, q)
         stream_ = tweepy.Stream(auth=self.api.auth, listener=stream_listener)
+        logger.debug("[*] Worker-{} stream filter locations: {}".format(id_, kwargs.get('locations')))
+        # blocking method
         stream_.filter(**kwargs)
 
     def update_rate_limit_status(self):
@@ -190,7 +192,7 @@ class StreamListener(tweepy.StreamListener):
             raise BaseException
 
     def on_connect(self):
-        logger.debug("[*] Worker-{} stream connected.".format(self.id))
+        logger.debug("[-] Worker-{} is listening stream.".format(self.id))
 
 
 if __name__ == '__main__':
