@@ -3,6 +3,10 @@ import socket
 import threading
 import json
 import queue
+import hashlib
+import traceback
+import os
+import psutil
 
 from os import kill, getpid
 from signal import SIGUSR1
@@ -38,6 +42,7 @@ class WorkerData:
 
 class Registry:
     def __init__(self, ip):
+        self.pid = None
         self.ip = ip
         self.couch = CouchDB()
         self.client = self.couch.client
@@ -74,7 +79,8 @@ class Registry:
         return id_tmp
 
     def update_db(self):
-        if 'control' not in self.client.all_dbs():
+        # if 'control' not in self.client.all_dbs():
+        if not self.client['control'].exists():
             self.client.create_database('control')
 
             self.client['control'].create_document({
@@ -109,14 +115,13 @@ class Registry:
             design_doc.save()
 
     def check_db(self):
-        if 'statues' not in self.client.all_dbs():
-            self.client.create_database('statues')
-            logger.debug("[*] Statues table not in database; created.")
-        if 'stream_users' not in self.client.all_dbs():
+        if not self.client['statuses'].exists():
+            self.client.create_database('statuses')
+            logger.debug("[*] Statuses table not in database; created.")
+        if not self.client['stream_users'].exists():
             self.client.create_database('stream_users')
             logger.debug("[*] Stream_users table not in database; created.")
-
-        if 'all_users' not in self.client.all_dbs():
+        if not self.client['all_users'].exists():
             self.client.create_database('all_users')
             logger.debug("[*] All_users table not in database; created.")
 
@@ -132,7 +137,7 @@ class Registry:
                 self.conn_queue.put((conn, addr))
         except OSError as e:
             logger.error('[!] Cannot bind to 0.0.0.0:{}.'.format(config.registry_port))
-            kill(getpid(), SIGUSR1)
+            kill(self.pid, SIGUSR1)
 
     def conn_handler(self):
         logger.info("[*] ConnectionHandler started.")
@@ -210,11 +215,18 @@ class Registry:
             # to_sleep = 3600 * 2
             logger.info("[*] TaskGenerator waits for {} seconds.".format(to_sleep))
             sleep(to_sleep)
+            # To avoid session expired.
+            self.couch.connect()
 
     def generate_tasks(self, user_db_name, task_type):
+        if task_type == 'friends':
+            self.tasks_friends = queue.Queue()
+        elif task_type == 'timeline':
+            self.tasks_timeline = queue.Queue()
         start_time = time()
         logger.debug("Start to generate {} tasks.".format(task_type))
-        if user_db_name in self.client.all_dbs():
+        # if user_db_name in self.client.all_dbs():
+        if self.client[user_db_name].exists():
             count = 0
             result = self.client[user_db_name].get_view_result('_design/' + task_type, 'need_updating')
             for doc in result:
@@ -243,27 +255,29 @@ class Registry:
                         if recv_json['action'] == 'ask_for_task':
                             logger.debug(
                                 "Got ask for task from Worker-{}: {}".format(recv_json['worker_id'], recv_json))
-                            msg = {'token': config.token, 'task': 'task',
-                                   'friends_ids': [], 'timeline_ids': []}
-                            has_task = False
-                            if recv_json['friends'] > 0 and recv_json['followers'] > 0:
+                            if 'friends' in recv_json and 'followers' in recv_json and recv_json['friends'] > 0 and \
+                                    recv_json['followers'] > 0:
+                                logger.debug("[-] Has {} friends tasks in queue.".format(self.tasks_friends.qsize()))
                                 try:
                                     user_id = self.tasks_friends.get(timeout=0.01)
-                                    msg['friends_ids'].append(user_id)
-                                    has_task = True
-                                except TimeoutError:
+                                    msg = {'token': config.token, 'task': 'task', 'friends_ids': [user_id]}
+                                    worker_data.msg_queue.put(json.dumps(msg))
+                                    logger.debug(
+                                        "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id,
+                                                                                 json.dumps(msg)))
+                                except queue.Empty:
                                     pass
-                            if recv_json['timeline'] > 0:
+                            if 'timeline' in recv_json and recv_json['timeline'] > 0:
+                                logger.debug("[-] Has {} timeline tasks in queue.".format(self.tasks_timeline.qsize()))
                                 try:
                                     user_id = self.tasks_timeline.get(timeout=0.01)
-                                    msg['timeline_ids'].append(user_id)
-                                    has_task = True
-                                except TimeoutError:
+                                    msg = {'token': config.token, 'task': 'task', 'timeline_ids': [user_id]}
+                                    worker_data.msg_queue.put(json.dumps(msg))
+                                    logger.debug(
+                                        "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id,
+                                                                                 json.dumps(msg)))
+                                except queue.Empty:
                                     pass
-                            if has_task:
-                                worker_data.msg_queue.put(json.dumps(msg))
-                                logger.debug(
-                                    "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, json.dumps(msg)))
                     data = data[first_pos + 1:]
 
             except socket.error as e:
@@ -282,25 +296,6 @@ class Registry:
                 break
             self.lock_worker_id.release()
             sleep(0.01)
-
-    def remove_worker(self, worker_data, e):
-        self.lock_worker_data.acquire()
-        del self.worker_data[worker_data.worker_id]
-        self.lock_worker_data.release()
-
-        self.lock_msg_queue_dict.acquire()
-        del self.msg_queue_dict[worker_data.worker_id]
-        self.lock_msg_queue_dict.release()
-
-        self.lock_api_key_worker.acquire()
-        del self.api_key_worker[worker_data.api_key_hash]
-        self.lock_api_key_worker.release()
-
-        self.lock_worker_id.acquire()
-        self.active_workers.remove(worker_data.worker_id)
-        self.lock_worker_id.release()
-
-        logger.warning("[-] Worker-{} exit: {}".format(worker_data.worker_id, e))
 
     def sender(self, worker_data):
         logger.debug('[-] Worker-{} connected.'.format(worker_data.worker_id))
@@ -330,10 +325,84 @@ class Registry:
         except socket.error as e:
             self.remove_worker(worker_data, e)
 
+    def remove_worker(self, worker_data, e):
+        self.lock_worker_data.acquire()
+        del self.worker_data[worker_data.worker_id]
+        self.lock_worker_data.release()
+
+        self.lock_msg_queue_dict.acquire()
+        del self.msg_queue_dict[worker_data.worker_id]
+        self.lock_msg_queue_dict.release()
+
+        self.lock_api_key_worker.acquire()
+        del self.api_key_worker[worker_data.api_key_hash]
+        self.lock_api_key_worker.release()
+
+        self.lock_worker_id.acquire()
+        self.active_workers.remove(worker_data.worker_id)
+        self.lock_worker_id.release()
+
+        logger.warning("[-] Worker-{} exit: {}".format(worker_data.worker_id, e))
+
+    def update_available_api_keys_num(self):
+        while True:
+            with open("twitter.json") as t:
+                t_json = json.loads(t.read())
+                api_keys_num = len(t_json)
+                self.lock_worker_id.acquire()
+                occupied_api_keys_num = len(self.active_workers)
+                self.lock_worker_id.release()
+                try:
+                    if 'available_api_keys_num' not in self.client['control']:
+                        self.client['control'].create_document({
+                            '_id': 'available_api_keys_num',
+                            'value': api_keys_num - occupied_api_keys_num
+                        })
+                    else:
+                        doc = self.client['control']['available_api_keys_num']
+                        doc['value'] = api_keys_num - occupied_api_keys_num
+                        doc.save()
+                except Exception:
+                    logger.error('[!] CouchDB err: \n{}'.format(traceback.format_exc()))
+                    kill(self.pid, SIGUSR1)
+            sleep(5)
+
+    @staticmethod
+    def check_pid():
+        # https://stackoverflow.com/questions/568271
+        if os.path.exists('registry.pid'):
+            f = open('registry.pid')
+            pid = int(f.read())
+            f.close()
+
+            if pid and psutil.pid_exists(pid):
+                logger.info('[-] There is running registry-PID-.'.format(pid))
+                user_input = input('Do you want to terminate it? (y/n)')
+                if user_input in {'y', 'Y', 'yes'}:
+                    kill(pid, SIGUSR1)
+                else:
+                    logger.info('[-] Let registry-PID-{} run.'.format(pid))
+            else:
+                logger.info('[-] No running registry.')
+
+    def save_pid(self):
+        # Record PID for daemon
+        self.pid = getpid()
+        try:
+            f = open('registry.pid', 'w+')
+            f.write(str(self.pid))
+            f.close()
+            logger.info('[-] Starting Registry PID: {}'.format(self.pid))
+        except Exception:
+            logger.error('[!] Exit! \n{}'.format(traceback.format_exc()))
+
     def run(self):
+        self.check_pid()
+        self.save_pid()
         self.update_db()
         self.check_db()
         self.check_views()
         threading.Thread(target=self.tcp_server).start()
         threading.Thread(target=self.conn_handler).start()
         threading.Thread(target=self.tasks_generator).start()
+        threading.Thread(target=self.update_available_api_keys_num).start()

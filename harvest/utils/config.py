@@ -61,6 +61,9 @@ class Config:
             self.heartbeat_time = harvest_json['heartbeat_time']
             self.max_heartbeat_lost_time = harvest_json['max_heartbeat_lost_time']
             self.user_timeline_max_statues = harvest_json['user_timeline_max_statues']
+            self.network_err_reconnect_time = harvest_json['network_err_reconnect_time']
+            self.max_network_err = harvest_json['max_network_err']
+            self.friends_max_ids = harvest_json['friends_max_ids']
 
 
 def get_external_ip():

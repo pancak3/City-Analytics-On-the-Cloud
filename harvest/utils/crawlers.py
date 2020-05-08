@@ -5,6 +5,7 @@
 import tweepy
 import logging
 import hashlib
+import traceback
 
 from math import ceil
 from threading import Lock
@@ -36,84 +37,100 @@ class Crawler:
 
         self.api = None
         self.rate_limits = None
-        self.locks = defaultdict(Lock)
+        self.rate_limits_updated_at = 0
+        self.lock_rate_limits = Lock()
 
     def init(self, hash_):
         (api_key, api_secret_key, access_token, access_token_secret) = self.api_keys[hash_]
         auth = tweepy.OAuthHandler(api_key, api_secret_key)
         auth.set_access_token(access_token, access_token_secret)
         self.api = tweepy.API(auth)
-        self.rate_limits = self.get_rate_limit_status()
+        self.update_rate_limit_status()
 
     def stream_filter(self, process_name, q, **kwargs):
         stream_listener = StreamListener(process_name, q)
         stream_ = tweepy.Stream(auth=self.api.auth, listener=stream_listener)
         stream_.filter(**kwargs)
 
-    def get_rate_limit_status(self):
-        sleep(1)
+    def update_rate_limit_status(self):
+        self.lock_rate_limits.acquire()
+        now_time = int(time())
+        time_diff = now_time - self.rate_limits_updated_at
+        if time_diff <= 2:
+            sleep(time_diff)
+        self.rate_limits_updated_at = now_time
+        self.lock_rate_limits.release()
         try:
-            return self.api.rate_limit_status()
-        except tweepy.RateLimitError:
+            self.rate_limits = self.api.rate_limit_status()
+            logger.debug("[-] Updated rate limit status.")
+        except tweepy.TweepError:
             if self.rate_limits is None:
                 logger.warning("Get rate limit occurs rate limit error, sleep 15 minutes and try again.")
                 sleep(15 * 60)
             else:
                 reset = self.rate_limits['resources']['application']['/application/rate_limit_status']['reset']
                 now_timestamp = int(time())
-                to_sleep = ceil((now_timestamp - reset) / 900) * 900 - now_timestamp
+                to_sleep = ceil((now_timestamp - reset) / 900) * 900
+                if to_sleep <= 0:
+                    to_sleep = 15 * 60
                 logger.warning(
                     "Get rate limit occurs rate limit error, sleep {} seconds and try again.".format(to_sleep))
                 sleep(to_sleep)
-            return self.get_rate_limit_status()
-        except tweepy.error.TweepError:
-            logger.warning("Get rate limit occurs TweepError, sleep 15 minutes and try again.")
-            sleep(15 * 60)
+            self.update_rate_limit_status()
 
     def limit_handled(self, cursor, cursor_type):
         # http://docs.tweepy.org/en/v3.8.0/code_snippet.html?highlight=rate%20limits#handling-the-rate-limit-using-cursors
         while True:
             try:
                 yield cursor.next()
-            except tweepy.RateLimitError:
+            except tweepy.TweepError:
+                # Inherits from TweepError, so except TweepError will catch a RateLimitError too.
                 if self.rate_limits is None:
                     logger.warning("Handle cursor occurs rate limit error, sleep 15 minutes and try again.")
                     sleep(15 * 60)
                 else:
                     # Need to update reset time frequently, otherwise this part won't work
                     # Worker updates it.
+                    self.update_rate_limit_status()
+
                     if cursor_type == 'friends':
-                        to_sleep = int(time()) - \
-                                   self.rate_limits['resources']['friendships']['/friendships/lookup']['reset']
+                        remaining = self.rate_limits['resources']['friends']['/friends/ids']['remaining']
+                        to_sleep = self.rate_limits['resources']['friends']['/friends/ids']['reset'] - int(time())
                     elif cursor_type == 'followers':
-                        to_sleep = int(time()) - \
-                                   self.rate_limits['resources']['followers']['/followers/ids']['reset']
+                        remaining = self.rate_limits['resources']['followers']['/followers/ids']['remaining']
+                        to_sleep = self.rate_limits['resources']['followers']['/followers/ids']['reset'] - int(time())
                     elif cursor_type == 'timeline':
-                        to_sleep = int(time()) - \
-                                   self.rate_limits['resources']['statuses']['/statuses/user_timeline']['reset']
+                        remaining = self.rate_limits['resources']['statuses']['/statuses/user_timeline']['remaining']
+                        to_sleep = self.rate_limits['resources']['statuses']['/statuses/user_timeline']['reset'] - int(
+                            time())
                     else:
                         to_sleep = 15 * 60
+                        logger.warning(
+                            "Handle {} cursor occurs rate limit error, sleep {} seconds and try again.".format(
+                                cursor_type, abs(to_sleep)))
+                        break
+                    if remaining:
+                        to_sleep = 10
                     logger.warning(
-                        "Handle {} cursor occurs rate limit error, sleep {} seconds and try again.".format(cursor_type,
-                                                                                                           to_sleep))
-                    sleep(to_sleep)
-            except tweepy.error.TweepError as e:
-                # http://docs.tweepy.org/en/latest/api.html#tweepy-error-exceptions
-                logger.error("[!] Tweep Error in limit handler: {}".format(e))
-                break
+                        "Handle {} cursor occurs rate limit error, sleep {} seconds and try again.".format(
+                            cursor_type, abs(to_sleep)))
+                    sleep(abs(to_sleep))
+                    break
             except StopIteration:
                 # https://stackoverflow.com/questions/51700960
                 break
 
     def get_followers_ids(self, **kwargs):
         follower_ids_set = set()
-        for follower_id in self.limit_handled(tweepy.Cursor(self.api.followers_ids, **kwargs).items(), 'followers'):
+        for follower_id in self.limit_handled(
+                tweepy.Cursor(self.api.followers_ids, **kwargs).items(config.friends_max_ids), 'followers'):
             follower_ids_set.add(follower_id)
         return follower_ids_set
 
     def get_friends_ids(self, **kwargs):
         friends_ids_set = set()
-        for friend_id in self.limit_handled(tweepy.Cursor(self.api.friends_ids, **kwargs).items(), 'friends'):
+        for friend_id in self.limit_handled(tweepy.Cursor(self.api.friends_ids, **kwargs).items(config.friends_max_ids),
+                                            'friends'):
             friends_ids_set.add(friend_id)
         return friends_ids_set
 
@@ -134,9 +151,10 @@ class Crawler:
                 users_res = self.api.lookup_users(user_ids=users_ids[i:i + 100])
                 users += users_res
                 sleep(1)  # 900/900
-            except tweepy.RateLimitError:
-                logger.warning("Lookup users occurs rate limit error, sleep 15 minutes and try again.")
-                sleep(900)
+            except Exception:
+                logger.warning("Lookup users occurs exceptions, sleep 10 seconds and try again. \n{}".format(
+                    traceback.format_exc()))
+                sleep(10)
                 i -= 1
         return users
 

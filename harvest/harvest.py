@@ -13,21 +13,21 @@ def reg(ip):
     registry.run()
 
 
-def worker(ip):
-    worker = Worker(ip)
+def worker():
+    worker = Worker()
     worker.run()
 
 
 def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument("role", help="specify the role in [reg,]")
-    parser.add_argument("ip", help="IP address that used to communicate with other roles.")
+    parser.add_argument("ip", nargs='?', help="IP address that Registry used to communicate with workers.")
     args = parser.parse_args()
-    if args.role and args.ip:
-        if args.role == 'reg':
+    if args.role:
+        if args.role == 'reg' and args.ip:
             reg(args.ip)
         elif args.role == 'worker':
-            worker(args.ip)
+            worker()
 
 
 if __name__ == '__main__':
