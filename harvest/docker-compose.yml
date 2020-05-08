@@ -5,6 +5,7 @@ services:
     command: "worker"
     networks:
         - couch_comp90024
+    restart: on-failure
 networks:
   couch_comp90024:
     external: true

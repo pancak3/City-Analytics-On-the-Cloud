@@ -10,6 +10,7 @@ services:
         - DB_PORT={{ couch.port }}
     networks:
         - couch_comp90024
+    restart: on-failure
 
 # Network setup, adapted from:
 # https://stackoverflow.com/questions/38088279
