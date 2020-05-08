@@ -262,7 +262,7 @@ class Registry:
                     self.timeline_tasks.put(doc['key'])
                 elif task_type == 'stream_user_timeline':
                     self.timeline_tasks.put(doc['key'])
-            logger.debug("Generated {} {} tasks in {} seconds.".format(count, task_type, time() - start_time))
+            logger.debug("Generated {} {} tasks in {:.2} seconds.".format(count, task_type, time() - start_time))
             return count
         logger.debug("Finished generating {} tasks.".format(task_type))
         return 0
@@ -402,7 +402,9 @@ class Registry:
                     if 'available_api_keys_num' not in self.client['control']:
                         self.client['control'].create_document({
                             '_id': 'available_api_keys_num',
-                            'value': api_keys_num - occupied_api_keys_num
+                            'available': api_keys_num - occupied_api_keys_num,
+                            'occupied': occupied_api_keys_num,
+                            'total': api_keys_num
                         })
                     else:
                         doc = self.client['control']['available_api_keys_num']
