@@ -20,22 +20,21 @@
     owner: '{{ ansible_user }}'
     group: '{{ ansible_user }}'
 
-# Use docker-compose to up -d master
-- name: Start master
+- name: Start master and worker on head node
   run_once: true
   docker_compose:
-    files: ['docker-compose-master.yml']
+    files: ['docker-compose-master.yml', 'docker-compose.yml']
     project_src: '{{ repository.dest }}/harvest'
     build: yes
     state: present
     remove_orphans: yes
     recreate: smart
 
-# Use docker-compose to up -d workers
-- name: Start workers
+- name: Start workers on other nodes
   docker_compose:
     project_src: '{{ repository.dest }}/harvest'
     build: yes
     state: present
     remove_orphans: yes
     recreate: smart
+  when: 'groups["COMP90024"][0] != inventory_hostname'
