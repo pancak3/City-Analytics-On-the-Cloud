@@ -40,6 +40,15 @@ class Crawler:
         self.rate_limits_updated_at = 0
         self.lock_rate_limits = Lock()
 
+        self.access_user_timeline = 0
+        self.lock_user_timeline = Lock()
+        self.access_friends = 0
+        self.lock_friends = Lock()
+        self.access_followers = 0
+        self.lock_followers = Lock()
+        self.access_lookup_users = 0
+        self.lock_lookup_users = Lock()
+
     def init(self, hash_):
         (api_key, api_secret_key, access_token, access_token_secret) = self.api_keys[hash_]
         auth = tweepy.OAuthHandler(api_key, api_secret_key)
@@ -58,10 +67,9 @@ class Crawler:
         self.lock_rate_limits.acquire()
         now_time = int(time())
         time_diff = now_time - self.rate_limits_updated_at
-        if time_diff <= 2:
+        if time_diff <= 1:
             sleep(time_diff)
         self.rate_limits_updated_at = now_time
-        self.lock_rate_limits.release()
         try:
             self.rate_limits = self.api.rate_limit_status()
             logger.debug("[-] Updated rate limit status.")
@@ -79,6 +87,7 @@ class Crawler:
                     "Get rate limit occurs rate limit error, sleep {} seconds and try again.".format(to_sleep))
                 sleep(to_sleep)
             self.update_rate_limit_status()
+        self.lock_rate_limits.release()
 
     def limit_handled(self, cursor, cursor_type):
         # http://docs.tweepy.org/en/v3.8.0/code_snippet.html?highlight=rate%20limits#handling-the-rate-limit-using-cursors
@@ -116,34 +125,83 @@ class Crawler:
                 # https://stackoverflow.com/questions/51700960
                 break
 
-    def get_followers_ids(self, **kwargs):
+    def get_followers_ids(self, lock, out, **kwargs):
+        # lock this func in case of occurring rate limit err
+        now_time = int(time())
+        self.lock_followers.acquire()
+        time_diff = now_time - self.access_followers
+        if time_diff <= 2:
+            sleep(time_diff)
+        self.access_followers = now_time
+
         # up to a maximum of 5,000 per distinct request
         # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-followers-ids
+
+        # user wrapper to use variable reference
+        # https://stackoverflow.com/questions/986006
+        lock.acquire()
         follower_ids_set = set()
         for follower_id in self.limit_handled(
                 tweepy.Cursor(self.api.followers_ids, **kwargs).items(5000), 'followers'):
             follower_ids_set.add(follower_id)
-        return follower_ids_set
+        out[0] = follower_ids_set
+        lock.release()
+        self.lock_followers.release()
 
-    def get_friends_ids(self, **kwargs):
+    def get_friends_ids(self, lock, out, **kwargs):
+        # lock this func in case of occurring rate limit err
+        now_time = int(time())
+        self.lock_friends.acquire()
+        time_diff = now_time - self.access_friends
+        if time_diff <= 2:
+            sleep(time_diff)
+        self.access_friends = now_time
+
         # up to a maximum of 5,000 per distinct request
         # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-friends-ids
-        friends_ids_set = set()
-        for friend_id in self.limit_handled(tweepy.Cursor(self.api.friends_ids, **kwargs).items(5000),
-                                            'friends'):
-            friends_ids_set.add(friend_id)
-        return friends_ids_set
+
+        # user wrapper to use variable reference
+        # https://stackoverflow.com/questions/986006
+        lock.acquire()
+        # friends_ids_set = set()
+        # for friend_id in self.limit_handled(tweepy.Cursor(self.api.friends_ids, **kwargs).items(5000),
+        #                                     'friends'):
+        #     friends_ids_set.add(friend_id)
+        friends_ids = self.api.friends_ids(count=5000, **kwargs)
+        out[0] = set(friends_ids)
+        lock.release()
+        self.lock_friends.release()
 
     def get_user_timeline(self, **kwargs):
+        # lock this func in case of occurring rate limit err
+        now_time = int(time())
+        self.lock_user_timeline.acquire()
+        time_diff = now_time - self.access_user_timeline
+        if time_diff <= 2:
+            sleep(time_diff)
+        self.access_user_timeline = now_time
+
         # up to a maximum of 200 per distinct request
         # https://developer.twitter.com/en/docs/tweets/timelines/api-reference/get-statuses-user_timeline
-        statuses = []
-        for status in self.limit_handled(
-                tweepy.Cursor(self.api.user_timeline, **kwargs).items(config.user_timeline_max_statues), 'timeline'):
-            statuses.append(status)
+        # statuses = []
+        # for status in self.limit_handled(
+        #         tweepy.Cursor(self.api.user_timeline, **kwargs).items(config.user_timeline_max_statues), 'timeline'):
+        #     statuses.append(status)
+        # kwargs.get('count', config.user_timeline_max_statues)
+        statuses = self.api.user_timeline(count=config.user_timeline_max_statues, **kwargs)
+        self.lock_user_timeline.release()
         return statuses
 
-    def look_up_users(self, users_ids):
+    def lookup_users(self, users_ids):
+
+        # lock this func in case of occurring rate limit err
+        now_time = int(time())
+        self.lock_lookup_users.acquire()
+        time_diff = now_time - self.access_lookup_users
+        if time_diff <= 2:
+            sleep(time_diff)
+        self.access_lookup_users = now_time
+
         # Note, this method is not in tweepy official doc but in its source file
         # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-users-lookup
         # Requests / 15-min window (user auth)	900
@@ -158,6 +216,7 @@ class Crawler:
                     traceback.format_exc()))
                 sleep(10)
                 i -= 1
+        self.lock_lookup_users.release()
         return users
 
     @staticmethod
@@ -205,6 +264,6 @@ if __name__ == '__main__':
     # crawler.get_followers_ids(user_id=25042316)
     # crawler.get_friends_ids(user_id=25042316)
     # crawler.get_user_timeline(user_id=25042316)
-    crawler.look_up_users([25042316])
+    crawler.lookup_users([25042316])
     # users = crawler.get_followers(screen_name='ronaldolatabo', cursor=-1)
     print()

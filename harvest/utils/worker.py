@@ -91,6 +91,11 @@ class Worker:
         self.running_timeline = RunningTask()
         self.running_friends = RunningTask()
 
+        self.users_queue = queue.Queue()
+        self.statuses_queue = queue.Queue()
+        self.lock_users_recorder = threading.Lock()
+        self.lock_statuses_recorder = threading.Lock()
+
     def get_registry(self):
         registry = self.client['control']['registry']
         return registry['ip'], registry['port'], registry['token']
@@ -184,6 +189,11 @@ class Worker:
                 self.lock_active_time.release()
                 self.lock_friends.acquire()
                 self.lock_timeline.acquire()
+                self.lock_users_recorder.acquire()
+                self.lock_statuses_recorder.acquire()
+
+                self.lock_users_recorder.release()
+                self.lock_statuses_recorder.release()
                 self.lock_timeline.release()
                 self.lock_friends.release()
                 self.lock_active_time.acquire()
@@ -322,19 +332,12 @@ class Worker:
                 sleep(0.01)
 
     def timeline(self, user_ids):
-        now_time = int(time())
-        time_diff = now_time - self.access_timeline
-        if time_diff <= 5:
-            sleep(time_diff)
-        self.access_timeline = now_time
-
-        self.lock_timeline.acquire()
         self.running_timeline.inc()
         for timeline_user_id in user_ids:
             logger.debug("[-] Worker-{} getting user-{}'s timeline.".format(self.worker_id, timeline_user_id))
             statuses = self.crawler.get_user_timeline(id=timeline_user_id)
             for status in statuses:
-                self.save_status(status_=status, caller='Timeline')
+                self.statuses_queue.put((status, False, 'Timeline'))
 
             # Get stream user's timeline first.
             if timeline_user_id in self.client['stream_users']:
@@ -345,67 +348,85 @@ class Worker:
 
             logger.debug("[-] Worker-{} finished user-{}'s timeline task.".format(self.worker_id, timeline_user_id))
         self.running_timeline.dec()
-        self.lock_timeline.release()
 
         self.lock_rate_limit.acquire()
         self.crawler.update_rate_limit_status()
         self.lock_rate_limit.release()
 
     def friends(self, user_ids):
-        now_time = int(time())
-        time_diff = now_time - self.access_friends
-        if time_diff <= 5:
-            sleep(time_diff)
-        self.access_friends = now_time
-
-        self.lock_friends.acquire()
         self.running_friends.inc()
         for stream_user_id in user_ids:
             logger.debug("[-] Worker-{} getting user-{}'s friends.".format(self.worker_id, stream_user_id))
-            follower_ids_set = self.crawler.get_followers_ids(id=stream_user_id)
-            friend_ids_set = self.crawler.get_friends_ids(id=stream_user_id)
+
+            lock_follower = threading.Lock()
+            lock_friend = threading.Lock()
+
+            # user wrapper to use variable reference
+            # https://stackoverflow.com/questions/986006
+            follower_ids_set = [set()]
+            friend_ids_set = [set()]
+            threading.Thread(target=self.crawler.get_followers_ids,
+                             args=(lock_follower, follower_ids_set,),
+                             kwargs={'id': stream_user_id}).start()
+            threading.Thread(target=self.crawler.get_friends_ids,
+                             args=(lock_friend, friend_ids_set,),
+                             kwargs={'id': stream_user_id}).start()
+            # self.crawler.get_followers_ids(lock_follower, follower_ids_set, id=stream_user_id)
+            # self.crawler.get_friends_ids(lock_friend, friend_ids_set, id=stream_user_id)
+
             # use config.friends_max_ids to limit users growing
-            mutual_follow = list(follower_ids_set.intersection(friend_ids_set))[:config.friends_max_ids]
-            users_res = self.crawler.look_up_users(mutual_follow)
+            lock_follower.acquire()
+            lock_friend.acquire()
+            mutual_follow = list(follower_ids_set[0].intersection(friend_ids_set[0]))[:config.friends_max_ids]
+            lock_follower.release()
+            lock_friend.release()
+            users_res = self.crawler.lookup_users(mutual_follow)
             for user in users_res:
-                self.save_user(user_=user, db_name_='all_users', caller='Friends')
+                self.users_queue.put((user, 'all_users', 'Friends'))
             self.save_doc(self.client['stream_users'][stream_user_id], 'friends_updated_at')
             self.client['all_users'][stream_user_id]['follower_ids'] = list(follower_ids_set)
             self.client['all_users'][stream_user_id]['friend_ids'] = list(friend_ids_set)
             self.client['all_users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
             self.save_doc(self.client['all_users'][stream_user_id])
-
             logger.debug("[-] Worker-{} finished user-{}'s friends task.".format(self.worker_id, stream_user_id))
-            sleep(1)
         self.running_friends.dec()
-        self.lock_friends.release()
 
         self.lock_rate_limit.acquire()
         self.crawler.update_rate_limit_status()
         self.lock_rate_limit.release()
 
-    def task_handler(self):
+    def task_requester_and_handler(self):
         last_time_sent = int(time())
+
         while True:
             if self.task_queue.empty():
                 if int(time()) - last_time_sent > 5:
-                    if self.running_timeline.get_count() < 1:
-                        rate_limit = self.refresh_local_rate_limit()
-                        timeline_remaining = rate_limit['timeline']
 
-                        if timeline_remaining > 0:
+                    if self.running_timeline.get_count() <= 1:
+                        rate_limit = self.refresh_local_rate_limit()
+                        timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
+                        for i in range(config.max_running_timeline):
+                            timeline_remaining -= 1
+                            if timeline_remaining < 0:
+                                break
                             msg = {'timeline': timeline_remaining,
                                    'worker_id': self.worker_id,
                                    'token': config.token,
                                    'action': 'ask_for_task'}
                             self.msg_to_send.put(json.dumps(msg))
-                            last_time_sent = int(time())
+
+                        last_time_sent = int(time())
+
                     if self.running_friends.get_count() < 1:
                         rate_limit = self.refresh_local_rate_limit()
-                        friends_remaining = rate_limit['friends']
-                        followers_remaining = rate_limit['followers']
-
-                        if friends_remaining and followers_remaining > 0:
+                        running_num = self.running_friends.get_count()
+                        friends_remaining = rate_limit['friends'] - running_num
+                        followers_remaining = rate_limit['followers'] - running_num
+                        for i in range(config.max_running_friends):
+                            followers_remaining -= 1
+                            friends_remaining -= 1
+                            if friends_remaining < 0 or followers_remaining < 0:
+                                break
                             msg = {'friends': friends_remaining,
                                    'followers': followers_remaining,
                                    'worker_id': self.worker_id,
@@ -431,7 +452,7 @@ class Worker:
         while True:
             if not self.stream_res_queue.empty():
                 status = self.stream_res_queue.get()
-                self.save_status(status_=status, is_stream=True, caller='Stream')
+                self.statuses_queue.put((status, True, 'Stream'))
             else:
                 sleep(0.01)
 
@@ -447,18 +468,19 @@ class Worker:
                     user_json['friends_updated_at'] = 0
                 user_json['timeline_updated_at'] = 0
                 self.client[db_name_].create_document(user_json)
-                logger.debug(
-                    "[*] Worker-{}-{} saved user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
+                sleep(0.001)
+                # logger.debug(
+                #     "[*] Worker-{}-{} saved user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
             else:
-                logger.debug(
-                    "[*] Worker-{}-{} ignored user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
+                # logger.debug(
+                #     "[*] Worker-{}-{} ignored user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
+                pass
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
             # https://stackoverflow.com/questions/4990718/
             logger.warning("[!] Save user err: {}".format(traceback.format_exc()))
             sleep(config.network_err_reconnect_time)
             self.save_user(user_=user_, db_name_=db_name_, err_count=err_count + 1, caller=caller)
-        sleep(0.01)
 
     def save_status(self, status_, is_stream=False, err_count=0, caller=None):
         if err_count > config.max_network_err:
@@ -474,13 +496,14 @@ class Worker:
                 status_json = status_._json
                 status_json['_id'] = status_.id_str
                 self.client['statuses'].create_document(status_json)
-                sleep(0.01)
-                logger.debug("[*] Worker-{}-{} saved status: {}".format(self.worker_id, caller, status_.id_str))
+                sleep(0.001)
+                # logger.debug("[*] Worker-{}-{} saved status: {}".format(self.worker_id, caller, status_.id_str))
             else:
-                logger.debug("[*] Worker-{}-{} ignored status: {}".format(self.worker_id, caller, status_.id_str))
+                # logger.debug("[*] Worker-{}-{} ignored status: {}".format(self.worker_id, caller, status_.id_str))
+                pass
             if is_stream:
-                self.save_user(user_=status_.author, db_name_='all_users', caller=caller)
-                self.save_user(user_=status_.author, db_name_='stream_users', caller=caller)
+                self.users_queue.put((status_.author, 'all_users', caller))
+                self.users_queue.put((status_.author, 'stream_users', caller))
 
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
@@ -518,6 +541,25 @@ class Worker:
                 sleep(count ** 2)
                 self.stream(bbox_, count + 1)
 
+    def users_recorder(self):
+        while True:
+            self.lock_users_recorder.acquire()
+            while not self.users_queue.empty():
+                (user_, db_name_, caller) = self.users_queue.get()
+                self.save_user(user_=user_, db_name_=db_name_, caller=caller)
+            self.lock_users_recorder.release()
+            sleep(0.01)
+
+    def statuses_recorder(self):
+        while True:
+            self.lock_statuses_recorder.acquire()
+            while not self.statuses_queue.empty():
+                (status_, is_stream, caller) = self.statuses_queue.get()
+                self.save_status(status_=status_, is_stream=is_stream, caller=caller)
+            self.lock_statuses_recorder.release()
+            sleep(0.01)
+        pass
+
     def run(self):
         self.check_db()
         # start a stream listener, statuses will be put in to a res queue
@@ -527,5 +569,7 @@ class Worker:
         threading.Thread(target=self.msg_sender).start()
         threading.Thread(target=self.msg_receiver).start()
         threading.Thread(target=self.msg_received_handler).start()
-        threading.Thread(target=self.task_handler).start()
+        threading.Thread(target=self.task_requester_and_handler).start()
         threading.Thread(target=self.keep_alive).start()
+        threading.Thread(target=self.users_recorder).start()
+        threading.Thread(target=self.statuses_recorder).start()
