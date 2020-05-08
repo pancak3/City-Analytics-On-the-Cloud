@@ -114,6 +114,13 @@ class Registry:
             design_doc.add_view('need_updating', map_fun)
             design_doc.save()
 
+        design_doc = Document(self.client['stream_users'], '_design/stream_user_timeline')
+        if not design_doc.exists():
+            design_doc = DesignDocument(self.client['stream_users'], '_design/stream_user_timeline')
+            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (timestamp - doc.timeline_updated_at > 172800){emit(doc._id, doc.timeline_updated_at);}}'
+            design_doc.add_view('need_updating', map_fun)
+            design_doc.save()
+
     def check_db(self):
         if not self.client['statuses'].exists():
             self.client.create_database('statuses')
@@ -209,7 +216,8 @@ class Registry:
     def tasks_generator(self):
         logger.info("[*] TaskGenerator started.")
         while True:
-            self.generate_tasks('all_users', 'timeline')
+            if not self.generate_tasks('stream_users', 'stream_user_timeline'):
+                self.generate_tasks('all_users', 'timeline')
             self.generate_tasks('stream_users', 'friends')
             to_sleep = (config.timeline_updating_window + config.friends_updating_window) / 4
             # to_sleep = 3600 * 2
@@ -235,8 +243,12 @@ class Registry:
                     self.tasks_friends.put(doc['key'])
                 elif task_type == 'timeline':
                     self.tasks_timeline.put(doc['key'])
+                elif task_type == 'stream_user_timeline':
+                    self.tasks_timeline.put(doc['key'])
             logger.debug("Generated {} {} tasks using {} seconds.".format(count, task_type, time() - start_time))
+            return count
         logger.debug("Finished generating {} tasks.".format(task_type))
+        return 0
 
     def receiver(self, worker_data):
         data = ''

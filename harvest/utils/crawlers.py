@@ -99,37 +99,35 @@ class Crawler:
                     elif cursor_type == 'followers':
                         remaining = self.rate_limits['resources']['followers']['/followers/ids']['remaining']
                         to_sleep = self.rate_limits['resources']['followers']['/followers/ids']['reset'] - int(time())
-                    elif cursor_type == 'timeline':
+                    # elif cursor_type == 'timeline':
+                    else:
                         remaining = self.rate_limits['resources']['statuses']['/statuses/user_timeline']['remaining']
                         to_sleep = self.rate_limits['resources']['statuses']['/statuses/user_timeline']['reset'] - int(
                             time())
-                    else:
-                        to_sleep = 15 * 60
-                        logger.warning(
-                            "Handle {} cursor occurs rate limit error, sleep {} seconds and try again.".format(
-                                cursor_type, abs(to_sleep)))
-                        break
                     if remaining:
-                        to_sleep = 10
+                        break
                     logger.warning(
-                        "Handle {} cursor occurs rate limit error, sleep {} seconds and try again.".format(
-                            cursor_type, abs(to_sleep)))
+                        "Handle {} cursor occurs TweepError, sleep {} seconds and try again.".format(cursor_type,
+                                                                                                     abs(to_sleep)))
                     sleep(abs(to_sleep))
-                    break
             except StopIteration:
                 # https://stackoverflow.com/questions/51700960
                 break
 
     def get_followers_ids(self, **kwargs):
+        # up to a maximum of 5,000 per distinct request
+        # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-followers-ids
         follower_ids_set = set()
         for follower_id in self.limit_handled(
-                tweepy.Cursor(self.api.followers_ids, **kwargs).items(config.friends_max_ids), 'followers'):
+                tweepy.Cursor(self.api.followers_ids, **kwargs).items(5000), 'followers'):
             follower_ids_set.add(follower_id)
         return follower_ids_set
 
     def get_friends_ids(self, **kwargs):
+        # up to a maximum of 5,000 per distinct request
+        # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-friends-ids
         friends_ids_set = set()
-        for friend_id in self.limit_handled(tweepy.Cursor(self.api.friends_ids, **kwargs).items(config.friends_max_ids),
+        for friend_id in self.limit_handled(tweepy.Cursor(self.api.friends_ids, **kwargs).items(5000),
                                             'friends'):
             friends_ids_set.add(friend_id)
         return friends_ids_set

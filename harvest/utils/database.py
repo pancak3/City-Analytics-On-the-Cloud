@@ -41,7 +41,8 @@ if __name__ == '__main__':
     #     user['timeline_updated_at'] = 0
     #     user.save()
     # for user in couch.client['stream_users']:
-    #     user['friends_updated_at'] = 0
+    #     # user['friends_updated_at'] = 0
+    #     user['timeline_updated_at'] = 0
     #     user.save()
     # replication = Replicator(couch.client)
     # replication.create_replication(couch.client['statues'], couch.client['statuses'])
