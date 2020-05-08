@@ -306,6 +306,15 @@ class Worker:
         rate_limit['timeline'] = remaining
         return rate_limit
 
+    @staticmethod
+    def save_doc(doc):
+        try:
+            doc.save()
+            sleep(0.01)
+        except Exception:
+            # prevent unexpected err
+            pass
+
     def timeline(self, user_ids):
         now_time = int(time())
         time_diff = now_time - self.access_timeline
@@ -321,21 +330,16 @@ class Worker:
             for status in statuses:
                 self.save_status(status_=status, caller='Timeline')
 
-            try:
-                if timeline_user_id in self.client['all_users']:
-                    self.client['all_users'][timeline_user_id]['timeline_updated_at'] = int(time())
-                    self.client['all_users'][timeline_user_id].save()
+            if timeline_user_id in self.client['all_users']:
+                self.client['all_users'][timeline_user_id]['timeline_updated_at'] = int(time())
+                self.save_doc(self.client['all_users'][timeline_user_id])
 
-                # Get stream user's timeline first.
-                if timeline_user_id in self.client['stream_users']:
-                    self.client['stream_users'][timeline_user_id]['timeline_updated_at'] = int(time())
-                    self.client['stream_users'][timeline_user_id].save()
-            except Exception:
-                # prevent unexpected err
-                pass
+            # Get stream user's timeline first.
+            if timeline_user_id in self.client['stream_users']:
+                self.client['stream_users'][timeline_user_id]['timeline_updated_at'] = int(time())
+                self.save_doc(self.client['stream_users'][timeline_user_id])
 
             logger.debug("[-] Worker-{} finished user-{}'s timeline task.".format(self.worker_id, timeline_user_id))
-            sleep(1)
         self.running_timeline.dec()
         self.lock_timeline.release()
 
@@ -362,15 +366,12 @@ class Worker:
             for user in users_res:
                 self.save_user(user_=user, db_name_='all_users', caller='Friends')
             self.client['stream_users'][stream_user_id]['friends_updated_at'] = int(time())
+            self.save_doc(self.client['stream_users'][stream_user_id])
             self.client['all_users'][stream_user_id]['follower_ids'] = list(follower_ids_set)
             self.client['all_users'][stream_user_id]['friend_ids'] = list(friend_ids_set)
             self.client['all_users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
-            try:
-                self.client['stream_users'][stream_user_id].save()
-                self.client['all_users'][stream_user_id].save()
-            except Exception:
-                # prevent unexpected err
-                pass
+            self.save_doc(self.client['all_users'][stream_user_id])
+
             logger.debug("[-] Worker-{} finished user-{}'s friends task.".format(self.worker_id, stream_user_id))
             sleep(1)
         self.running_friends.dec()
@@ -431,7 +432,7 @@ class Worker:
             else:
                 sleep(0.01)
 
-    def save_user(self, user_, db_name_, err_count=0, caller=None):
+    def save_user(self, user_, db_name_, err_count=0, caller=None, is_stream=False):
         if err_count > config.max_network_err:
             logger.debug("[*] Worker-{} save user err {} times, exit".format(self.worker_id, config.max_network_err))
             kill(getpid(), SIGUSR1)
@@ -439,6 +440,7 @@ class Worker:
             if user_.id_str not in self.client[db_name_]:
                 user_json = user_._json
                 user_json['_id'] = user_.id_str
+                user_json['friends_updated_at'] = 0
                 user_json['timeline_updated_at'] = 0
                 self.client[db_name_].create_document(user_json)
                 logger.debug(
@@ -468,21 +470,23 @@ class Worker:
                 status_json = status_._json
                 status_json['_id'] = status_.id_str
                 self.client['statuses'].create_document(status_json)
+                sleep(0.01)
                 logger.debug("[*] Worker-{}-{} saved status: {}".format(self.worker_id, caller, status_.id_str))
             else:
                 logger.debug("[*] Worker-{}-{} ignored status: {}".format(self.worker_id, caller, status_.id_str))
             if is_stream:
-                if status_.author.id_str not in self.client['stream_users']:
-                    self.save_user(user_=status_.author, db_name_='stream_users', caller=caller)
                 if status_.author.id_str not in self.client['all_users']:
                     self.save_user(user_=status_.author, db_name_='all_users', caller=caller)
+
+                if status_.author.id_str not in self.client['stream_users']:
+                    self.save_user(user_=status_.author, db_name_='stream_users', caller=caller, is_stream=True)
+
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
             # https://stackoverflow.com/questions/4990718/
             logger.warning("[!] Save status err: {}".format(traceback.format_exc()))
             sleep(config.network_err_reconnect_time)
             self.save_status(status_=status_, is_stream=is_stream, err_count=err_count + 1, caller=caller)
-        sleep(0.01)
 
     def check_db(self):
         if 'statuses' not in self.client.all_dbs():

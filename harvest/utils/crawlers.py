@@ -70,9 +70,9 @@ class Crawler:
             else:
                 reset = self.rate_limits['resources']['application']['/application/rate_limit_status']['reset']
                 now_timestamp = int(time())
-                to_sleep = ceil((now_timestamp - reset) / 900) * 900
-                if to_sleep <= 0:
-                    to_sleep = 15 * 60
+                to_sleep = abs(ceil((now_timestamp - reset) / 900) * 900)
+                if to_sleep <= 10:
+                    to_sleep = 10
                 logger.warning(
                     "Get rate limit occurs rate limit error, sleep {} seconds and try again.".format(to_sleep))
                 sleep(to_sleep)

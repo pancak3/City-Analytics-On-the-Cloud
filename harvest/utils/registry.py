@@ -94,7 +94,7 @@ class Registry:
             doc['ip'] = self.ip
             doc['port'] = config.registry_port
             doc['token'] = config.token
-            doc.save()
+            self.save_doc(doc)
             logger.debug('[*] Registry updated in database: {}:{}'.format(self.ip, config.registry_port))
 
     def check_views(self):
@@ -221,7 +221,7 @@ class Registry:
             to_sleep = (config.timeline_updating_window + config.friends_updating_window) / 4
             # to_sleep = 3600 * 2
             logger.info("[*] TaskGenerator waits for {} seconds.".format(to_sleep))
-            while to_sleep:
+            while to_sleep > 0:
                 if not self.tasks_friends.qsize() and not self.tasks_timeline.qsize():
                     sleep(5)
                     break
@@ -377,11 +377,19 @@ class Registry:
                     else:
                         doc = self.client['control']['available_api_keys_num']
                         doc['value'] = api_keys_num - occupied_api_keys_num
-                        doc.save()
+                        self.save_doc(doc)
                 except Exception:
                     logger.error('[!] CouchDB err: \n{}'.format(traceback.format_exc()))
                     kill(self.pid, SIGUSR1)
             sleep(5)
+
+    @staticmethod
+    def save_doc(doc):
+        try:
+            doc.save()
+        except Exception:
+            # prevent unexpected err
+            pass
 
     @staticmethod
     def check_pid():
