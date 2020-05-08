@@ -82,7 +82,6 @@
 
 # Remove all nodes
 - include: remove_cluster.yml
-  run_once: yes
   with_items:
     - "{{ couch_cluster_nodes }}"
 
