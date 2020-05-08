@@ -478,17 +478,14 @@ class Worker:
         sleep(0.01)
 
     def check_db(self):
-        # if 'statuses' not in self.client.all_dbs():
-        if not self.client['statuses'].exists():
+        if 'statuses' not in self.client.all_dbs():
             self.client.create_database('statuses')
             logger.debug("[*] Statuses table not in database; created.")
-        # if 'stream_users' not in self.client.all_dbs():
-        if not self.client['stream_users'].exists():
+        if 'stream_users' not in self.client.all_dbs():
             self.client.create_database('stream_users')
             logger.debug("[*] Stream_users table not in database; created.")
 
-        # if 'all_users' not in self.client.all_dbs():
-        if not self.client['all_users'].exists():
+        if 'all_users' not in self.client.all_dbs():
             self.client.create_database('all_users')
             logger.debug("[*] All_users table not in database; created.")
 

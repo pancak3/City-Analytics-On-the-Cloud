@@ -23,6 +23,7 @@ class CouchDB:
             f.close()
 
     def connect(self):
+        logger.debug("[*] Connecting to CouchDB -> {}".format(config.couch.url))
         try:
             self.client = Cloudant(config.couch.username, config.couch.password, url=config.couch.url, connect=True)
             self.session = self.client.session()

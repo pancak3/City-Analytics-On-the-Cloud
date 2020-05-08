@@ -79,8 +79,7 @@ class Registry:
         return id_tmp
 
     def update_db(self):
-        # if 'control' not in self.client.all_dbs():
-        if not self.client['control'].exists():
+        if 'control' not in self.client.all_dbs():
             self.client.create_database('control')
 
             self.client['control'].create_document({
@@ -122,13 +121,13 @@ class Registry:
             design_doc.save()
 
     def check_db(self):
-        if not self.client['statuses'].exists():
+        if 'statuses' not in self.client.all_dbs():
             self.client.create_database('statuses')
             logger.debug("[*] Statuses table not in database; created.")
-        if not self.client['stream_users'].exists():
+        if 'stream_users' not in self.client.all_dbs():
             self.client.create_database('stream_users')
             logger.debug("[*] Stream_users table not in database; created.")
-        if not self.client['all_users'].exists():
+        if 'all_users' not in self.client.all_dbs():
             self.client.create_database('all_users')
             logger.debug("[*] All_users table not in database; created.")
 
@@ -222,7 +221,12 @@ class Registry:
             to_sleep = (config.timeline_updating_window + config.friends_updating_window) / 4
             # to_sleep = 3600 * 2
             logger.info("[*] TaskGenerator waits for {} seconds.".format(to_sleep))
-            sleep(to_sleep)
+            while to_sleep:
+                if not self.tasks_friends.qsize() and not self.tasks_timeline.qsize():
+                    sleep(5)
+                    break
+                else:
+                    to_sleep -= 5
             # To avoid session expired.
             self.couch.connect()
 
@@ -233,8 +237,7 @@ class Registry:
             self.tasks_timeline = queue.Queue()
         start_time = time()
         logger.debug("Start to generate {} tasks.".format(task_type))
-        # if user_db_name in self.client.all_dbs():
-        if self.client[user_db_name].exists():
+        if user_db_name in self.client.all_dbs():
             count = 0
             result = self.client[user_db_name].get_view_result('_design/' + task_type, 'need_updating')
             for doc in result:
