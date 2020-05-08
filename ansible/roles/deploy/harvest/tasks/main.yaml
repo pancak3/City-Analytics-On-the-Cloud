@@ -8,7 +8,7 @@
   become: yes
   template:
     src: docker-compose.yaml.j2
-    dest: '{{ repository.dest }}/harvest/docker-compose.yaml'
+    dest: '{{ repository.dest }}/harvest/docker-compose-master.yml'
     owner: '{{ ansible_user }}'
     group: '{{ ansible_user }}'
 
@@ -16,7 +16,7 @@
   become: yes
   template:
     src: couchdb.json.j2
-    dest: '{{ repository.dest }}/harvest/couchdb.yaml'
+    dest: '{{ repository.dest }}/harvest/couchdb.json'
     owner: '{{ ansible_user }}'
     group: '{{ ansible_user }}'
 

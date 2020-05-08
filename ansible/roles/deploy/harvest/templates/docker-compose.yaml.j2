@@ -2,7 +2,9 @@ version: '3'
 services:
   harvest_worker:
     build: ./
-    command: "worker {{ master_ip }}"
+    command: "reg {{ inventory_hostname }}"
+    ports:
+      - 8673:8673
 
 networks:
   couch_comp90024:
