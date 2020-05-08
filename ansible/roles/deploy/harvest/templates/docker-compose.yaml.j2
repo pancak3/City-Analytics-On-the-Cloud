@@ -5,6 +5,8 @@ services:
     command: "reg {{ inventory_hostname }}"
     ports:
       - 8673:8673
+    networks:
+        - couch_comp90024
 
 networks:
   couch_comp90024:
