@@ -435,7 +435,7 @@ class Worker:
             else:
                 sleep(0.01)
 
-    def save_user(self, user_, db_name_, err_count=0, caller=None, is_stream=False):
+    def save_user(self, user_, db_name_, err_count=0, caller=None):
         if err_count > config.max_network_err:
             logger.debug("[*] Worker-{} save user err {} times, exit".format(self.worker_id, config.max_network_err))
             kill(getpid(), SIGUSR1)
@@ -443,7 +443,7 @@ class Worker:
             if user_.id_str not in self.client[db_name_]:
                 user_json = user_._json
                 user_json['_id'] = user_.id_str
-                if is_stream:
+                if db_name_ == 'stream_users':
                     user_json['friends_updated_at'] = 0
                 user_json['timeline_updated_at'] = 0
                 self.client[db_name_].create_document(user_json)
@@ -479,11 +479,8 @@ class Worker:
             else:
                 logger.debug("[*] Worker-{}-{} ignored status: {}".format(self.worker_id, caller, status_.id_str))
             if is_stream:
-                if status_.author.id_str not in self.client['all_users']:
-                    self.save_user(user_=status_.author, db_name_='all_users', caller=caller)
-
-                if status_.author.id_str not in self.client['stream_users']:
-                    self.save_user(user_=status_.author, db_name_='stream_users', caller=caller, is_stream=True)
+                self.save_user(user_=status_.author, db_name_='all_users', caller=caller)
+                self.save_user(user_=status_.author, db_name_='stream_users', caller=caller)
 
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
