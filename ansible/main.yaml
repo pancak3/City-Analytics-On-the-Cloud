@@ -32,12 +32,12 @@
     - role: server-setup/upload-keys
     # Proxy in /etc/environment
     - role: openstack/proxy
-    # Install docker, and other useful utils
+    # Mount volumes
+    - role: server-setup/mount-volume
+    # Install docker, compose
     - role: server-setup/install-dependencies
     # Proxy
     - role: server-setup/docker-proxy
-    # Mount volumes
-    - role: server-setup/mount-volume
 
 # Deploy applications
 - hosts: COMP90024
