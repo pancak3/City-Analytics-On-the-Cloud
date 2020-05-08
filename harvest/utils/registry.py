@@ -226,6 +226,7 @@ class Registry:
                     sleep(5)
                     break
                 else:
+                    sleep(5)
                     to_sleep -= 5
             # To avoid session expired.
             self.couch.connect()
