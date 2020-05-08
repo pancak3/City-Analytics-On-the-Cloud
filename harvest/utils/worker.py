@@ -321,14 +321,18 @@ class Worker:
             for status in statuses:
                 self.save_status(status_=status, caller='Timeline')
 
-            if timeline_user_id in self.client['all_users']:
-                self.client['all_users'][timeline_user_id]['timeline_updated_at'] = int(time())
-                self.client['all_users'][timeline_user_id].save()
+            try:
+                if timeline_user_id in self.client['all_users']:
+                    self.client['all_users'][timeline_user_id]['timeline_updated_at'] = int(time())
+                    self.client['all_users'][timeline_user_id].save()
 
-            # Get stream user's timeline first.
-            if timeline_user_id in self.client['stream_users']:
-                self.client['stream_users'][timeline_user_id]['timeline_updated_at'] = int(time())
-                self.client['stream_users'][timeline_user_id].save()
+                # Get stream user's timeline first.
+                if timeline_user_id in self.client['stream_users']:
+                    self.client['stream_users'][timeline_user_id]['timeline_updated_at'] = int(time())
+                    self.client['stream_users'][timeline_user_id].save()
+            except Exception:
+                # prevent unexpected err
+                pass
 
             logger.debug("[-] Worker-{} finished user-{}'s timeline task.".format(self.worker_id, timeline_user_id))
             sleep(1)
@@ -358,12 +362,15 @@ class Worker:
             for user in users_res:
                 self.save_user(user_=user, db_name_='all_users', caller='Friends')
             self.client['stream_users'][stream_user_id]['friends_updated_at'] = int(time())
-            self.client['stream_users'][stream_user_id].save()
-
             self.client['all_users'][stream_user_id]['follower_ids'] = list(follower_ids_set)
             self.client['all_users'][stream_user_id]['friend_ids'] = list(friend_ids_set)
             self.client['all_users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
-            self.client['all_users'][stream_user_id].save()
+            try:
+                self.client['stream_users'][stream_user_id].save()
+                self.client['all_users'][stream_user_id].save()
+            except Exception:
+                # prevent unexpected err
+                pass
             logger.debug("[-] Worker-{} finished user-{}'s friends task.".format(self.worker_id, stream_user_id))
             sleep(1)
         self.running_friends.dec()
