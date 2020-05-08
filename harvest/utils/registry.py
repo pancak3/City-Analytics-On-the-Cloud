@@ -102,21 +102,21 @@ class Registry:
         design_doc = Document(self.client['stream_users'], '_design/friends')
         if not design_doc.exists():
             design_doc = DesignDocument(self.client['stream_users'], '_design/friends')
-            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (timestamp - doc.friends_updated_at > 172800){emit(doc._id, doc.friends_updated_at);}}'
+            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("friends_updated_at")){doc.friends_updated_at=0;}if (timestamp - doc.friends_updated_at > '+str(config.friends_updating_window)+'){emit(doc._id, doc.friends_updated_at);}}'
             design_doc.add_view('need_updating', map_fun)
             design_doc.save()
 
         design_doc = Document(self.client['all_users'], '_design/timeline')
         if not design_doc.exists():
             design_doc = DesignDocument(self.client['all_users'], '_design/timeline')
-            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (timestamp - doc.timeline_updated_at > 172800){emit(doc._id, doc.timeline_updated_at);}}'
+            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > '+str(config.timeline_updating_window)+'){emit(doc._id, doc.timeline_updated_at);}}'
             design_doc.add_view('need_updating', map_fun)
             design_doc.save()
 
         design_doc = Document(self.client['stream_users'], '_design/stream_user_timeline')
         if not design_doc.exists():
             design_doc = DesignDocument(self.client['stream_users'], '_design/stream_user_timeline')
-            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (timestamp - doc.timeline_updated_at > 172800){emit(doc._id, doc.timeline_updated_at);}}'
+            map_fun = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > '+str(config.timeline_updating_window)+'){emit(doc._id, doc.timeline_updated_at);}}'
             design_doc.add_view('need_updating', map_fun)
             design_doc.save()
 
@@ -218,9 +218,8 @@ class Registry:
             if not self.generate_tasks('stream_users', 'stream_user_timeline'):
                 self.generate_tasks('all_users', 'timeline')
             self.generate_tasks('stream_users', 'friends')
-            to_sleep = (config.timeline_updating_window + config.friends_updating_window) / 4
-            # to_sleep = 3600 * 2
-            logger.info("[*] TaskGenerator waits for {} seconds.".format(to_sleep))
+            to_sleep = config.tasks_generating_window
+            # logger.info("[*] TaskGenerator waits for {} seconds.".format(to_sleep))
             while to_sleep > 0:
                 if not self.tasks_friends.qsize() and not self.tasks_timeline.qsize():
                     sleep(5)

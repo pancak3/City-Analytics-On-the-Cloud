@@ -14,8 +14,9 @@
     149.9767,
     -33.9806
   ],
-  "timeline_updating_window": 1800,
-  "friends_updating_window": 1800,
+  "timeline_updating_window": 86400,
+  "friends_updating_window": 86400,
+  "tasks_generating_window": 3600,
   "task_chunk_size": 20,
   "heartbeat_time": 5,
   "max_heartbeat_lost_time": 300,
