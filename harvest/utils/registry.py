@@ -248,7 +248,7 @@ class Registry:
                     self.tasks_timeline.put(doc['key'])
                 elif task_type == 'stream_user_timeline':
                     self.tasks_timeline.put(doc['key'])
-            logger.debug("Generated {} {} tasks using {} seconds.".format(count, task_type, time() - start_time))
+            logger.debug("Generated {} {} tasks in {} seconds.".format(count, task_type, time() - start_time))
             return count
         logger.debug("Finished generating {} tasks.".format(task_type))
         return 0

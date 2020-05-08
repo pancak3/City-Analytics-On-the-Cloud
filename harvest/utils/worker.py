@@ -503,7 +503,7 @@ class Worker:
     def stream(self, bbox_, count=1):
         if count > 5:
             logger.warning("Worker-{} stream failed {} times, worker exit.".format(self.worker_id, count))
-            exit(1)
+            kill(getpid(), SIGUSR1)
         else:
             try:
                 threading.Thread(target=self.crawler.stream_filter,
