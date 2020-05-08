@@ -1,6 +1,6 @@
 version: '3'
 services:
-  harvest_worker:
+  worker:
     build: ./
     command: "reg {{ inventory_hostname }}"
     ports:
