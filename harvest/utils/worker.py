@@ -407,14 +407,13 @@ class Worker:
                         timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
                         for i in range(config.max_running_timeline):
                             timeline_remaining -= 1
-                            if timeline_remaining < 0:
+                            if timeline_remaining < 1:
                                 break
                             msg = {'timeline': timeline_remaining,
                                    'worker_id': self.worker_id,
                                    'token': config.token,
                                    'action': 'ask_for_task'}
                             self.msg_to_send.put(json.dumps(msg))
-
                         last_time_sent = int(time())
 
                     if self.running_friends.get_count() < 1:
@@ -425,7 +424,7 @@ class Worker:
                         for i in range(config.max_running_friends):
                             followers_remaining -= 1
                             friends_remaining -= 1
-                            if friends_remaining < 0 or followers_remaining < 0:
+                            if friends_remaining < 1 or followers_remaining < 1:
                                 break
                             msg = {'friends': friends_remaining,
                                    'followers': followers_remaining,

@@ -130,7 +130,7 @@ class Crawler:
         now_time = int(time())
         self.lock_followers.acquire()
         time_diff = now_time - self.access_followers
-        if time_diff <= 2:
+        if time_diff <= 5:
             sleep(time_diff)
         self.access_followers = now_time
 
@@ -153,7 +153,7 @@ class Crawler:
         now_time = int(time())
         self.lock_friends.acquire()
         time_diff = now_time - self.access_friends
-        if time_diff <= 2:
+        if time_diff <= 5:
             sleep(time_diff)
         self.access_friends = now_time
 
@@ -177,7 +177,7 @@ class Crawler:
         now_time = int(time())
         self.lock_user_timeline.acquire()
         time_diff = now_time - self.access_user_timeline
-        if time_diff <= 2:
+        if time_diff <= 5:
             sleep(time_diff)
         self.access_user_timeline = now_time
 
@@ -198,7 +198,7 @@ class Crawler:
         now_time = int(time())
         self.lock_lookup_users.acquire()
         time_diff = now_time - self.access_lookup_users
-        if time_diff <= 2:
+        if time_diff <= 5:
             sleep(time_diff)
         self.access_lookup_users = now_time
 
