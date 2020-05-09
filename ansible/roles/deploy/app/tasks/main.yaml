@@ -16,3 +16,6 @@
     state: present
     remove_orphans: yes
     recreate: smart
+  register: setup_app
+  until: setup_app is not failed
+  retries: 5

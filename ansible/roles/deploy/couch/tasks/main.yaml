@@ -90,8 +90,22 @@
     force_basic_auth: yes
   when: "couch_cluster.json.state == 'cluster_disabled'"
 
-# Refresh membership
-- include: get_membership.yaml
+# Get cluster membership of nodes
+- name: Get membership
+  uri:
+    url: 'http://{{ couch.user }}:{{ couch.password }}@127.0.0.1:5984/_membership'
+    method: 'GET'
+    return_content: yes
+    force_basic_auth: yes
+  register: couch_membership
+  until: couch_membership.status == 200
+  retries: 12
+  delay: 5
+
+- name: Map joined nodes to IPs
+  run_once: true
+  set_fact:
+    couch_cluster_nodes: "{{ couch_membership.json.cluster_nodes | regex_replace('couchdb@') | regex_replace('.comp90024') }}"
 
 # Add nodes not present
 - name: Add nodes to cluster part 1
@@ -104,8 +118,7 @@
     force_basic_auth: yes
     status_code: 201
   with_items:
-    - "{{ hostvars['localhost']['instance_names'] | difference([ansible_hostname]) }}"
-  when: "couch_cluster.json.state == 'cluster_enabled'"
+    - "{{ hostvars['localhost']['instance_names'] | difference(couch_cluster_nodes) }}"
 
 # Add nodes not present
 - name: Add nodes to cluster part 2
@@ -118,8 +131,7 @@
     force_basic_auth: yes
     status_code: 201
   with_items:
-    - "{{ hostvars['localhost']['instance_names'] | difference([ansible_hostname]) }}"
-  when: "couch_cluster.json.state == 'cluster_enabled'"
+    - "{{ hostvars['localhost']['instance_names'] | difference(couch_cluster_nodes) }}"
 
 # Trigger web interface refresh
 - name: Access /
