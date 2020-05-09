@@ -99,7 +99,7 @@ class Registry:
             doc['port'] = config.registry_port
             doc['token'] = config.token
             self.save_doc(doc)
-            logger.debug('Updated in database: {}:{}'.format(self.ip, config.registry_port))
+            logger.debug('Updated registry addr in database: {}:{}'.format(self.ip, config.registry_port))
 
     def check_views(self):
         # Make view result ascending
@@ -140,19 +140,22 @@ class Registry:
             self.client.create_database('all_users')
             logger.debug("[*] All_users table not in database; created.")
 
-    def tcp_server(self):
+    def tcp_server(self, lock):
+        lock.acquire()
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # docker container inner ip is always 0.0.0.0
             s.bind(('0.0.0.0', config.registry_port))
             s.listen(1)
             logger.debug('TCP server started at {}:{}'.format(self.ip, config.registry_port))
+            lock.release()
             while True:
                 conn, addr = s.accept()
                 self.conn_queue.put((conn, addr))
         except OSError as e:
+            lock.release()
             logger.error('[!] Cannot bind to 0.0.0.0:{}.'.format(config.registry_port))
-            kill(self.pid, SIGUSR1)
+            kill(getpid(), SIGUSR1)
 
     def conn_handler(self):
         logger.info("ConnectionHandler started.")
@@ -241,22 +244,13 @@ class Registry:
             self.couch.connect()
 
     def generate_tasks(self, user_db_name, task_type):
-        if task_type == 'friends':
-            self.friends_tasks = queue.Queue()
-            self.lock_friends_tasks_updated_time.acquire()
-            self.friends_tasks_updated_time = int(time())
-            self.lock_friends_tasks_updated_time.release()
-        elif task_type == 'timeline':
-            self.timeline_tasks = queue.Queue()
-            self.lock_timeline_tasks_updated_time.acquire()
-            self.timeline_tasks_updated_time = int(time())
-            self.lock_timeline_tasks_updated_time.release()
+
         start_time = time()
         logger.debug("Start to generate {} tasks.".format(task_type))
         if user_db_name in self.client.all_dbs():
             count = 0
             result = self.client[user_db_name].get_view_result('_design/' + task_type, 'need_updating')
-            for doc in result:
+            for doc in result[:config.max_tasks_num]:
                 count += 1
                 if task_type == 'friends':
                     self.friends_tasks.put(doc['id'])
@@ -265,6 +259,16 @@ class Registry:
                 elif task_type == 'stream_user_timeline':
                     self.timeline_tasks.put(doc['id'])
             logger.debug("Generated {} {} tasks in {:.2} seconds.".format(count, task_type, time() - start_time))
+            if task_type == 'friends':
+                self.friends_tasks = queue.Queue()
+                self.lock_friends_tasks_updated_time.acquire()
+                self.friends_tasks_updated_time = int(time())
+                self.lock_friends_tasks_updated_time.release()
+            elif task_type == 'timeline':
+                self.timeline_tasks = queue.Queue()
+                self.lock_timeline_tasks_updated_time.acquire()
+                self.timeline_tasks_updated_time = int(time())
+                self.lock_timeline_tasks_updated_time.release()
             return count
         logger.debug("Finished generating {} tasks.".format(task_type))
         return 0
@@ -323,7 +327,7 @@ class Registry:
                                         msg = {'token': config.token, 'task': 'task', 'timeline_ids': [user_id]}
                                         worker_data.msg_queue.put(json.dumps(msg))
                                         logger.debug(
-                                            "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id,recv_json))
+                                            "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, recv_json))
                                     except queue.Empty:
                                         pass
                     data = data[first_pos + 1:]
@@ -459,12 +463,15 @@ class Registry:
             logger.error('Exit! \n{}'.format(traceback.format_exc()))
 
     def run(self):
+        lock = threading.Lock()
+        threading.Thread(target=self.tcp_server, args=(lock,)).start()
+        lock.acquire()
+        lock.release()
         self.check_pid()
         self.save_pid()
         self.update_db()
         self.check_db()
         self.check_views()
-        threading.Thread(target=self.tcp_server).start()
         threading.Thread(target=self.conn_handler).start()
         threading.Thread(target=self.tasks_generator).start()
         threading.Thread(target=self.update_available_api_keys_num).start()
