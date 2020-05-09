@@ -1,8 +1,4 @@
 ---
-# Deploys harvesters
-- set_fact:
-    master_ip: '{{ groups["COMP90024"][0] }}'
-
 # Upload worker files
 - name: Upload worker compose file
   become: yes

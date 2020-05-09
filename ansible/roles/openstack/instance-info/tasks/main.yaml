@@ -6,10 +6,27 @@
     server: 'ins*'
   register: instance_info
 
+# - debug:
+#     msg: '{{ instance_info }}'
+#   tags:
+#   - always
+
 - name: Create list of IPs
   tags: instance_info
   set_fact:
     instance_ips: "{{ instance_info.openstack_servers | map(attribute='public_v4') | list | sort }}"
+
+- name: Create list of names
+  tags: instance_info
+  set_fact:
+    instance_names: "{{ instance_info.openstack_servers | map(attribute='name') | list | sort }}"
+
+# https://stackoverflow.com/questions/51898227
+- name: Join names and IPs into dict
+  set_fact:
+    ip_names: "{{ ip_names | default([]) + [dict(ip=item[0], name=item[1])] }}"
+  tags: instance_info
+  loop: "{{ instance_info.openstack_servers | map(attribute='public_v4') | zip(instance_info.openstack_servers | map(attribute='name')) | list }}"
 
 # - debug:
 #     msg: 'IPs: {{ instance_ips }}'

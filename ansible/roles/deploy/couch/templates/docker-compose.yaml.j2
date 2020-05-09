@@ -8,7 +8,8 @@ services:
       - COUCHDB_USER={{ couch.user }}
       - COUCHDB_PASSWORD={{ couch.password }}
       - COUCHDB_SECRET={{ couch.secret }}
-      - NODENAME={{ inventory_hostname }}
+      # use hostname of node (attached to correspondingly numbered volume)
+      - NODENAME="{{ ansible_hostname }}.comp90024"
     command: "-setcookie {{ couch.cookie }}"
     ports:
       - "5984:5984"
@@ -18,6 +19,12 @@ services:
       - {{ couch.data_dir }}:/opt/couchdb/data
     networks:
       - comp90024
+    # Define hostname/ip mappings for FQDN
+    # https://stackoverflow.com/questions/25373154
+    extra_hosts:
+      {% for item in hostvars['localhost']['ip_names'] -%}
+      - "{{ item.name }}.comp90024: {{ item.ip }}"
+      {% endfor %}
 
 networks:
   comp90024:
