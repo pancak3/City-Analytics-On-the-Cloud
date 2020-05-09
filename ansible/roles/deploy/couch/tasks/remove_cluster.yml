@@ -1,8 +1,0 @@
----
-# Get membership
-- include: get_membership.yaml
-
-# Remove all nodes
-- include: remove_node.yml
-  with_items:
-    - "{{ couch_cluster_nodes }}"
