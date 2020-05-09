@@ -64,10 +64,7 @@ class Crawler:
         stream_ = tweepy.Stream(auth=self.api.auth, listener=stream_listener)
         logger.debug("[{}] stream filter locations: {}".format(id_, kwargs.get('locations')))
         # blocking method
-        try:
-            stream_.filter(**kwargs)
-        except Exception:
-            raise BaseException
+        stream_.filter(**kwargs)
 
     def update_rate_limit_status(self, err_count=0):
         if err_count > config.max_network_err:
