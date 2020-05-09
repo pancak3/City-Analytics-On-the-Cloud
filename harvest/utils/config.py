@@ -1,10 +1,9 @@
 import json
 import logging
 import requests
+from utils.logger import get_logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('Config')
-logger.setLevel(logging.DEBUG)
+logger = get_logger('Config', logging.DEBUG)
 
 
 class TwitterCredential:

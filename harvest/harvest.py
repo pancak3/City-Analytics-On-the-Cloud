@@ -2,10 +2,9 @@ import argparse
 import logging
 from utils.registry import Registry
 from utils.worker import Worker
+from utils.logger import get_logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('Harvest')
-logger.setLevel(logging.DEBUG)
+logger = get_logger('Harvest', logging.DEBUG)
 
 
 def reg(ip):

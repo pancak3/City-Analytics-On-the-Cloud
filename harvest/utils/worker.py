@@ -18,10 +18,9 @@ from urllib3.exceptions import ReadTimeoutError, ProtocolError
 from utils.config import config
 from utils.database import CouchDB
 from utils.crawlers import Crawler
+from utils.logger import get_logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('Worker')
-logger.setLevel(logging.DEBUG)
+logger = get_logger('Worker', logging.DEBUG)
 
 
 class Task:
@@ -78,7 +77,7 @@ class Worker:
         self.reg_ip, self.reg_port, self.token = self.get_registry()
         self.socket_send, self.socket_recv, valid_api_key_hash, self.worker_id = self.connect_reg()
         self.save_pid()
-        self.crawler.init(valid_api_key_hash)
+        self.crawler.init(valid_api_key_hash, self.worker_id)
         self.task_queue = queue.Queue()
         self.lock_rate_limit = threading.Lock()
         self.active_time = 0
@@ -110,7 +109,7 @@ class Worker:
                    'api_keys_hashes': list(self.crawler.api_keys)}
             socket_sender.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
 
-            data = str(socket_sender.recv(1024), 'utf-8')
+            data = socket_sender.recv(1024).decode('utf-8')
             first_pos = data.find('\n')
             if first_pos == -1:
                 logger.error(
@@ -119,6 +118,7 @@ class Worker:
             msg_json = json.loads(data[:first_pos])
 
             if 'token' in msg_json and msg_json['token'] == config.token:
+                del msg_json['token']
                 if msg_json['res'] == 'use_api_key':
                     valid_api_key_hash = msg_json['api_key_hash']
                     socket_receiver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -126,16 +126,13 @@ class Worker:
                     msg = {'action': 'init', 'role': 'receiver', 'token': config.token,
                            'worker_id': msg_json['worker_id']}
                     socket_receiver.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
-                    logger.debug("[*] Worker-{} connected to {}".format(msg_json['worker_id'], (reg_ip, reg_port)))
+                    logger.debug("[{}] connected to {}".format(msg_json['worker_id'], (reg_ip, reg_port)))
                     return socket_sender, socket_receiver, valid_api_key_hash, msg_json['worker_id']
                 else:
-                    logger.info("[!] No valid api key. Exit.")
-                    exit(0)
-            logger.info("[!] Registry didn't respond correctly. Exit. -> {}".format(msg))
-            exit(0)
+                    self.exit("[!] No valid api key. Exit.")
+            self.exit("[!] Registry didn't respond correctly. Exit. -> {}".format(msg))
         except json.decoder.JSONDecodeError as e:
-            logger.error("[!] Cannot connect to {}:{} using token {}. Exit: {}".format(reg_ip, reg_port, token, e))
-            exit(0)
+            self.exit("[!] Cannot connect to {}:{} using token {}. Exit: {}".format(reg_ip, reg_port, token, e))
 
     def save_pid(self):
         # Record PID for daemon
@@ -144,19 +141,39 @@ class Worker:
             f = open('worker-{}.pid'.format(self.worker_id), 'w+')
             f.write(str(self.pid))
             f.close()
-            logger.info('[-] Starting Worker-{} PID: {}'.format(self.worker_id, self.pid))
+            logger.info('[{}] Starting with PID: {}'.format(self.worker_id, self.pid))
         except Exception:
             logger.error('[!] Exit! \n{}'.format(traceback.format_exc()))
 
     def msg_receiver(self):
         data = ''
         while True:
-            data += str(self.socket_recv.recv(1024), 'utf-8')
+            data += self.socket_recv.recv(1024).decode('utf-8')
             while data.find('\n') != -1:
                 first_pos = data.find('\n')
                 self.msg_received.put(data[:first_pos])
                 data = data[first_pos + 1:]
             sleep(0.01)
+
+    def exit(self, log):
+        self.lock_friends.acquire()
+        self.lock_timeline.acquire()
+        self.lock_users_recorder.acquire()
+        self.lock_statuses_recorder.acquire()
+
+        self.lock_users_recorder.release()
+        self.lock_statuses_recorder.release()
+        self.lock_timeline.release()
+        self.lock_friends.release()
+        # https://stackoverflow.com/questions/409783
+        self.socket_send.close()
+        self.socket_recv.close()
+        while self.socket_send._io_refs > 0:
+            sleep(0.01)
+        while self.socket_recv._io_refs > 0:
+            sleep(0.01)
+        logger.warning(log)
+        kill(getpid(), SIGUSR1)
 
     def msg_sender(self):
         while True:
@@ -164,15 +181,9 @@ class Worker:
                 msg = self.msg_to_send.get()
                 try:
                     self.socket_send.send(bytes(msg + '\n', 'utf-8'))
-                except BrokenPipeError as e:
-                    self.lock_friends.acquire()
-                    self.lock_timeline.acquire()
-                    self.lock_timeline.release()
-                    self.lock_friends.release()
-                    logger.warning("[*] Registry-{}:{} was down.".format(self.reg_ip, self.reg_port))
-                    kill(getpid(), SIGUSR1)
-                    break
-                # logger.debug("[*] Worker-{} sent: {}".format(self.worker_id, msg))
+                except Exception:
+                    self.exit("[*] Registry-{}:{} was down.".format(self.reg_ip, self.reg_port))
+                # logger.debug("[{}] sent: {}".format(self.worker_id, msg))
             sleep(0.01)
 
     def keep_alive(self):
@@ -187,24 +198,13 @@ class Worker:
             self.lock_active_time.acquire()
             if int(time()) - self.active_time > config.max_heartbeat_lost_time:
                 self.lock_active_time.release()
-                self.lock_friends.acquire()
-                self.lock_timeline.acquire()
-                self.lock_users_recorder.acquire()
-                self.lock_statuses_recorder.acquire()
-
-                self.lock_users_recorder.release()
-                self.lock_statuses_recorder.release()
-                self.lock_timeline.release()
-                self.lock_friends.release()
                 self.lock_active_time.acquire()
                 if int(time()) - self.active_time > config.max_heartbeat_lost_time:
                     self.lock_active_time.release()
                     continue
                 self.lock_active_time.release()
                 # https://www.runoob.com/python/python-date-time.html
-                date = asctime(localtime(time()))
-                logger.info("[!] {} Lost heartbeat for {} seconds, exit.".format(date, config.max_heartbeat_lost_time))
-                kill(getpid(), SIGUSR1)
+                self.exit("[!] Lost heartbeat for {} seconds, exit.".format(config.max_heartbeat_lost_time))
             self.lock_active_time.release()
 
     def msg_received_handler(self):
@@ -214,14 +214,15 @@ class Worker:
                 try:
                     msg_json = json.loads(msg)
                     if 'token' in msg_json and msg_json['token'] == config.token:
-                        # logger.debug("[*] Worker-{} received: {}".format(self.worker_id, msg))
+                        del msg_json['token']
+                        # logger.debug("[{}] received: {}".format(self.worker_id, msg))
                         task = msg_json['task']
                         if task == 'stream':
                             # continue
                             threading.Thread(target=self.stream,
                                              args=(msg_json['data']['locations'],)).start()
                         elif task == 'task':
-                            logger.debug("Worker-{} got task: {}".format(self.worker_id, msg))
+                            logger.debug("[{}] got task: {}".format(self.worker_id, msg_json))
                             if 'friends_ids' in msg_json and len(msg_json['friends_ids']):
                                 task = Task('friends', msg_json['friends_ids'])
                                 self.task_queue.put(task)
@@ -234,9 +235,9 @@ class Worker:
                             self.lock_active_time.release()
 
                 except json.decoder.JSONDecodeError as e:
-                    logger.error("Worker-{} received invalid json: {} \n{}".format(self.worker_id, e, msg))
+                    logger.error("[{}] received invalid json: {} \n{}".format(self.worker_id, e, msg))
                 except KeyError as e:
-                    logger.error("Worker-{} received invalid json; KeyError: {}\n{}".format(self.worker_id, e, msg))
+                    logger.error("[{}] received invalid json; KeyError: {}\n{}".format(self.worker_id, e, msg))
             else:
                 sleep(0.01)
 
@@ -334,7 +335,7 @@ class Worker:
     def timeline(self, user_ids):
         self.running_timeline.inc()
         for timeline_user_id in user_ids:
-            logger.debug("[-] Worker-{} getting user-{}'s timeline.".format(self.worker_id, timeline_user_id))
+            logger.debug("[{}] is getting user-{}'s timeline.".format(self.worker_id, timeline_user_id))
             statuses = self.crawler.get_user_timeline(id=timeline_user_id)
             for status in statuses:
                 self.statuses_queue.put((status, False, 'Timeline'))
@@ -346,7 +347,7 @@ class Worker:
             if timeline_user_id in self.client['all_users']:
                 self.save_doc(self.client['all_users'][timeline_user_id], 'timeline_updated_at')
 
-            logger.debug("[-] Worker-{} finished user-{}'s timeline task.".format(self.worker_id, timeline_user_id))
+            logger.debug("[{}] finished user-{}'s timeline task.".format(self.worker_id, timeline_user_id))
         self.running_timeline.dec()
 
         self.lock_rate_limit.acquire()
@@ -356,7 +357,7 @@ class Worker:
     def friends(self, user_ids):
         self.running_friends.inc()
         for stream_user_id in user_ids:
-            logger.debug("[-] Worker-{} getting user-{}'s friends.".format(self.worker_id, stream_user_id))
+            logger.debug("[{}] getting user-{}'s friends.".format(self.worker_id, stream_user_id))
 
             lock_follower = threading.Lock()
             lock_friend = threading.Lock()
@@ -388,7 +389,7 @@ class Worker:
             self.client['all_users'][stream_user_id]['friend_ids'] = list(friend_ids_set)
             self.client['all_users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
             self.save_doc(self.client['all_users'][stream_user_id])
-            logger.debug("[-] Worker-{} finished user-{}'s friends task.".format(self.worker_id, stream_user_id))
+            logger.debug("[{}] finished user-{}'s friends task.".format(self.worker_id, stream_user_id))
         self.running_friends.dec()
 
         self.lock_rate_limit.acquire()
@@ -457,8 +458,7 @@ class Worker:
 
     def save_user(self, user_, db_name_, err_count=0, caller=None):
         if err_count > config.max_network_err:
-            logger.debug("[*] Worker-{} save user err {} times, exit".format(self.worker_id, config.max_network_err))
-            kill(getpid(), SIGUSR1)
+            self.exit("[{}] save user err {} times, exit".format(self.worker_id, config.max_network_err))
         try:
             if user_.id_str not in self.client[db_name_]:
                 user_json = user_._json
@@ -469,10 +469,10 @@ class Worker:
                 self.client[db_name_].create_document(user_json)
                 sleep(0.001)
                 # logger.debug(
-                #     "[*] Worker-{}-{} saved user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
+                #     "[{}] {} saved user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
             else:
                 # logger.debug(
-                #     "[*] Worker-{}-{} ignored user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
+                #     "[{}] {} ignored user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
                 pass
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
@@ -483,9 +483,7 @@ class Worker:
 
     def save_status(self, status_, is_stream=False, err_count=0, caller=None):
         if err_count > config.max_network_err:
-            logger.debug("[*] Worker-{}-{} save status err {} times, exit".format(self.worker_id, caller,
-                                                                                  config.max_network_err))
-            kill(getpid(), SIGUSR1)
+            self.exit("[{}] {} save status err {} times, exit".format(self.worker_id, caller, config.max_network_err))
         # use id_str
         # The string representation of the unique identifier for this Tweet.
         # Implementations should use this rather than the large integer in id
@@ -494,11 +492,12 @@ class Worker:
             if status_.id_str not in self.client['statuses']:
                 status_json = status_._json
                 status_json['_id'] = status_.id_str
+                status_json['is_stream'] = True if is_stream else False
                 self.client['statuses'].create_document(status_json)
                 sleep(0.001)
-                # logger.debug("[*] Worker-{}-{} saved status: {}".format(self.worker_id, caller, status_.id_str))
+                # logger.debug("[{}] {} saved status: {}".format(self.worker_id, caller, status_.id_str))
             else:
-                # logger.debug("[*] Worker-{}-{} ignored status: {}".format(self.worker_id, caller, status_.id_str))
+                # logger.debug("[{}] {} ignored status: {}".format(self.worker_id, caller, status_.id_str))
                 pass
             if is_stream:
                 self.users_queue.put((status_.author, 'all_users', caller))
@@ -525,8 +524,7 @@ class Worker:
 
     def stream(self, bbox_, count=1):
         if count > 5:
-            logger.warning("Worker-{} stream failed {} times, worker exit.".format(self.worker_id, count))
-            kill(getpid(), SIGUSR1)
+            self.exit("[{}] stream failed {} times, worker exit.".format(self.worker_id, count))
         else:
             try:
                 self.crawler.stream_filter(self.worker_id, self.stream_res_queue, languages='en', locations=bbox_)
@@ -536,7 +534,7 @@ class Worker:
                 #                          'locations': bbox_}
                 #                  ).start()
             except Exception:
-                logger.warning("Worker-{} stream err: {}".format(self.worker_id, traceback.format_exc()))
+                logger.warning("[{}] stream err: {}".format(self.worker_id, traceback.format_exc()))
                 sleep(count ** 2)
                 self.stream(bbox_, count + 1)
 

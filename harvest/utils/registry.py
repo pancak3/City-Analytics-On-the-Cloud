@@ -15,10 +15,9 @@ from time import sleep, time
 from collections import defaultdict
 from utils.config import config
 from utils.database import CouchDB
+from utils.logger import get_logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('Registry')
-logger.setLevel(logging.DEBUG)
+logger = get_logger('Registry', level_name=logging.DEBUG)
 
 
 class Task:
@@ -93,14 +92,14 @@ class Registry:
                 'port': config.registry_port,
                 'token': config.token
             })
-            logger.debug('[*] Registry created in database: {}:{}'.format(self.ip, config.registry_port))
+            logger.debug('Created in database: {}:{}'.format(self.ip, config.registry_port))
         else:
             doc = self.client['control']['registry']
             doc['ip'] = self.ip
             doc['port'] = config.registry_port
             doc['token'] = config.token
             self.save_doc(doc)
-            logger.debug('[*] Registry updated in database: {}:{}'.format(self.ip, config.registry_port))
+            logger.debug('Updated in database: {}:{}'.format(self.ip, config.registry_port))
 
     def check_views(self):
         # Make view result ascending
@@ -147,7 +146,7 @@ class Registry:
             # docker container inner ip is always 0.0.0.0
             s.bind(('0.0.0.0', config.registry_port))
             s.listen(1)
-            logger.debug('[*] Registry TCP server started at {}:{}'.format(self.ip, config.registry_port))
+            logger.debug('TCP server started at {}:{}'.format(self.ip, config.registry_port))
             while True:
                 conn, addr = s.accept()
                 self.conn_queue.put((conn, addr))
@@ -156,7 +155,7 @@ class Registry:
             kill(self.pid, SIGUSR1)
 
     def conn_handler(self):
-        logger.info("[*] ConnectionHandler started.")
+        logger.info("ConnectionHandler started.")
         while True:
             while not self.conn_queue.empty():
                 (conn, addr) = self.conn_queue.get()
@@ -167,11 +166,12 @@ class Registry:
         data = ''
         while True:
             try:
-                data += str(conn.recv(1024), 'utf-8')
+                data += conn.recv(1024).decode('utf-8')
                 while data.find('\n') != -1:
                     first_pos = data.find('\n')
                     recv_json = json.loads(data[:first_pos])
                     if 'token' in recv_json and recv_json['token'] == config.token:
+                        del recv_json['token']
                         if recv_json['action'] == 'init':
                             if recv_json['role'] == 'sender':
                                 # Worker send API key hashes to ask which it can use
@@ -223,7 +223,7 @@ class Registry:
                 pass
 
     def tasks_generator(self):
-        logger.info("[*] TaskGenerator started.")
+        logger.info("TaskGenerator started.")
         while True:
             if not self.generate_tasks('stream_users', 'stream_user_timeline'):
                 self.generate_tasks('all_users', 'timeline')
@@ -274,15 +274,16 @@ class Registry:
         active_time = int(time())
         while True:
             try:
-                data += str(worker_data.receiver_conn.recv(1024), 'utf-8')
+                data += worker_data.receiver_conn.recv(1024).decode('utf-8')
                 while data.find('\n') != -1:
                     first_pos = data.find('\n')
                     recv_json = json.loads(data[:first_pos])
                     if 'token' in recv_json and recv_json['token'] == config.token:
+                        del recv_json['token']
+                        active_time = int(time())
                         if recv_json['action'] == 'ping':
                             msg = {'token': config.token, 'task': 'pong'}
                             worker_data.msg_queue.put(json.dumps(msg))
-                            active_time = int(time())
                         if recv_json['action'] == 'ask_for_task':
                             logger.debug(
                                 "Got ask for task from Worker-{}: {}".format(recv_json['worker_id'], recv_json))
@@ -301,9 +302,9 @@ class Registry:
                                         user_id = self.friends_tasks.get(timeout=0.01)
                                         msg = {'token': config.token, 'task': 'task', 'friends_ids': [user_id]}
                                         worker_data.msg_queue.put(json.dumps(msg))
+                                        del msg['token']
                                         logger.debug(
-                                            "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id,
-                                                                                     json.dumps(msg)))
+                                            "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, recv_json))
                                     except queue.Empty:
                                         pass
                             if 'timeline' in recv_json and recv_json['timeline'] > 0:
@@ -322,8 +323,7 @@ class Registry:
                                         msg = {'token': config.token, 'task': 'task', 'timeline_ids': [user_id]}
                                         worker_data.msg_queue.put(json.dumps(msg))
                                         logger.debug(
-                                            "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id,
-                                                                                     json.dumps(msg)))
+                                            "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id,recv_json))
                                     except queue.Empty:
                                         pass
                     data = data[first_pos + 1:]
@@ -390,6 +390,10 @@ class Registry:
         self.active_workers.remove(worker_data.worker_id)
         self.lock_worker_id.release()
 
+        # https://stackoverflow.com/questions/409783
+        worker_data.sender_conn.close()
+        worker_data.receiver_conn.close()
+
         logger.warning("[-] Worker-{} exit: {}".format(worker_data.worker_id, e))
 
     def update_available_api_keys_num(self):
@@ -450,9 +454,9 @@ class Registry:
             f = open('registry.pid', 'w+')
             f.write(str(self.pid))
             f.close()
-            logger.info('[-] Starting Registry PID: {}'.format(self.pid))
+            logger.info('Starting with PID: {}'.format(self.pid))
         except Exception:
-            logger.error('[!] Exit! \n{}'.format(traceback.format_exc()))
+            logger.error('Exit! \n{}'.format(traceback.format_exc()))
 
     def run(self):
         self.check_pid()

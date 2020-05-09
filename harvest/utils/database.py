@@ -3,10 +3,9 @@ from cloudant.client import Cloudant
 from cloudant.replicator import Replicator
 from requests.exceptions import HTTPError
 from utils.config import config
+from utils.logger import get_logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('Database')
-logger.setLevel(logging.DEBUG)
+logger = get_logger('Database', logging.DEBUG)
 
 
 class CouchDB:
