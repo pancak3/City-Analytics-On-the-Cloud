@@ -11,9 +11,9 @@ KEY_NAME=$(tail -n 1 ssh_key.config)
 init() {
     runable
     echo "[*] Initialising ... "
-    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
+    ansible-playbook \
         -u ubuntu --key-file="$KEY_FILE" \
-        -e "ansible_python_interpreter=python3 key_name=$KEY_NAME" \
+        -e "key_name=$KEY_NAME" \
         --tags all \
         main.yaml
 }
@@ -22,9 +22,8 @@ init() {
 configure() {
     runable
     echo "[*] Configuring ... "
-    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
+    ansible-playbook \
         -u ubuntu --key-file="$KEY_FILE" \
-        -e "ansible_python_interpreter=python3 ansible_ssh_extra_args=\"-R2222:localhost:22\" key_name=$KEY_NAME" \
         --tags instance_info --tags configure \
         main.yaml
 }
