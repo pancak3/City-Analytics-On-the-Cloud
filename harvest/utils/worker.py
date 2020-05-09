@@ -9,12 +9,8 @@ import traceback
 from os import kill, getpid
 from signal import SIGUSR1
 from math import ceil
-from time import sleep, time, asctime, localtime
+from time import sleep, time
 from collections import defaultdict
-from http.client import RemoteDisconnected
-from urllib3.exceptions import MaxRetryError
-from requests.exceptions import ProxyError, HTTPError
-from urllib3.exceptions import ReadTimeoutError, ProtocolError
 from utils.config import config
 from utils.database import CouchDB
 from utils.crawlers import Crawler
@@ -527,12 +523,11 @@ class Worker:
             self.exit("[{}] stream failed {} times, worker exit.".format(self.worker_id, count))
         else:
             try:
-                self.crawler.stream_filter(self.worker_id, self.stream_res_queue, languages='en', locations=bbox_)
-                # threading.Thread(target=self.crawler.stream_filter,
-                #                  args=(self.worker_id, self.stream_res_queue,),
-                #                  kwargs={'languages': ['en'],
-                #                          'locations': bbox_}
-                #                  ).start()
+                threading.Thread(target=self.crawler.stream_filter,
+                                 args=(self.worker_id, self.stream_res_queue,),
+                                 kwargs={'languages': ['en'],
+                                         'locations': bbox_}
+                                 ).start()
             except Exception:
                 logger.warning("[{}] stream err: {}".format(self.worker_id, traceback.format_exc()))
                 sleep(count ** 2)
