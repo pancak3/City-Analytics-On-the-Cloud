@@ -10,14 +10,14 @@ const app = express();
 const db_username = process.env.DB_USERNAME;
 const db_password = process.env.DB_PASSWORD;
 const db_port = process.env.DB_PORT || 5984;
-const db_host = process.env.DB_HOST || "couchdb";
+const db_host = process.env.DB_HOST || 'couchdb';
 const base_url = `http://${db_username}:${db_password}@${db_host}:${db_port}`;
 
 // Helmet
 app.use(helmet());
 
 // Spy on requests
-app.use(morgan('combined'))
+app.use(morgan('combined'));
 
 // For local development, bad practice for production use
 app.use(cors());
@@ -32,7 +32,7 @@ app.get('/api', async (req, res) => {
 });
 
 // Frontend
-app.get('*', function(req, res) {
+app.get('*', function (req, res) {
     return res.sendFile(path.join(__dirname, 'client/index.html'));
 });
 

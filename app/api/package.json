@@ -1,18 +1,19 @@
 {
-  "name": "comp90024-2020-42-api",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "start": "node app.js"
-  },
-  "author": "Group 42",
-  "license": "MIT",
-  "dependencies": {
-    "axios": "^0.19.2",
-    "cors": "^2.8.5",
-    "express": "^4.17.1",
-    "helmet": "^3.22.0",
-    "morgan": "^1.10.0"
-  }
+    "name": "comp90024-2020-42-api",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "start": "node app.js",
+        "prettier": "prettier --single-quote --tab-width 4 --write package.json \"**/*.js\""
+    },
+    "author": "Group 42",
+    "license": "MIT",
+    "dependencies": {
+        "axios": "^0.19.2",
+        "cors": "^2.8.5",
+        "express": "^4.17.1",
+        "helmet": "^3.22.0",
+        "morgan": "^1.10.0"
+    }
 }
