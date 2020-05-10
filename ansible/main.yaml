@@ -49,17 +49,6 @@
     - role: deploy/clone
     # Setup couch
     - role: deploy/couch
-
-- name: Setup app and harvester
-  hosts: COMP90024
-  gather_facts: yes
-  strategy: free
-  order: sorted
-  tags:
-    - configure
-  vars_files:
-    - vars/configure.yaml
-  roles:
     # Setup app
     - role: deploy/app
     # Setup harvesters
