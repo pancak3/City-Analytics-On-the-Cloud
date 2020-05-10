@@ -228,7 +228,7 @@ class Registry:
     def tasks_generator(self):
         logger.info("TaskGenerator started.")
         while True:
-            if not self.generate_tasks('stream_users', 'stream_user_timeline'):
+            if self.generate_tasks('stream_users', 'stream_user_timeline') < 5:
                 self.generate_tasks('all_users', 'timeline')
             self.generate_tasks('stream_users', 'friends')
             to_sleep = config.tasks_generating_window
@@ -324,7 +324,7 @@ class Registry:
                                     self.lock_timeline_tasks_updated_time.acquire()
                                     if int(time()) - self.timeline_tasks_updated_time > 5:
                                         self.lock_timeline_tasks_updated_time.release()
-                                        if not self.generate_tasks('stream_users', 'stream_user_timeline'):
+                                        if self.generate_tasks('stream_users', 'stream_user_timeline') < 5:
                                             self.generate_tasks('all_users', 'timeline')
                                     else:
                                         self.lock_timeline_tasks_updated_time.release()
