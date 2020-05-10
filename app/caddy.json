@@ -1,0 +1,23 @@
+
+{
+    "apps": {
+        "tls": {
+            "automation": {
+                "policies": [
+                    {
+                        "issuer": {
+                            "module": "internal"
+                        }
+                    }
+                ]
+            }
+        },
+        "http": {
+            "servers": {
+                "automatic_https": {
+                    "disable_redirects": true
+                }
+            }
+        }
+    }
+}
