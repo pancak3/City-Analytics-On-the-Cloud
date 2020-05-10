@@ -83,9 +83,7 @@ class Registry:
         return id_tmp
 
     def update_db(self):
-        if 'control' not in self.client.all_dbs():
-            self.client.create_database('control')
-
+        if 'control' in self.client.all_dbs():
             self.client['control'].create_document({
                 '_id': 'registry',
                 'ip': self.ip,
@@ -129,16 +127,18 @@ class Registry:
             design_doc.add_view('need_updating', map_func)
             design_doc.save()
 
-    def check_db(self):
-        if 'statuses' not in self.client.all_dbs():
-            self.client.create_database('statuses')
-            logger.debug("[*] Statuses table not in database; created.")
-        if 'stream_users' not in self.client.all_dbs():
-            self.client.create_database('stream_users')
-            logger.debug("[*] Stream_users table not in database; created.")
-        if 'all_users' not in self.client.all_dbs():
-            self.client.create_database('all_users')
-            logger.debug("[*] All_users table not in database; created.")
+    def check_db(self, db_name):
+        if db_name not in self.client.all_dbs():
+            self.client.create_database(db_name)
+            logger.debug("[*] database-{} not in Couch; created.".format(db_name))
+
+    def check_dbs(self):
+        self.check_db('statuses')
+        self.check_db('stream_users')
+        self.check_db('all_users')
+        if 'control' in self.client.all_dbs():
+            self.client['control'].delete()
+        self.check_db('control')
 
     def tcp_server(self, lock):
         lock.acquire()
@@ -421,11 +421,15 @@ class Registry:
                             '_id': 'available_api_keys_num',
                             'available': api_keys_num - occupied_api_keys_num,
                             'occupied': occupied_api_keys_num,
-                            'total': api_keys_num
+                            'total': api_keys_num,
+                            'updated_at': int(time())
                         })
                     else:
                         doc = self.client['control']['available_api_keys_num']
-                        doc['value'] = api_keys_num - occupied_api_keys_num
+                        doc['available'] = api_keys_num - occupied_api_keys_num
+                        doc['occupied'] = occupied_api_keys_num
+                        doc['total'] = api_keys_num
+                        doc['updated_at'] = int(time())
                         self.save_doc(doc)
                 except Exception:
                     logger.error('[!] CouchDB err: \n{}'.format(traceback.format_exc()))
@@ -476,8 +480,8 @@ class Registry:
         lock.release()
         self.check_pid()
         self.save_pid()
+        self.check_dbs()
         self.update_db()
-        self.check_db()
         self.check_views()
         threading.Thread(target=self.conn_handler).start()
         threading.Thread(target=self.tasks_generator).start()

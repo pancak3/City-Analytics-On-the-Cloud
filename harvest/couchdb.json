@@ -1,7 +1,7 @@
 {
   "protocol": "http",
   "host": "127.0.0.1",
-  "port": 5983,
+  "port": 5984,
   "username": "admin",
   "password": "password"
 }
