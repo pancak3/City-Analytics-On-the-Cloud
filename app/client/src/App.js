@@ -1,8 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
+import Sidebar from './Sidebar';
+
+import './main.scss';
 
 class App extends React.Component {
     render() {
-        return <React.Component></React.Component>
+        return (
+            <Router>
+                <Sidebar />
+                <main>
+                    <Switch>
+                        <Route exact path="/">
+                            <h2>COMP90024 Assignment 2 - Group 42</h2>
+                        </Route>
+                    </Switch>
+                </main>
+            </Router>
+        );
     }
 }
 
