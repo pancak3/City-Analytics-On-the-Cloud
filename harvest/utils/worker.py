@@ -427,7 +427,7 @@ class Worker:
         while True:
             if self.task_queue.empty():
                 if int(time()) - last_time_sent > 5:
-                    print("running_timeline===> {}".format(self.running_timeline.get_count()))
+                    # print("running_timeline===> {}".format(self.running_timeline.get_count()))
                     if self.running_timeline.get_count() < 5:
                         rate_limit = self.refresh_local_rate_limit()
                         timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
@@ -442,7 +442,7 @@ class Worker:
                             self.msg_to_send.put(json.dumps(msg))
                         last_time_sent = int(time())
 
-                    print("running_friends===> {}".format(self.running_friends.get_count()))
+                    # print("running_friends===> {}".format(self.running_friends.get_count()))
                     if self.running_friends.get_count() < 2:
                         rate_limit = self.refresh_local_rate_limit()
                         running_num = self.running_friends.get_count()
