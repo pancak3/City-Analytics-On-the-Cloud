@@ -244,7 +244,12 @@ class Registry:
             self.couch.connect()
 
     def generate_tasks(self, user_db_name, task_type):
-
+        if task_type == 'friends':
+            self.friends_tasks = queue.Queue()
+            self.lock_friends_tasks_updated_time.acquire()
+        elif task_type == 'timeline':
+            self.timeline_tasks = queue.Queue()
+            self.lock_timeline_tasks_updated_time.acquire()
         start_time = time()
         logger.debug("Start to generate {} tasks.".format(task_type))
         if user_db_name in self.client.all_dbs():
@@ -260,17 +265,19 @@ class Registry:
                     self.timeline_tasks.put(doc['id'])
             logger.debug("Generated {} {} tasks in {:.2} seconds.".format(count, task_type, time() - start_time))
             if task_type == 'friends':
-                self.friends_tasks = queue.Queue()
-                self.lock_friends_tasks_updated_time.acquire()
                 self.friends_tasks_updated_time = int(time())
                 self.lock_friends_tasks_updated_time.release()
             elif task_type == 'timeline':
-                self.timeline_tasks = queue.Queue()
-                self.lock_timeline_tasks_updated_time.acquire()
                 self.timeline_tasks_updated_time = int(time())
                 self.lock_timeline_tasks_updated_time.release()
             return count
         logger.debug("Finished generating {} tasks.".format(task_type))
+        if task_type == 'friends':
+            self.friends_tasks_updated_time = int(time())
+            self.lock_friends_tasks_updated_time.release()
+        elif task_type == 'timeline':
+            self.timeline_tasks_updated_time = int(time())
+            self.lock_timeline_tasks_updated_time.release()
         return 0
 
     def receiver(self, worker_data):
