@@ -23,7 +23,7 @@
     state: present
     remove_orphans: yes
     recreate: smart
-  delegate_to: '{{ groups["COMP90024"][0] }}'
+  when: 'groups["COMP90024"][0] == inventory_hostname'
 
 - name: Start workers on other nodes
   docker_compose:
