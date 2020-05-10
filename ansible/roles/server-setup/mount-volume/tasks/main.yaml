@@ -1,7 +1,6 @@
 ---
 # Verbatim copy from workshop 5
 # xfs https://access.redhat.com/articles/3129891#the-xfs-file-system-3
-
 - name: Install dependencies
   tags: 'volumes'
   become: yes

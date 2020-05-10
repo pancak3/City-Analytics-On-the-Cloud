@@ -1,12 +1,9 @@
-# Provision instances on localhost
-- hosts: localhost
-  # load module for gathering useful variables about remote hosts
-  gather_facts: true
-
+- name: Provision VMs
+  hosts: localhost
+  gather_facts: no
   # variables (how to provision)
   vars_files:
     - vars/openstack.yaml
-
   roles:
     # security groups
     - role: openstack/security-group
@@ -16,44 +13,53 @@
     - role: openstack/instance
     # instance info
     - role: openstack/instance-info
-    # attach volume
-    - role: openstack/refresh-configuration
 
-# Setup servers
-- hosts: COMP90024
-  order: sorted
+- name: Set up VMs
+  hosts: COMP90024
+  gather_facts: yes
+  strategy: free
   tags:
     - server-setup
   vars_files:
     - vars/configure.yaml
-
   roles:
+    # proxy in /etc/environment
+    - role: server-setup/proxy
     # Upload public keys and private deploy key
     - role: server-setup/upload-keys
-    # Proxy in /etc/environment
-    - role: openstack/proxy
     # Mount volumes
     - role: server-setup/mount-volume
-    # Install docker, compose
+    # Install utils, docker, compose
     - role: server-setup/install-dependencies
     # Proxy
     - role: server-setup/docker-proxy
+    # Restart Docker
+    - role: server-setup/restart-docker
 
-# Deploy applications
-- hosts: COMP90024
+- name: Setup couch
+  hosts: COMP90024
+  gather_facts: no
   order: sorted
   tags:
     - configure
   vars_files:
     - vars/configure.yaml
-
   roles:
-    # Shutdown all apps and prune (for debugging)
-    # - role: deploy/down
     # Clone repository
     - role: deploy/clone
     # Setup couch
     - role: deploy/couch
+
+- name: Setup app and harvester
+  hosts: COMP90024
+  gather_facts: no
+  strategy: free
+  order: sorted
+  tags:
+    - configure
+  vars_files:
+    - vars/configure.yaml
+  roles:
     # Setup app
     - role: deploy/app
     # Setup harvesters

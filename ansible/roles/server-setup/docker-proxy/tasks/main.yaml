@@ -29,10 +29,3 @@
     owner: ubuntu
     group: ubuntu
     mode: 0644
-
-- name: Restart docker
-  become: yes
-  systemd:
-    name: docker
-    state: restarted
-    daemon_reload: yes

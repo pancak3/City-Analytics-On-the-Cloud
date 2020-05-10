@@ -1,0 +1,13 @@
+---
+# Restart docker and reload daemon
+- name: Restart docker
+  become: yes
+  systemd:
+    name: docker
+    state: restarted
+    daemon_reload: yes
+
+# Reset groups
+# https://serverfault.com/questions/930804
+- name: reset ssh connection
+  meta: reset_connection

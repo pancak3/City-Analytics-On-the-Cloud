@@ -51,8 +51,3 @@
     name: 'ubuntu'
     groups: 'docker'
     append: 'yes'
-
-# Reset groups
-# https://serverfault.com/questions/930804
-- name: reset ssh connection
-  meta: reset_connection
