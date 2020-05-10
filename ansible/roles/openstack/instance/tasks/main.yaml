@@ -22,14 +22,27 @@
     wait: yes
     state: present
   loop: '{{ instances }}'
+  register: os_instance_async
+  async: 600
+  poll: 0
+
+# https://docs.ansible.com/ansible/latest/user_guide/playbooks_async.html
+- name: Check instance creation
+  no_log: yes
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ os_instance_async.results }}"
   register: os_instance
+  until: os_instance.finished
+  retries: 30
+  delay: 10
 
 - name: Wait for connection
   no_log: yes
   wait_for:
     host: "{{ item.openstack.public_v4 }}"
     port: 22
-    timeout: 120
+    timeout: 300
     search_regex: OpenSSH
   loop: '{{ os_instance.results }}'
   when: item.openstack is defined

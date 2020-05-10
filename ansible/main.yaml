@@ -38,7 +38,7 @@
 
 - name: Setup couch
   hosts: COMP90024
-  gather_facts: no
+  gather_facts: yes
   order: sorted
   tags:
     - configure
@@ -52,7 +52,7 @@
 
 - name: Setup app and harvester
   hosts: COMP90024
-  gather_facts: no
+  gather_facts: yes
   strategy: free
   order: sorted
   tags:

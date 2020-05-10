@@ -1,6 +1,5 @@
 ---
-# Upload worker files
-- name: Upload worker compose file
+- name: Upload master compose file
   become: yes
   template:
     src: docker-compose.yaml.j2
@@ -16,8 +15,7 @@
     owner: '{{ ansible_user }}'
     group: '{{ ansible_user }}'
 
-- name: Start master and worker on head node
-  run_once: true
+- name: Start master and worker on first node
   docker_compose:
     files: ['docker-compose-master.yml', 'docker-compose.yml']
     project_src: '{{ repository.dest }}/harvest'
@@ -25,6 +23,7 @@
     state: present
     remove_orphans: yes
     recreate: smart
+  delegate_to: '{{ groups["COMP90024"][0] }}'
 
 - name: Start workers on other nodes
   docker_compose:
