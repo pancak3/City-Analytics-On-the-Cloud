@@ -7,6 +7,14 @@
     owner: '{{ ansible_user }}'
     group: '{{ ansible_user }}'
 
+- name: Upload Caddyfile
+  become: yes
+  template:
+    src: Caddyfile.j2
+    dest: '{{ repository.dest }}/app/Caddyfile'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+
 # Use docker-compose to up -d app
 - name: Setup app
   docker_compose:

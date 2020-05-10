@@ -1,4 +1,4 @@
-version: '3'
+version: '3.8'
 services:
   app:
     build: ./
@@ -6,6 +6,8 @@ services:
         - DB_USERNAME={{ couch.user }}
         - DB_PASSWORD={{ couch.password }}
         - DB_PORT={{ couch.port }}
+    ports:
+        - 127.0.0.1:3000:3000
     networks:
         - couch_comp90024
     restart: on-failure
@@ -13,11 +15,20 @@ services:
   caddy:
     image: caddy:2-alpine
     ports:
-      - "80:80"
-      - "443:443"
+      - target: 80
+        published: 80
+        protocol: tcp
+      - target: 443
+        published: 443
+        protocol: tcp
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
-    links:
+    # Source IP is not passed into container when not using host networking
+    # There are some security issues with this, so probably shouldn't be
+    # used for production systems on the web
+    # https://github.com/abiosoft/caddy-docker/issues/142
+    network_mode: host
+    depends_on:
       - app
 
 # Network setup, adapted from:
