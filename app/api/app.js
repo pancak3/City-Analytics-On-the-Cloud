@@ -1,12 +1,23 @@
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const request = require('request');
+const axios = require('axios');
+const morgan = require('morgan');
+const helmet = require('helmet');
 const app = express();
 
+// DB setup
 const db_username = process.env.DB_USERNAME;
 const db_password = process.env.DB_PASSWORD;
-const db_port = process.env.DB_PORT;
+const db_port = process.env.DB_PORT || 5984;
+const db_host = process.env.DB_HOST || "couchdb";
+const base_url = `http://${db_username}:${db_password}@${db_host}:${db_port}`;
+
+// Helmet
+app.use(helmet());
+
+// Spy on requests
+app.use(morgan('combined'))
 
 // For local development, bad practice for production use
 app.use(cors());
@@ -14,14 +25,10 @@ app.use(cors());
 // Serve static files
 app.use(express.static(path.join(__dirname, 'client')));
 
-// Root
-// app.get('/', (req, res) => {
-//     return res.send('COMP90024');
-// });
-
 // Database status
-app.get('/api', (req, res) => {
-    return request(`http://couchdb:5984`).pipe(res);
+app.get('/api', async (req, res) => {
+    const resp = await axios.get(base_url, { responseType: 'stream' });
+    resp.data.pipe(res);
 });
 
 // Frontend

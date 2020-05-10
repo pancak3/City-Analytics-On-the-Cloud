@@ -9,8 +9,10 @@
   "author": "Group 42",
   "license": "MIT",
   "dependencies": {
+    "axios": "^0.19.2",
     "cors": "^2.8.5",
     "express": "^4.17.1",
-    "request": "^2.88.2"
+    "helmet": "^3.22.0",
+    "morgan": "^1.10.0"
   }
 }

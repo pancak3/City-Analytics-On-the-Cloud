@@ -1,15 +1,17 @@
 # Build client
 FROM node:14-alpine as client
-COPY ./client /build
+COPY ./client /client
 ENV NODE_ENV production
-RUN cd /build && yarn install --production && yarn run build
+RUN cd /client \
+    && yarn install --production && yarn run build \
+    && rm -rf node_modules
 
 # Build server
 FROM node:14-alpine
 
 # Copy files
 COPY ./api /app
-COPY --from=client /build/build /app/client
+COPY --from=client /client/build /app/client
 WORKDIR /app
 
 # Install deps
