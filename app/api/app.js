@@ -15,9 +15,9 @@ app.use(cors());
 app.use(express.static(path.join(__dirname, 'client')));
 
 // Root
-app.get('/', (req, res) => {
-    return res.send('COMP90024');
-});
+// app.get('/', (req, res) => {
+//     return res.send('COMP90024');
+// });
 
 // Database status
 app.get('/api', (req, res) => {

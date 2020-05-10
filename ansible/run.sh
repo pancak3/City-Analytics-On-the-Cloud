@@ -11,7 +11,7 @@ KEY_NAME=$(tail -n 1 ssh_key.config)
 init() {
     runable
     echo "[*] Initialising ... "
-    ansible-playbook \
+    time ansible-playbook \
         -u ubuntu --key-file="$KEY_FILE" \
         -e "key_name=$KEY_NAME" \
         --tags all \
@@ -22,7 +22,7 @@ init() {
 configure() {
     runable
     echo "[*] Configuring ... "
-    ansible-playbook \
+    time ansible-playbook \
         -u ubuntu --key-file="$KEY_FILE" \
         --tags instance_info --tags configure \
         main.yaml

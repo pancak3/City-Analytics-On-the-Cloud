@@ -9,7 +9,6 @@
 
 # Use docker-compose to up -d app
 - name: Setup app
-  run_once: true
   docker_compose:
     project_src: '{{ repository.dest }}/app'
     build: yes
