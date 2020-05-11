@@ -12,6 +12,7 @@ from os import kill, getpid
 from signal import SIGUSR1
 from cloudant.design_document import DesignDocument, Document
 from time import sleep, time
+from secrets import token_urlsafe
 from collections import defaultdict
 from utils.config import config
 from utils.database import CouchDB
@@ -42,6 +43,7 @@ class WorkerData:
 class Registry:
     def __init__(self, ip):
         self.pid = None
+        self.token = token_urlsafe(13)
         self.ip = ip
         self.couch = CouchDB()
         self.client = self.couch.client
@@ -88,14 +90,14 @@ class Registry:
                 '_id': 'registry',
                 'ip': self.ip,
                 'port': config.registry_port,
-                'token': config.token
+                'token': self.token
             })
             logger.debug('Created in database: {}:{}'.format(self.ip, config.registry_port))
         else:
             doc = self.client['control']['registry']
             doc['ip'] = self.ip
             doc['port'] = config.registry_port
-            doc['token'] = config.token
+            doc['token'] = self.token
             self.save_doc(doc)
             logger.debug('Updated registry addr in database: {}:{}'.format(self.ip, config.registry_port))
 
@@ -173,7 +175,7 @@ class Registry:
                 while data.find('\n') != -1:
                     first_pos = data.find('\n')
                     recv_json = json.loads(data[:first_pos])
-                    if 'token' in recv_json and recv_json['token'] == config.token:
+                    if 'token' in recv_json and recv_json['token'] == self.token:
                         del recv_json['token']
                         if recv_json['action'] == 'init':
                             if recv_json['role'] == 'sender':
@@ -187,7 +189,7 @@ class Registry:
                                         break
                                 self.lock_api_key_worker.release()
                                 if valid_api_key_hash is None:
-                                    msg = {'token': config.token, 'res': 'deny', 'msg': 'no valid api key'}
+                                    msg = {'token': self.token, 'res': 'deny', 'msg': 'no valid api key'}
                                 else:
                                     worker_id = self.get_worker_id()
                                     worker_data = WorkerData(worker_id, conn, addr, valid_api_key_hash)
@@ -202,7 +204,7 @@ class Registry:
 
                                     threading.Thread(target=self.receiver, args=(worker_data,)).start()
 
-                                    msg = {'token': config.token, 'res': 'use_api_key',
+                                    msg = {'token': self.token, 'res': 'use_api_key',
                                            'api_key_hash': valid_api_key_hash, 'worker_id': worker_id}
 
                                 conn.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
@@ -293,11 +295,11 @@ class Registry:
                 while data.find('\n') != -1:
                     first_pos = data.find('\n')
                     recv_json = json.loads(data[:first_pos])
-                    if 'token' in recv_json and recv_json['token'] == config.token:
+                    if 'token' in recv_json and recv_json['token'] == self.token:
                         del recv_json['token']
                         active_time = int(time())
                         if recv_json['action'] == 'ping':
-                            msg = {'token': config.token, 'task': 'pong'}
+                            msg = {'token': self.token, 'task': 'pong'}
                             worker_data.msg_queue.put(json.dumps(msg))
                         if recv_json['action'] == 'ask_for_task':
                             logger.debug(
@@ -315,7 +317,7 @@ class Registry:
                                 else:
                                     try:
                                         user_id = self.friends_tasks.get(timeout=0.01)
-                                        msg = {'token': config.token, 'task': 'task', 'friends_ids': [user_id]}
+                                        msg = {'token': self.token, 'task': 'task', 'friends_ids': [user_id]}
                                         worker_data.msg_queue.put(json.dumps(msg))
                                         del msg['token']
                                         logger.debug(
@@ -335,7 +337,7 @@ class Registry:
                                 else:
                                     try:
                                         user_ids = self.timeline_tasks.get(timeout=0.01)
-                                        msg = {'token': config.token, 'task': 'task', 'timeline_ids': user_ids}
+                                        msg = {'token': self.token, 'task': 'task', 'timeline_ids': user_ids}
                                         worker_data.msg_queue.put(json.dumps(msg))
                                         logger.debug(
                                             "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, recv_json))
@@ -366,7 +368,7 @@ class Registry:
             msg = {"task": "stream",
                    "data": {
                        "locations": config.victoria_bbox},
-                   "token": config.token
+                   "token": self.token
                    }
             worker_data.sender_conn.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
             logger.debug('[*] Sent stream task to Worker-{}.'.format(worker_data.worker_id))

@@ -6,8 +6,7 @@ import queue
 import traceback
 import os
 
-from os import kill, getpid
-from signal import SIGUSR1
+from os import getpid
 from math import ceil
 from time import sleep, time
 from collections import defaultdict
@@ -101,7 +100,7 @@ class Worker:
         try:
             socket_sender = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             socket_sender.connect((reg_ip, reg_port))
-            msg = {'action': 'init', 'role': 'sender', 'token': config.token,
+            msg = {'action': 'init', 'role': 'sender', 'token': self.token,
                    'api_keys_hashes': list(self.crawler.api_keys)}
             socket_sender.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
 
@@ -112,14 +111,14 @@ class Worker:
                     self.exit("[!] Cannot connect to {}:{} using token {}. Exit: No \\n found".format(reg_ip, reg_port,
                                                                                                       token))
                 msg_json = json.loads(data[:first_pos])
-                if 'token' in msg_json and msg_json['token'] == config.token:
+                if 'token' in msg_json and msg_json['token'] == self.token:
                     del msg_json['token']
                     self.update_active_time()
                     if msg_json['res'] == 'use_api_key':
                         valid_api_key_hash = msg_json['api_key_hash']
                         socket_receiver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         socket_receiver.connect((reg_ip, reg_port))
-                        msg = {'action': 'init', 'role': 'receiver', 'token': config.token,
+                        msg = {'action': 'init', 'role': 'receiver', 'token': self.token,
                                'worker_id': msg_json['worker_id']}
                         socket_receiver.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
                         logger.debug("[{}] connected to {}".format(msg_json['worker_id'], (reg_ip, reg_port)))
@@ -190,7 +189,7 @@ class Worker:
             sleep(0.01)
 
     def keep_alive(self):
-        msg_json_str = json.dumps({'token': config.token, 'action': 'ping', 'worker_id': self.worker_id})
+        msg_json_str = json.dumps({'token': self.token, 'action': 'ping', 'worker_id': self.worker_id})
         self.update_active_time()
         while True:
             if self.running_friends.get_count() or self.running_timeline.get_count():
@@ -213,7 +212,7 @@ class Worker:
                 msg = self.msg_received.get()
                 try:
                     msg_json = json.loads(msg)
-                    if 'token' in msg_json and msg_json['token'] == config.token:
+                    if 'token' in msg_json and msg_json['token'] == self.token:
                         self.update_active_time()
                         del msg_json['token']
                         # logger.debug("[{}] received: {}".format(self.worker_id, msg))
@@ -435,7 +434,7 @@ class Worker:
                                 break
                             msg = {'timeline': timeline_remaining,
                                    'worker_id': self.worker_id,
-                                   'token': config.token,
+                                   'token': self.token,
                                    'action': 'ask_for_task'}
                             self.msg_to_send.put(json.dumps(msg))
                         last_time_sent = int(time())
@@ -454,7 +453,7 @@ class Worker:
                             msg = {'friends': friends_remaining,
                                    'followers': followers_remaining,
                                    'worker_id': self.worker_id,
-                                   'token': config.token,
+                                   'token': self.token,
                                    'action': 'ask_for_task'}
                             self.msg_to_send.put(json.dumps(msg))
                             last_time_sent = int(time())
