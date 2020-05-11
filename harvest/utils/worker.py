@@ -486,6 +486,7 @@ class Worker:
     def save_user(self, user_, db_name_, err_count=0, caller=None):
         if err_count > config.max_network_err:
             self.exit("[{}] save user err {} times, exit".format(self.worker_id, config.max_network_err))
+            return False
         try:
             if user_.id_str not in self.client[db_name_]:
                 user_json = user_._json
@@ -497,20 +498,22 @@ class Worker:
                 sleep(0.001)
                 # logger.debug(
                 #     "[{}] {} saved user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
+                return True
             else:
                 # logger.debug(
                 #     "[{}] {} ignored user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
-                pass
+                return False
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
             # https://stackoverflow.com/questions/4990718/
             logger.warning("[!] Save user err: {}".format(traceback.format_exc()))
             sleep(config.network_err_reconnect_time)
-            self.save_user(user_=user_, db_name_=db_name_, err_count=err_count + 1, caller=caller)
+            return self.save_user(user_=user_, db_name_=db_name_, err_count=err_count + 1, caller=caller)
 
     def save_status(self, status_, is_stream=False, err_count=0, caller=None):
         if err_count > config.max_network_err:
             self.exit("[{}] {} save status err {} times, exit".format(self.worker_id, caller, config.max_network_err))
+            return False
         # use id_str
         # The string representation of the unique identifier for this Tweet.
         # Implementations should use this rather than the large integer in id
@@ -521,21 +524,21 @@ class Worker:
                 status_json['_id'] = status_.id_str
                 status_json['is_stream'] = True if is_stream else False
                 self.client['statuses'].create_document(status_json)
+                if is_stream:
+                    self.users_queue.put((status_.author, 'all_users', caller))
+                    self.users_queue.put((status_.author, 'stream_users', caller))
                 sleep(0.001)
                 # logger.debug("[{}] {} saved status: {}".format(self.worker_id, caller, status_.id_str))
+                return True
             else:
                 # logger.debug("[{}] {} ignored status: {}".format(self.worker_id, caller, status_.id_str))
-                pass
-            if is_stream:
-                self.users_queue.put((status_.author, 'all_users', caller))
-                self.users_queue.put((status_.author, 'stream_users', caller))
-
+                return False
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
             # https://stackoverflow.com/questions/4990718/
             logger.warning("[!] Save status err: {}".format(traceback.format_exc()))
             sleep(config.network_err_reconnect_time)
-            self.save_status(status_=status_, is_stream=is_stream, err_count=err_count + 1, caller=caller)
+            return self.save_status(status_=status_, is_stream=is_stream, err_count=err_count + 1, caller=caller)
 
     def check_db(self):
         if 'statuses' not in self.client.all_dbs():
@@ -550,20 +553,31 @@ class Worker:
             logger.debug("[*] All_users table not in database; created.")
 
     def users_recorder(self):
+        count = 0
         while True:
             # self.lock_users_recorder.acquire()
             while not self.users_queue.empty():
                 (user_, db_name_, caller) = self.users_queue.get()
-                self.save_user(user_=user_, db_name_=db_name_, caller=caller)
+                if self.save_user(user_=user_, db_name_=db_name_, caller=caller):
+                    count += 1
+                    if count > config.print_log_when_saved:
+                        count = 0
+                        logger.info("Saved {} new users to {}".format(config.print_log_when_saved, db_name_))
             # self.lock_users_recorder.release()
             sleep(1)
 
     def statuses_recorder(self):
+        count = 0
+
         while True:
             # self.lock_statuses_recorder.acquire()
             while not self.statuses_queue.empty():
                 (status_, is_stream, caller) = self.statuses_queue.get()
-                self.save_status(status_=status_, is_stream=is_stream, caller=caller)
+                if self.save_status(status_=status_, is_stream=is_stream, caller=caller):
+                    count += 1
+                    if count > config.print_log_when_saved:
+                        count = 0
+                        logger.info("Saved {} new statuses".format(config.print_log_when_saved))
             # self.lock_statuses_recorder.release()
             sleep(1)
         pass

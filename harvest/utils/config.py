@@ -69,6 +69,7 @@ class Config:
             self.max_running_timeline = harvest_json['max_running_timeline']
             self.max_tasks_num = harvest_json['max_tasks_num']
             self.max_task_runtime = harvest_json['max_task_runtime']
+            self.print_log_when_saved = harvest_json['print_log_when_saved']
 
 
 def get_external_ip():
