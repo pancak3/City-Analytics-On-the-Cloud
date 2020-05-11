@@ -262,8 +262,8 @@ class Registry:
                     count += 1
                     self.friends_tasks.put(doc['id'])
             if task_type in {'timeline', 'stream_user_timeline'}:
-                for i in range(0, len(result[:config.max_tasks_num]), 5):
-                    ids = [doc['id'] for doc in result[:config.max_tasks_num][i:i + 5]]
+                for i in range(0, len(result[:config.max_tasks_num]), 1):
+                    ids = [doc['id'] for doc in result[:config.max_tasks_num][i:i + 1]]
                     count += len(ids)
                     self.timeline_tasks.put(ids)
 
@@ -271,7 +271,7 @@ class Registry:
             if task_type == 'friends':
                 self.friends_tasks_updated_time = int(time())
                 self.lock_friends_tasks_updated_time.release()
-            elif task_type == 'timeline':
+            elif task_type in {'timeline', 'stream_user_timeline'}:
                 self.timeline_tasks_updated_time = int(time())
                 self.lock_timeline_tasks_updated_time.release()
             return count

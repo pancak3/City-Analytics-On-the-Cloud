@@ -176,7 +176,6 @@ class Worker:
         #     while self.socket_recv._io_refs > 0:
         #         sleep(0.01)
         logger.error(log)
-        kill(getpid(), SIGUSR1)
         os._exit(1)
 
     def msg_sender(self):
@@ -349,74 +348,72 @@ class Worker:
             sleep(to_sleep)
             self.stream(bbox_, count + 1)
 
-    def timeline(self, user_ids):
+    def timeline(self, timeline_user_id):
         self.running_timeline.inc()
         try:
-            for timeline_user_id in user_ids:
-                logger.debug("[{}] is getting user-{}'s timeline.".format(self.worker_id, timeline_user_id))
-                statuses = self.crawler.get_user_timeline(id=timeline_user_id, err_count=0)
-                for status in statuses:
-                    self.statuses_queue.put((status, False, 'Timeline'))
+            logger.debug("[{}] is getting user-{}'s timeline.".format(self.worker_id, timeline_user_id))
+            statuses = self.crawler.get_user_timeline(id=timeline_user_id, err_count=0)
+            for status in statuses:
+                self.statuses_queue.put((status, False, 'Timeline'))
 
-                # Get stream user's timeline first.
-                if timeline_user_id in self.client['stream_users']:
-                    self.save_doc(self.client['stream_users'][timeline_user_id], update='timeline_updated_at')
+            # Get stream user's timeline first.
+            if timeline_user_id in self.client['stream_users']:
+                self.save_doc(self.client['stream_users'][timeline_user_id], update='timeline_updated_at')
 
-                if timeline_user_id in self.client['all_users']:
-                    self.save_doc(self.client['all_users'][timeline_user_id], update='timeline_updated_at')
+            if timeline_user_id in self.client['all_users']:
+                self.save_doc(self.client['all_users'][timeline_user_id], update='timeline_updated_at')
 
-                logger.debug("[{}] finished user-{}'s timeline task.".format(self.worker_id, timeline_user_id))
+            logger.debug("[{}] finished user-{}'s timeline task.".format(self.worker_id, timeline_user_id))
             self.running_timeline.dec()
             self.crawler.update_rate_limit_status()
         except BaseException:
             self.running_timeline.dec()
 
-    def friends(self, user_ids):
+    def friends(self, stream_user_id):
         self.running_friends.inc()
         try:
-            for stream_user_id in user_ids:
-                logger.debug("[{}] getting user-{}'s friends.".format(self.worker_id, stream_user_id))
+            logger.debug("[{}] getting user-{}'s friends.".format(self.worker_id, stream_user_id))
 
-                lock_follower = threading.Lock()
-                lock_friend = threading.Lock()
+            lock_follower = threading.Lock()
+            lock_friend = threading.Lock()
 
-                # user wrapper to use variable reference
-                # https://stackoverflow.com/questions/986006
-                follower_ids_set = [set(), 0]
-                friend_ids_set = [set(), 0]
+            # user wrapper to use variable reference
+            # https://stackoverflow.com/questions/986006
+            follower_ids_set = [set(), 0]
+            friend_ids_set = [set(), 0]
 
-                threading.Thread(target=self.crawler.get_followers_ids,
-                                 args=(lock_follower, follower_ids_set, 0,),
-                                 kwargs={'id': stream_user_id}).start()
+            threading.Thread(target=self.crawler.get_followers_ids,
+                             args=(lock_follower, follower_ids_set, 0,),
+                             kwargs={'id': stream_user_id}).start()
 
-                threading.Thread(target=self.crawler.get_friends_ids,
-                                 args=(lock_friend, friend_ids_set, 0,),
-                                 kwargs={'id': stream_user_id}).start()
+            threading.Thread(target=self.crawler.get_friends_ids,
+                             args=(lock_friend, friend_ids_set, 0,),
+                             kwargs={'id': stream_user_id}).start()
 
-                max_sleep = 5 * 60
-                while max_sleep:
-                    lock_follower.acquire()
-                    lock_friend.acquire()
-                    if follower_ids_set[1] == -1 or friend_ids_set[1] == -1:
-                        raise BaseException
-                    elif follower_ids_set[1] and friend_ids_set[1]:
-                        break
-                    else:
-                        sleep(0.01)
-                        max_sleep -= 0.01
-                    lock_follower.release()
-                    lock_friend.release()
+            max_sleep = 5 * 60
+            while max_sleep:
+                lock_follower.acquire()
+                lock_friend.acquire()
+                if follower_ids_set[1] == -1 or friend_ids_set[1] == -1:
+                    raise BaseException
+                elif follower_ids_set[1] and friend_ids_set[1]:
+                    break
+                else:
+                    sleep(0.01)
+                    max_sleep -= 0.01
+                lock_follower.release()
+                lock_friend.release()
 
-                mutual_follow = list(follower_ids_set[0].intersection(friend_ids_set[0]))[:config.friends_max_ids]
-                users_res = self.crawler.lookup_users(mutual_follow, err_count=0)
-                for user in users_res:
-                    self.users_queue.put((user, 'all_users', 'Friends'))
-                self.save_doc(self.client['stream_users'][stream_user_id], update='friends_updated_at')
-                self.client['all_users'][stream_user_id]['follower_ids'] = list(follower_ids_set)
-                self.client['all_users'][stream_user_id]['friend_ids'] = list(friend_ids_set)
-                self.client['all_users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
-                self.save_doc(self.client['all_users'][stream_user_id], update='friends_updated_at')
-                logger.debug("[{}] finished user-{}'s friends task.".format(self.worker_id, stream_user_id))
+            mutual_follow = list(follower_ids_set[0].intersection(friend_ids_set[0]))[:config.friends_max_ids]
+            users_res = self.crawler.lookup_users(mutual_follow, err_count=0)
+            for user in users_res:
+                self.users_queue.put((user, 'all_users', 'Friends'))
+            self.save_doc(self.client['stream_users'][stream_user_id], update='friends_updated_at')
+            self.client['all_users'][stream_user_id]['follower_ids'] = list(follower_ids_set)
+            self.client['all_users'][stream_user_id]['friend_ids'] = list(friend_ids_set)
+            self.client['all_users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
+            self.save_doc(self.client['all_users'][stream_user_id], update='friends_updated_at')
+            logger.debug("[{}] finished user-{}'s friends task.".format(self.worker_id, stream_user_id))
             self.running_friends.dec()
             self.crawler.update_rate_limit_status()
         except BaseException:
@@ -468,13 +465,14 @@ class Worker:
 
                 while not self.task_queue.empty():
                     task = self.task_queue.get()
-                    if task.type == 'timeline':
-                        threading.Thread(target=self.timeline, args=(task.user_ids,)).start()
-                        # self.timeline(task.user_ids)
+                    for user_id in task.user_ids:
+                        if task.type == 'timeline':
+                            threading.Thread(target=self.timeline, args=(user_id,)).start()
+                            # self.timeline(task.user_ids)
 
-                    if task.type == 'friends':
-                        threading.Thread(target=self.friends, args=(task.user_ids,)).start()
-                        # self.friends(task.user_ids)
+                        if task.type == 'friends':
+                            threading.Thread(target=self.friends, args=(user_id,)).start()
+                            # self.friends(task.user_ids)
 
     def stream_status_handler(self):
         while True:
