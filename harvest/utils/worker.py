@@ -493,7 +493,11 @@ class Worker:
                 if db_name_ == 'stream_users':
                     # when user is in all_user and be updated timeline
                     if user_.id_str in self.client['all_users']:
-                        user_json['friends_updated_at'] = self.client['all_users'][user_.id_str]['friends_updated_at']
+                        if 'friends_updated_at' in self.client['all_users'][user_.id_str]:
+                            user_json['friends_updated_at'] = \
+                                self.client['all_users'][user_.id_str]['friends_updated_at']
+                        else:
+                            user_json['friends_updated_at'] = 0
                     else:
                         user_json['friends_updated_at'] = 0
                 user_json['timeline_updated_at'] = 0
