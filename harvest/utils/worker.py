@@ -3,8 +3,8 @@ import socket
 import threading
 import json
 import queue
-import tweepy
 import traceback
+import os
 
 from os import kill, getpid
 from signal import SIGUSR1
@@ -177,6 +177,7 @@ class Worker:
         #         sleep(0.01)
         logger.error(log)
         kill(getpid(), SIGUSR1)
+        os._exit(1)
 
     def msg_sender(self):
         while True:

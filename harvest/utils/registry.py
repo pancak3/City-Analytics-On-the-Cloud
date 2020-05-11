@@ -247,9 +247,11 @@ class Registry:
         if task_type == 'friends':
             self.friends_tasks = queue.Queue()
             self.lock_friends_tasks_updated_time.acquire()
-        elif task_type == 'timeline':
+        elif task_type in {'timeline', 'stream_user_timeline'}:
             self.timeline_tasks = queue.Queue()
             self.lock_timeline_tasks_updated_time.acquire()
+        else:
+            return 0
         start_time = time()
         logger.debug("Start to generate {} tasks.".format(task_type))
         if user_db_name in self.client.all_dbs():
