@@ -2,6 +2,8 @@ version: '3'
 services:
   master:
     build: ./
+    environment:
+      TZ: "Australia/Melbourne"
     command: "reg {{ inventory_hostname }}"
     ports:
       - 8673:8673

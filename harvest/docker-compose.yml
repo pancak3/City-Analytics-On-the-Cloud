@@ -2,6 +2,8 @@ version: '3'
 services:
   worker:
     build: ./
+    environment:
+      TZ: "Australia/Melbourne"
     command: "worker"
     networks:
         - couch_comp90024
