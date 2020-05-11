@@ -428,7 +428,7 @@ class Worker:
             if self.task_queue.empty():
                 if int(time()) - last_time_sent > 5:
                     # print("running_timeline===> {}".format(self.running_timeline.get_count()))
-                    if self.running_timeline.get_count() < 5:
+                    if self.running_timeline.get_count() < 3:
                         rate_limit = self.refresh_local_rate_limit()
                         timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
                         for i in range(config.max_running_timeline):

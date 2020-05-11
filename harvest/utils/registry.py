@@ -255,14 +255,16 @@ class Registry:
         if user_db_name in self.client.all_dbs():
             count = 0
             result = self.client[user_db_name].get_view_result('_design/' + task_type, 'need_updating')
-            for doc in result[:config.max_tasks_num]:
-                count += 1
-                if task_type == 'friends':
+            if task_type == 'friends':
+                for doc in result[:config.max_tasks_num]:
+                    count += 1
                     self.friends_tasks.put(doc['id'])
-                elif task_type == 'timeline':
-                    self.timeline_tasks.put(doc['id'])
-                elif task_type == 'stream_user_timeline':
-                    self.timeline_tasks.put(doc['id'])
+            if task_type in {'timeline', 'stream_user_timeline'}:
+                for i in range(0, len(result[:config.max_tasks_num]), 5):
+                    ids = [doc['id'] for doc in result[:config.max_tasks_num][i:i + 5]]
+                    count += len(ids)
+                    self.timeline_tasks.put(ids)
+
             logger.debug("Generated {} {} tasks in {:.2} seconds.".format(count, task_type, time() - start_time))
             if task_type == 'friends':
                 self.friends_tasks_updated_time = int(time())
@@ -330,8 +332,8 @@ class Registry:
                                         self.lock_timeline_tasks_updated_time.release()
                                 else:
                                     try:
-                                        user_id = self.timeline_tasks.get(timeout=0.01)
-                                        msg = {'token': config.token, 'task': 'task', 'timeline_ids': [user_id]}
+                                        user_ids = self.timeline_tasks.get(timeout=0.01)
+                                        msg = {'token': config.token, 'task': 'task', 'timeline_ids': user_ids}
                                         worker_data.msg_queue.put(json.dumps(msg))
                                         logger.debug(
                                             "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, recv_json))
