@@ -1,0 +1,4 @@
+---
+- name: Set timezone to Australia/Melbourne
+  timezone:
+    name: Australia/Melbourne

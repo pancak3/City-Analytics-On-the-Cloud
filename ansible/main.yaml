@@ -23,6 +23,8 @@
   vars_files:
     - vars/configure.yaml
   roles:
+    # set timezone
+    - role: server-setup/timezone
     # proxy in /etc/environment
     - role: server-setup/proxy
     # Upload public keys and private deploy key
