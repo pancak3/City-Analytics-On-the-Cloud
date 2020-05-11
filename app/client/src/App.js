@@ -12,7 +12,7 @@ class App extends React.Component {
                 <main>
                     <Switch>
                         <Route exact path="/">
-                            <h2>COMP90024 Assignment 2 - Group 42</h2>
+                            <h2>Assignment 2 - Group 42</h2>
                         </Route>
                     </Switch>
                 </main>

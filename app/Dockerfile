@@ -10,12 +10,13 @@ RUN cd /client \
 FROM node:14-alpine
 
 # Copy files
-COPY ./api /app
-COPY --from=client /client/build /app/client
 WORKDIR /app
+COPY --from=client /client/build /app/client
+ENV NODE_ENV production
+
+COPY ./api /app
 
 # Install deps
-ENV NODE_ENV production
 RUN yarn install --production
 RUN adduser -D comp90024
 User comp90024

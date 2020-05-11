@@ -5,8 +5,11 @@ class Sidebar extends React.Component {
     render() {
         return (
             <aside>
-                <h1>COMP90024</h1>
+                <h1>COMP90024 Assignment 2</h1>
                 <ul>
+                    <li>
+                        <NavLink to="/">Summary</NavLink>
+                    </li>
                     <li>
                         <NavLink to="/s1">Scenario 1</NavLink>
                     </li>
