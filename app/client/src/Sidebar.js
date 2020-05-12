@@ -30,7 +30,10 @@ class Sidebar extends React.Component {
                         <NavLink activeClassName="selected" to="/s5">Scenario 5</NavLink>
                     </li>
                 </ul>
-                <p>Made by: Team 42</p>
+                <p>
+                    Made by: Team 42<br />
+                    Design inspired by <a target="_blank" rel='noreferrer noopener' href="https://covid-dashboards.web.app">Covid 19 App</a>
+                </p>
             </aside>
         );
     }
