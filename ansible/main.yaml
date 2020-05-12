@@ -38,9 +38,9 @@
     # Restart Docker
     - role: server-setup/restart-docker
     # Login to registry (deprecates clone below)
-    - role: deploy/registry_login
+    - role: server-setup/registry_login
     # Set up watchtower
-    - role: deploy/watchtower
+    - role: server-setup/watchtower
 
 - name: Setup couch
   hosts: COMP90024
