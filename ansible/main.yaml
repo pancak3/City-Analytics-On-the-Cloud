@@ -37,6 +37,10 @@
     - role: server-setup/docker-proxy
     # Restart Docker
     - role: server-setup/restart-docker
+    # Login to registry (deprecates clone below)
+    - role: deploy/registry_login
+    # Set up watchtower
+    - role: deploy/watchtower
 
 - name: Setup couch
   hosts: COMP90024
@@ -49,8 +53,6 @@
   roles:
     # Clone repository
     # - role: deploy/clone
-    # Login to registry (deprecates clone)
-    - role: deploy/registry_login
     # Setup couch
     - role: deploy/couch
     # Setup app

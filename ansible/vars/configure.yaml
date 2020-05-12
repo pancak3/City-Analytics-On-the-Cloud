@@ -33,3 +33,6 @@ app:
 
 harvest:
   dir: /data/harvest
+
+watchtower:
+  dir: /data/watchtower
