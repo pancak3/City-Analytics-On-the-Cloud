@@ -15,26 +15,26 @@ on:
 jobs:
   build_harvest:
     runs-on: ubuntu-latest
-    env:
-      working-directory: ./harvest
     steps:
       - uses: actions/checkout@v2
       - name: Login to Gitlab Registry
         run: echo ${{ secrets.REG_PASS }} | docker login registry.gitlab.com -u ${{ secrets.REG_USER }} --password-stdin
       - name: Build harvest image
         run: docker build . -t registry.gitlab.com/comp90024/project-2:harvest
+        working-directory: ./harvest
       - name: Push docker image
         run: docker push registry.gitlab.com/comp90024/project-2:harvest
+        working-directory: ./harvest
 
   build_app:
     runs-on: ubuntu-latest
-    env:
-      working-directory: ./app
     steps:
       - uses: actions/checkout@v2
       - name: Login to Gitlab Registry
         run: echo ${{ secrets.REG_PASS }} | docker login registry.gitlab.com -u ${{ secrets.REG_USER }} --password-stdin
       - name: Build app image
         run: docker build . -t registry.gitlab.com/comp90024/project-2:app
+        working_directory: ./app
       - name: Push docker image
         run: docker push registry.gitlab.com/comp90024/project-2:app
+        working_directory: ./app
