@@ -3,3 +3,4 @@ unimelb-comp90024-2020-grp-42-openrc.sh
 ./*.json
 node_modules/
 build/
+package-lock.json
