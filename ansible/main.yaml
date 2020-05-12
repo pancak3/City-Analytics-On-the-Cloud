@@ -27,7 +27,7 @@
     - role: server-setup/timezone
     # proxy in /etc/environment
     - role: server-setup/proxy
-    # Upload public keys and private deploy key
+    # Upload public keys
     - role: server-setup/upload-keys
     # Mount volumes
     - role: server-setup/mount-volume

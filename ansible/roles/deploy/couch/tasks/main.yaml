@@ -43,6 +43,7 @@
 
 # Create directory
 - name: Create couch data directory
+  become: yes
   file:
     path: '{{ couch.dir }}/data'
     owner: '5984'

@@ -26,14 +26,24 @@
 - name: Upload couchdb config of harvesters
   template:
     src: couchdb.json.j2
-    dest: '{{ repository.dest }}/harvest/couchdb.json'
+    dest: '{{ harvest.dir }}/couchdb.json'
     owner: '{{ ansible_user }}'
     group: '{{ ansible_user }}'
+
+- name: Upload harvest config of harvesters
+  copy:
+    src: '{{ playbook_dir }}/../harvest/harvest.json'
+    dest: '{{ harvest.dir }}/harvest.json'
+
+- name: Upload twitter config of harvesters
+  copy:
+    src: '{{ playbook_dir }}/../harvest/twitter.json'
+    dest: '{{ harvest.dir }}/twitter.json'
 
 - name: Start master and worker on first node
   docker_compose:
     files: ['docker-compose-master.yml', 'docker-compose.yml']
-    project_src: '{{ repository.dest }}/harvest'
+    project_src: '{{ harvest.dir }}'
     build: yes
     state: present
     remove_orphans: yes
@@ -42,7 +52,7 @@
 
 - name: Start workers on other nodes
   docker_compose:
-    project_src: '{{ repository.dest }}/harvest'
+    project_src: '{{ harvest.dir }}'
     build: yes
     state: present
     remove_orphans: yes

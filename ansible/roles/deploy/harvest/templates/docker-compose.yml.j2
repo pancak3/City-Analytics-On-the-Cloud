@@ -10,6 +10,10 @@ services:
     networks:
         - couch_comp90024
     restart: on-failure
+    volumes:
+      - ./couchdb.json:/app/couchdb.json
+      - ./harvest.json:/app/harvest.json
+      - ./twitter.json:/app/twitter.json
 
 networks:
   couch_comp90024:

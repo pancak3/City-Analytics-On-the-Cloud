@@ -1,13 +1,18 @@
 version: '3'
 services:
   worker:
-    build: ./
+    image: registry.gitlab.com/comp90024/project-2:harvest
     environment:
       TZ: "Australia/Melbourne"
     command: "worker"
     networks:
         - couch_comp90024
     restart: on-failure
+    volumes:
+      - ./couchdb.json:/app/couchdb.json
+      - ./harvest.json:/app/harvest.json
+      - ./twitter.json:/app/twitter.json
+
 networks:
   couch_comp90024:
     external: true
