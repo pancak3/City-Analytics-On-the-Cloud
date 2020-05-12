@@ -46,7 +46,13 @@ app.get('/api/dbs', async (req, res) => {
         const db_res = await axios.get(`${base_url}/${db}`);
         db_info.push(db_res.data);
     }
-    return res.send(db_info);
+    return res.send(db_info.map((info) => {
+        return {
+            name: info.db_name,
+            size: info.sizes.active,
+            count: info.doc_count
+        };
+    }));
 });
 
 // Frontend
