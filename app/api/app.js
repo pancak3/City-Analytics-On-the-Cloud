@@ -34,7 +34,7 @@ app.use(express.static(path.join(__dirname, 'client')));
 // Database status
 app.get('/api', async (req, res) => {
     console.log(base_url);
-    const resp = await axios.get(base_url, { responseType: 'stream' });
+    const resp = await axios.get(base_url, {responseType: 'stream'});
     resp.data.pipe(res);
 });
 
@@ -53,6 +53,12 @@ app.get('/api/dbs', async (req, res) => {
             count: info.doc_count
         };
     }));
+});
+
+// Gets users count with mapreduce
+app.get('/api/users_count', async (req, res) => {
+    const users_count_res = await axios.get(`${base_url}/users/_design/api/_view/count`);
+    return res.send({user_count: users_count_res.data.rows[0].value});
 });
 
 // Frontend
