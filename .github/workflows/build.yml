@@ -2,19 +2,19 @@ name: Builds harvest and app images
 
 # Adapted from:
 # https://www.prestonlamb.com/blog/creating-a-docker-image-with-github-actions
-# on:
-#   push:
-#     branches:
-#       - master
+on:
+  push:
+    branches:
+      - master
 
 # Trigger only when starred
-on:
-  watch:
-    types: [started]
+# on:
+#   watch:
+#     types: [started]
 
 jobs:
   build_harvest:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
       - name: Login to Gitlab Registry
