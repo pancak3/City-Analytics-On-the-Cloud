@@ -1,4 +1,3 @@
 python-twitter==3.5
 cloudant==2.13.0
 tweepy==3.8.0
-psutil==5.7.0

@@ -3,10 +3,7 @@ import socket
 import threading
 import json
 import queue
-import hashlib
 import traceback
-import os
-import psutil
 
 from os import kill, getpid
 from signal import SIGUSR1
@@ -48,14 +45,6 @@ class Registry:
         self.couch = CouchDB()
         self.client = self.couch.client
 
-        self.api_key_worker = {}
-        self.lock_api_key_worker = threading.Lock()
-
-        self.working = {
-            "credential_states": [None for i in range(len(config.twitter))],
-            "stream_listeners": [],
-            "user_readers": []
-        }
         self.conn_queue = queue.Queue()
 
         self.msg_queue_dict = defaultdict(queue.Queue)
@@ -63,10 +52,9 @@ class Registry:
 
         self.worker_id = 0
         self.active_workers = set()
-        self.lock_worker_id = threading.Lock()
-
+        self.api_using = set()
         self.worker_data = {}
-        self.lock_worker_data = threading.Lock()
+        self.lock_worker = threading.Lock()
 
         self.friends_tasks = queue.Queue()
         self.timeline_tasks = queue.Queue()
@@ -77,11 +65,11 @@ class Registry:
         self.lock_timeline_tasks_updated_time = threading.Lock()
 
     def get_worker_id(self):
-        self.lock_worker_id.acquire()
+        self.lock_worker.acquire()
         self.worker_id += 1
         id_tmp = self.worker_id
         self.active_workers.add(id_tmp)
-        self.lock_worker_id.release()
+        self.lock_worker.release()
         return id_tmp
 
     def update_db(self):
@@ -105,28 +93,70 @@ class Registry:
         # Make view result ascending
         # https://stackoverflow.com/questions/40463629
 
-        design_doc = Document(self.client['stream_users'], '_design/friends')
+        design_doc = Document(self.client['statuses'], '_design/stream')
         if not design_doc.exists():
-            design_doc = DesignDocument(self.client['stream_users'], '_design/friends')
-            map_func = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("friends_updated_at")){doc.friends_updated_at=0;}if (timestamp - doc.friends_updated_at > ' + str(
-                config.friends_updating_window) + '){emit([doc.friends_updated_at, doc._id]);}}'
-            design_doc.add_view('need_updating', map_func)
+            design_doc = DesignDocument(self.client['statuses'], '_design/stream')
+            map_func_statuses = 'function(doc) { ' \
+                                '   if (!doc.hasOwnProperty("direct_stream")) {doc.direct_stream = False;}' \
+                                '   if ( doc.direct_stream ) ' \
+                                '   {emit(doc._id, true);}' \
+                                '}'
+
+            design_doc.add_view('statues', map_func_statuses)
+
+            map_func_statuses_expanded = 'function(doc) { ' \
+                                         '   if (!doc.hasOwnProperty("stream_status")) {doc.stream_status = False;}' \
+                                         '   if ( doc.stream_status ) ' \
+                                         '   {emit(doc._id, true);}' \
+                                         '}'
+            design_doc.add_view('statuses_expanded', map_func_statuses_expanded)
             design_doc.save()
 
-        design_doc = Document(self.client['all_users'], '_design/timeline')
+        design_doc = Document(self.client['users'], '_design/stream')
         if not design_doc.exists():
-            design_doc = DesignDocument(self.client['all_users'], '_design/timeline')
-            map_func = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > ' + str(
-                config.timeline_updating_window) + '){emit([doc.timeline_updated_at, doc._id]);}}'
-            design_doc.add_view('need_updating', map_func)
+            design_doc = DesignDocument(self.client['users'], '_design/stream')
+            map_func_users = 'function(doc) {' \
+                             '  if (!doc.hasOwnProperty("stream_user")) {doc.stream_user = false;}' \
+                             '  if ( doc.stream_user) {emit(doc._id, true);}' \
+                             '}'
+            design_doc.add_view('users', map_func_users)
             design_doc.save()
 
-        design_doc = Document(self.client['stream_users'], '_design/stream_user_timeline')
+        design_doc = Document(self.client['users'], '_design/tasks')
         if not design_doc.exists():
-            design_doc = DesignDocument(self.client['stream_users'], '_design/stream_user_timeline')
-            map_func = 'function(doc){var date = new Date();var timestamp = date.getTime() / 1000;if (!doc.hasOwnProperty("timeline_updated_at")){doc.timeline_updated_at=0;}if (timestamp - doc.timeline_updated_at > ' + str(
-                config.timeline_updating_window) + '){emit([doc.timeline_updated_at, doc._id]);}}'
-            design_doc.add_view('need_updating', map_func)
+            design_doc = DesignDocument(self.client['users'], '_design/tasks')
+            map_func_friends = 'function(doc) {' \
+                               '    var date = new Date();' \
+                               '    var timestamp = date.getTime() / 1000;' \
+                               '    if (!doc.hasOwnProperty("friends_updated_at")) {doc.friends_updated_at = 0;}' \
+                               '    if (!doc.hasOwnProperty("stream_user")) {doc.stream_user = false;}' \
+                               '    if (doc.stream_user && timestamp - doc.friends_updated_at > ' \
+                               + str(config.timeline_updating_window) + \
+                               '                                          ) {' \
+                               '        emit([doc.friends_updated_at, doc._id]);}' \
+                               '}'
+            design_doc.add_view('friends', map_func_friends)
+
+            map_func_timeline = 'function(doc) {' \
+                                '    var date = new Date();' \
+                                '    var timestamp = date.getTime() / 1000;' \
+                                '    if (!doc.hasOwnProperty("timeline_updated_at")) {' \
+                                '        doc.timeline_updated_at = 0;' \
+                                '    }' \
+                                '    if (timestamp - doc.timeline_updated_at > ' \
+                                + str(config.timeline_updating_window) + \
+                                '                                          ) {' \
+                                '      if (!doc.hasOwnProperty("stream_user")) {' \
+                                '        doc.stream_user = false;' \
+                                '      }' \
+                                '       if (doc.stream_user) {' \
+                                '        emit([doc.timeline_updated_at,0, doc._id,true],"stream_user");' \
+                                '       }else{' \
+                                '        emit([doc.timeline_updated_at,1, doc._id,false],"not_stream");' \
+                                '      }' \
+                                '    }' \
+                                '}'
+            design_doc.add_view('timeline', map_func_timeline)
             design_doc.save()
 
     def check_db(self, db_name):
@@ -136,8 +166,7 @@ class Registry:
 
     def check_dbs(self):
         self.check_db('statuses')
-        self.check_db('stream_users')
-        self.check_db('all_users')
+        self.check_db('users')
         if 'control' in self.client.all_dbs():
             self.client['control'].delete()
         self.check_db('control')
@@ -164,10 +193,10 @@ class Registry:
         while True:
             while not self.conn_queue.empty():
                 (conn, addr) = self.conn_queue.get()
-                threading.Thread(target=self.msg_handler, args=(conn, addr,)).start()
+                threading.Thread(target=self.registry_msg_handler, args=(conn, addr,)).start()
             sleep(0.01)
 
-    def msg_handler(self, conn, addr):
+    def registry_msg_handler(self, conn, addr):
         data = ''
         while True:
             try:
@@ -181,28 +210,28 @@ class Registry:
                             if recv_json['role'] == 'sender':
                                 # Worker send API key hashes to ask which it can use
                                 valid_api_key_hash = None
-                                self.lock_api_key_worker.acquire()
+                                self.lock_worker.acquire()
                                 for api_key_hash in recv_json['api_keys_hashes']:
-                                    if api_key_hash not in self.api_key_worker:
-                                        self.api_key_worker[api_key_hash] = addr
+                                    if api_key_hash not in self.api_using:
                                         valid_api_key_hash = api_key_hash
                                         break
-                                self.lock_api_key_worker.release()
+                                self.lock_worker.release()
                                 if valid_api_key_hash is None:
                                     msg = {'token': self.token, 'res': 'deny', 'msg': 'no valid api key'}
                                 else:
                                     worker_id = self.get_worker_id()
                                     worker_data = WorkerData(worker_id, conn, addr, valid_api_key_hash)
-                                    self.lock_worker_data.acquire()
+                                    self.lock_worker.acquire()
                                     self.worker_data[worker_id] = worker_data
-                                    self.lock_worker_data.release()
+                                    self.api_using.add(valid_api_key_hash)
+                                    self.lock_worker.release()
 
                                     # msg queue dict used to broadcast
                                     self.lock_msg_queue_dict.acquire()
                                     self.msg_queue_dict[worker_id] = worker_data.msg_queue
                                     self.lock_msg_queue_dict.release()
 
-                                    threading.Thread(target=self.receiver, args=(worker_data,)).start()
+                                    threading.Thread(target=self.master_receiver, args=(worker_data,)).start()
 
                                     msg = {'token': self.token, 'res': 'use_api_key',
                                            'api_key_hash': valid_api_key_hash, 'worker_id': worker_id}
@@ -212,13 +241,13 @@ class Registry:
                             elif recv_json['role'] == 'receiver':
                                 worker_id = recv_json['worker_id']
 
-                                self.lock_worker_data.acquire()
+                                self.lock_worker.acquire()
                                 self.worker_data[worker_id].sender_conn = conn
                                 self.worker_data[worker_id].sender_addr = addr
                                 worker_data = self.worker_data[worker_id]
-                                self.lock_worker_data.release()
+                                self.lock_worker.release()
 
-                                threading.Thread(target=self.sender, args=(worker_data,)).start()
+                                threading.Thread(target=self.master_sender, args=(worker_data,)).start()
 
                     data = data[first_pos + 1:]
 
@@ -230,9 +259,8 @@ class Registry:
     def tasks_generator(self):
         logger.info("TaskGenerator started.")
         while True:
-            if self.generate_tasks('stream_users', 'stream_user_timeline') < 5:
-                self.generate_tasks('all_users', 'timeline')
-            self.generate_tasks('stream_users', 'friends')
+            self.generate_tasks('timeline')
+            self.generate_tasks('friends')
             to_sleep = config.tasks_generating_window
             # logger.info("[*] TaskGenerator waits for {} seconds.".format(to_sleep))
             while to_sleep > 0:
@@ -245,35 +273,38 @@ class Registry:
             # To avoid session expired.
             self.couch.connect()
 
-    def generate_tasks(self, user_db_name, task_type):
+    def generate_tasks(self, task_type):
         if task_type == 'friends':
             self.friends_tasks = queue.Queue()
             self.lock_friends_tasks_updated_time.acquire()
-        elif task_type in {'timeline', 'stream_user_timeline'}:
+        elif task_type == 'timeline':
             self.timeline_tasks = queue.Queue()
             self.lock_timeline_tasks_updated_time.acquire()
         else:
             return 0
         start_time = time()
         logger.debug("Start to generate {} tasks.".format(task_type))
-        if user_db_name in self.client.all_dbs():
+        if 'users' in self.client.all_dbs():
             count = 0
-            result = self.client[user_db_name].get_view_result('_design/' + task_type, 'need_updating')
+            result = self.client['users'].get_view_result('_design/tasks',
+                                                          view_name=task_type,
+                                                          limit=config.max_tasks_num).all()
             if task_type == 'friends':
-                for doc in result[:config.max_tasks_num]:
+                for doc in result:
                     count += 1
                     self.friends_tasks.put(doc['id'])
-            if task_type in {'timeline', 'stream_user_timeline'}:
-                for i in range(0, len(result[:config.max_tasks_num]), 1):
-                    ids = [doc['id'] for doc in result[:config.max_tasks_num][i:i + 1]]
-                    count += len(ids)
-                    self.timeline_tasks.put(ids)
+            if task_type == 'timeline':
+                for i in range(0, len(result), config.max_ids_single_task):
+                    timeline_tasks = [[doc['id'], 2 if doc['key'][3] else 0] for doc in
+                                      result[:config.max_tasks_num][i:i + config.max_ids_single_task]]
+                    count += len(timeline_tasks)
+                    self.timeline_tasks.put(timeline_tasks)
 
             logger.debug("Generated {} {} tasks in {:.2} seconds.".format(count, task_type, time() - start_time))
             if task_type == 'friends':
                 self.friends_tasks_updated_time = int(time())
                 self.lock_friends_tasks_updated_time.release()
-            elif task_type in {'timeline', 'stream_user_timeline'}:
+            elif task_type == 'timeline':
                 self.timeline_tasks_updated_time = int(time())
                 self.lock_timeline_tasks_updated_time.release()
             return count
@@ -286,7 +317,7 @@ class Registry:
             self.lock_timeline_tasks_updated_time.release()
         return 0
 
-    def receiver(self, worker_data):
+    def master_receiver(self, worker_data):
         data = ''
         active_time = int(time())
         while True:
@@ -311,7 +342,7 @@ class Registry:
                                     self.lock_friends_tasks_updated_time.acquire()
                                     if int(time()) - self.friends_tasks_updated_time > 5:
                                         self.lock_friends_tasks_updated_time.release()
-                                        self.generate_tasks('stream_users', 'friends')
+                                        self.generate_tasks('friends')
                                     else:
                                         self.lock_friends_tasks_updated_time.release()
                                 else:
@@ -330,14 +361,13 @@ class Registry:
                                     self.lock_timeline_tasks_updated_time.acquire()
                                     if int(time()) - self.timeline_tasks_updated_time > 5:
                                         self.lock_timeline_tasks_updated_time.release()
-                                        if self.generate_tasks('stream_users', 'stream_user_timeline') < 5:
-                                            self.generate_tasks('all_users', 'timeline')
+                                        self.generate_tasks('timeline')
                                     else:
                                         self.lock_timeline_tasks_updated_time.release()
                                 else:
                                     try:
-                                        user_ids = self.timeline_tasks.get(timeout=0.01)
-                                        msg = {'token': self.token, 'task': 'task', 'timeline_ids': user_ids}
+                                        timeline_tasks = self.timeline_tasks.get(timeout=0.01)
+                                        msg = {'token': self.token, 'task': 'task', 'timeline_ids': timeline_tasks}
                                         worker_data.msg_queue.put(json.dumps(msg))
                                         logger.debug(
                                             "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, recv_json))
@@ -355,14 +385,14 @@ class Registry:
                 self.remove_worker(worker_data, 'Lost heartbeat for {} seconds.'.format(config.max_heartbeat_lost_time))
                 break
             # Check worker status
-            self.lock_worker_id.acquire()
+            self.lock_worker.acquire()
             if worker_data.worker_id not in self.active_workers:
-                self.lock_worker_id.release()
+                self.lock_worker.release()
                 break
-            self.lock_worker_id.release()
+            self.lock_worker.release()
             sleep(0.01)
 
-    def sender(self, worker_data):
+    def master_sender(self, worker_data):
         logger.debug('[-] Worker-{} connected.'.format(worker_data.worker_id))
         try:
             msg = {"task": "stream",
@@ -381,46 +411,45 @@ class Registry:
                     except socket.error:
                         worker_data.msg_queue.put(msg)
                 # Check worker status
-                self.lock_worker_id.acquire()
+                self.lock_worker.acquire()
                 if worker_data.worker_id not in self.active_workers:
-                    self.lock_worker_id.release()
+                    self.lock_worker.release()
                     break
-                self.lock_worker_id.release()
+                self.lock_worker.release()
                 sleep(0.01)
         except socket.error as e:
             self.remove_worker(worker_data, e)
 
     def remove_worker(self, worker_data, e):
-        self.lock_worker_data.acquire()
+        self.lock_worker.acquire()
         del self.worker_data[worker_data.worker_id]
-        self.lock_worker_data.release()
+        self.lock_worker.release()
 
         self.lock_msg_queue_dict.acquire()
         del self.msg_queue_dict[worker_data.worker_id]
         self.lock_msg_queue_dict.release()
 
-        self.lock_api_key_worker.acquire()
-        del self.api_key_worker[worker_data.api_key_hash]
-        self.lock_api_key_worker.release()
-
-        self.lock_worker_id.acquire()
+        self.lock_worker.acquire()
         self.active_workers.remove(worker_data.worker_id)
-        self.lock_worker_id.release()
+        self.api_using.remove(worker_data.api_key_hash)
+        remaining = [worker_data.worker_id for worker_data in self.active_workers]
+        self.lock_worker.release()
 
         # https://stackoverflow.com/questions/409783
         worker_data.sender_conn.close()
         worker_data.receiver_conn.close()
 
-        logger.warning("[-] Worker-{} exit: {}".format(worker_data.worker_id, e))
+        logger.warning(
+            "[-] Worker-{} exit: {}(remaining active workers:{})".format(worker_data.worker_id, e, remaining))
 
     def update_available_api_keys_num(self):
         while True:
             with open("twitter.json") as t:
                 t_json = json.loads(t.read())
                 api_keys_num = len(t_json)
-                self.lock_worker_id.acquire()
+                self.lock_worker.acquire()
                 occupied_api_keys_num = len(self.active_workers)
-                self.lock_worker_id.release()
+                self.lock_worker.release()
                 try:
                     if 'available_api_keys_num' not in self.client['control']:
                         self.client['control'].create_document({
@@ -450,24 +479,6 @@ class Registry:
             # prevent unexpected err
             pass
 
-    @staticmethod
-    def check_pid():
-        # https://stackoverflow.com/questions/568271
-        if os.path.exists('registry.pid'):
-            f = open('registry.pid')
-            pid = int(f.read())
-            f.close()
-
-            if pid and psutil.pid_exists(pid):
-                logger.info('[-] There is running registry-PID-.'.format(pid))
-                user_input = input('Do you want to terminate it? (y/n)')
-                if user_input in {'y', 'Y', 'yes'}:
-                    kill(pid, SIGUSR1)
-                else:
-                    logger.info('[-] Let registry-PID-{} run.'.format(pid))
-            else:
-                logger.info('[-] No running registry.')
-
     def save_pid(self):
         # Record PID for daemon
         self.pid = getpid()
@@ -484,8 +495,7 @@ class Registry:
         threading.Thread(target=self.tcp_server, args=(lock,)).start()
         lock.acquire()
         lock.release()
-        # self.check_pid()
-        # self.save_pid()
+        self.save_pid()
         self.check_dbs()
         self.update_db()
         self.check_views()

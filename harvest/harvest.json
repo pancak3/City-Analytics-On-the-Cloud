@@ -29,5 +29,6 @@
   "max_running_friends": 1,
   "max_running_timeline": 5,
   "max_task_runtime": 120,
-  "print_log_when_saved": 200
+  "print_log_when_saved": 200,
+  "max_ids_single_task": 1
 }

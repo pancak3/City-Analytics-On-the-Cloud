@@ -314,21 +314,7 @@ class Worker:
         rate_limit['timeline'] = remaining
         return rate_limit
 
-    def save_doc(self, doc, err_count=0, update=None):
-        if err_count < config.max_save_tries:
-            try:
-                if update is not None:
-                    doc[update] = int(time())
-                doc.save()
-                sleep(0.01)
-            except Exception:
-                # prevent unexpected err
-                self.save_doc(doc, err_count + 1, update=update)
-                sleep(0.01)
-        else:
-            logger.error("Save document to CouchDB failed {} times.".format(err_count))
-
-    def stream(self, bbox_, count=1):
+    def stream(self, bbox_, count=0):
         lock = threading.Lock()
         if count > 5:
             self.exit("[{}] stream failed {} times, worker exit.".format(self.worker_id, count))
@@ -347,22 +333,19 @@ class Worker:
             sleep(to_sleep)
             self.stream(bbox_, count + 1)
 
-    def timeline(self, timeline_user_id):
+    def timeline(self, timeline_task):
         self.running_timeline.inc()
         try:
-            logger.debug("[{}] is getting user-{}'s timeline.".format(self.worker_id, timeline_user_id))
-            statuses = self.crawler.get_user_timeline(id=timeline_user_id, err_count=0)
+            (user_id, is_stream_code) = timeline_task
+            logger.debug("[{}] is getting user timeline: {}(stream:{}), running timeline task num: {}".format(self.worker_id, user_id, is_stream_code,
+                                                                     self.running_timeline.get_count()))
+            statuses = self.crawler.get_user_timeline(id=user_id, err_count=0)
             for status in statuses:
-                self.statuses_queue.put((status, False, 'Timeline'))
-
-            # Get stream user's timeline first.
-            if timeline_user_id in self.client['stream_users']:
-                self.save_doc(self.client['stream_users'][timeline_user_id], update='timeline_updated_at')
-
-            if timeline_user_id in self.client['all_users']:
-                self.save_doc(self.client['all_users'][timeline_user_id], update='timeline_updated_at')
-
-            logger.debug("[{}] finished user-{}'s timeline task.".format(self.worker_id, timeline_user_id))
+                self.statuses_queue.put((status, is_stream_code))
+            self.client['users'][user_id]['timeline_updated_at'] = int(time())
+            self.client['users'][user_id].save()
+            logger.debug("[{}] finished user timeline: {}(stream:{}), running timeline task num: {}".format(self.worker_id, user_id, is_stream_code,
+                                                                     self.running_timeline.get_count()))
             self.running_timeline.dec()
             self.crawler.update_rate_limit_status()
         except BaseException:
@@ -371,7 +354,8 @@ class Worker:
     def friends(self, stream_user_id):
         self.running_friends.inc()
         try:
-            logger.debug("[{}] getting user-{}'s friends.".format(self.worker_id, stream_user_id))
+            logger.debug("[{}] getting friends: {}, running friends task num: {}".format(self.worker_id, stream_user_id,
+                                                                    self.running_friends.get_count()))
 
             lock_follower = threading.Lock()
             lock_friend = threading.Lock()
@@ -406,17 +390,24 @@ class Worker:
             mutual_follow = list(follower_ids_set[0].intersection(friend_ids_set[0]))[:config.friends_max_ids]
             users_res = self.crawler.lookup_users(mutual_follow, err_count=0)
             for user in users_res:
-                self.users_queue.put((user, 'all_users', 'Friends'))
-            self.save_doc(self.client['stream_users'][stream_user_id], update='friends_updated_at')
-            self.client['all_users'][stream_user_id]['follower_ids'] = list(follower_ids_set)
-            self.client['all_users'][stream_user_id]['friend_ids'] = list(friend_ids_set)
-            self.client['all_users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
-            self.save_doc(self.client['all_users'][stream_user_id], update='friends_updated_at')
-            logger.debug("[{}] finished user-{}'s friends task.".format(self.worker_id, stream_user_id))
+                user = user._json
+                user['stream_user'] = False
+                self.users_queue.put(user)
+            self.client['users'][stream_user_id]['follower_ids'] = list(follower_ids_set)
+            self.client['users'][stream_user_id]['friend_ids'] = list(friend_ids_set)
+            self.client['users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
+            self.client['users'][stream_user_id]['friends_updated_at'] = int(time())
+            self.client['users'][stream_user_id].save()
+            logger.debug("[{}] finished friends: {}, running friends task num: {}".format(self.worker_id, stream_user_id,
+                                                                    self.running_friends.get_count()))
+
             self.running_friends.dec()
             self.crawler.update_rate_limit_status()
         except BaseException:
             self.running_friends.dec()
+        except Exception as e:
+            logger.warning(e)
+            pass
 
     def task_requester_and_handler(self):
         last_time_sent = int(time())
@@ -425,7 +416,7 @@ class Worker:
             if self.task_queue.empty():
                 if int(time()) - last_time_sent > 5:
                     # print("running_timeline===> {}".format(self.running_timeline.get_count()))
-                    if self.running_timeline.get_count() < 3:
+                    if self.running_timeline.get_count() < config.max_running_timeline:
                         rate_limit = self.refresh_local_rate_limit()
                         timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
                         for i in range(config.max_running_timeline):
@@ -440,7 +431,7 @@ class Worker:
                         last_time_sent = int(time())
 
                     # print("running_friends===> {}".format(self.running_friends.get_count()))
-                    if self.running_friends.get_count() < 2:
+                    if self.running_friends.get_count() < config.max_running_friends:
                         rate_limit = self.refresh_local_rate_limit()
                         running_num = self.running_friends.get_count()
                         friends_remaining = rate_limit['friends'] - running_num
@@ -467,7 +458,6 @@ class Worker:
                     for user_id in task.user_ids:
                         if task.type == 'timeline':
                             threading.Thread(target=self.timeline, args=(user_id,)).start()
-                            # self.timeline(task.user_ids)
 
                         if task.type == 'friends':
                             threading.Thread(target=self.friends, args=(user_id,)).start()
@@ -477,99 +467,108 @@ class Worker:
         while True:
             if not self.stream_res_queue.empty():
                 status = self.stream_res_queue.get()
-                self.statuses_queue.put((status, True, 'Stream'))
+                self.statuses_queue.put((status, 1))
             else:
                 sleep(0.01)
 
-    def save_user(self, user_, db_name_, err_count=0, caller=None):
+    def save_user(self, user_json, err_count=0):
         if err_count > config.max_network_err:
             self.exit("[{}] save user err {} times, exit".format(self.worker_id, config.max_network_err))
             return False
         try:
-            if user_.id_str not in self.client[db_name_]:
-                user_json = user_._json
-                user_json['_id'] = user_.id_str
-                if db_name_ == 'stream_users':
-                    # when user is in all_user and be updated timeline
-                    if user_.id_str in self.client['all_users']:
-                        if 'friends_updated_at' in self.client['all_users'][user_.id_str]:
-                            user_json['friends_updated_at'] = \
-                                self.client['all_users'][user_.id_str]['friends_updated_at']
-                        else:
-                            user_json['friends_updated_at'] = 0
-                    else:
-                        user_json['friends_updated_at'] = 0
+            if user_json['id_str'] not in self.client['users']:
+                user_json['_id'] = user_json['id_str']
                 user_json['timeline_updated_at'] = 0
-                self.client[db_name_].create_document(user_json)
+                if user_json['stream_user']:
+                    user_json['friends_updated_at'] = 0
+                self.client['users'].create_document(user_json)
                 sleep(0.001)
-                # logger.debug(
-                #     "[{}] {} saved user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
+                # logger.debug("[{}] saved user: {}".format(self.worker_id, user_json['id_str']))
                 return True
             else:
-                # logger.debug(
-                #     "[{}] {} ignored user to {}: {}".format(self.worker_id, caller, db_name_, user_.id_str))
-                return False
+                if user_json['stream_user']:
+                    if 'friends_updated_at' not in self.client['users'][user_json['id_str']]:
+                        self.client['users'][user_json['id_str']]['friends_updated_at'] = 0
+                    self.client['users'][user_json['id_str']]['stream_user'] = True
+                    self.client['users'][user_json['id_str']].save()
+                    # logger.debug("[{}] marked user as stream user: {}(stream:{})".format(self.worker_id,
+                    #                                                                      user_json['id_str'],
+                    #                                                                      user_json['stream_user']))
+                    return True
+                else:
+                    # logger.debug("[{}] saved user: {}(stream:{})".format(self.worker_id, user_json['id_str'],
+                    #                                                      user_json['stream_user']))
+                    return False
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
             # https://stackoverflow.com/questions/4990718/
-            logger.warning("[!] Save user err: {}".format(traceback.format_exc()))
+            logger.error("[!] Save user err: {}".format(traceback.format_exc()))
             sleep(config.network_err_reconnect_time)
-            return self.save_user(user_=user_, db_name_=db_name_, err_count=err_count + 1, caller=caller)
+            return self.save_user(user_json=user_json, err_count=err_count + 1)
 
-    def save_status(self, status_, err_count=0, caller=None):
+    def save_status(self, status, is_stream_code, err_count=0):
         if err_count > config.max_network_err:
-            self.exit("[{}] {} save status err {} times, exit".format(self.worker_id, caller, config.max_network_err))
+            self.exit("[{}] save status err {} times, exit: {}({})".format(self.worker_id,
+                                                                           status.id_str,
+                                                                           is_stream_code,
+                                                                           config.max_network_err))
             return False
         # use id_str
         # The string representation of the unique identifier for this Tweet.
         # Implementations should use this rather than the large integer in id
         # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object
         try:
-            if status_.id_str not in self.client['statuses']:
-                status_json = status_._json
-                status_json['_id'] = status_.id_str
-                status_json['is_stream'] = True if caller == 'Stream' else False
+            if status.id_str not in self.client['statuses']:
+                status_json = status._json
+                status_json['_id'] = status.id_str
+                if is_stream_code == 0:
+                    status_json['stream_status'] = False
+                    status_json['direct_stream'] = False
+                elif is_stream_code == 1:
+                    status_json['stream_status'] = True
+                    status_json['direct_stream'] = True
+                elif is_stream_code == 2:
+                    status_json['stream_status'] = True
+                    status_json['direct_stream'] = False
+                else:
+                    return False
                 self.client['statuses'].create_document(status_json)
-                if caller == 'Stream':
-                    self.users_queue.put((status_.author, 'all_users', caller))
-                    self.users_queue.put((status_.author, 'stream_users', caller))
+                if is_stream_code == 1:
+                    user = status.author._json
+                    user['stream_user'] = True
+                    self.users_queue.put(user)
                 sleep(0.001)
-                # logger.debug("[{}] {} saved status: {}".format(self.worker_id, caller, status_.id_str))
+                # logger.debug("[{}] saved status: {}(stream:{})".format(self.worker_id, status.id_str, is_stream_code))
                 return True
             else:
-                # logger.debug("[{}] {} ignored status: {}".format(self.worker_id, caller, status_.id_str))
+                # logger.debug("[{}] ignored status: {}(stream:{})".format(self.worker_id, status.id_str, is_stream_code))
                 return False
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
             # https://stackoverflow.com/questions/4990718/
             logger.warning("[!] Save status err: {}".format(traceback.format_exc()))
             sleep(config.network_err_reconnect_time)
-            return self.save_status(status_=status_, err_count=err_count + 1, caller=caller)
+            return self.save_status(status=status, is_stream_code=is_stream_code, err_count=err_count + 1)
 
     def check_db(self):
         if 'statuses' not in self.client.all_dbs():
             self.client.create_database('statuses')
-            logger.debug("[*] Statuses table not in database; created.")
-        if 'stream_users' not in self.client.all_dbs():
-            self.client.create_database('stream_users')
-            logger.debug("[*] Stream_users table not in database; created.")
+            logger.debug("[*] Statuses db is not in database; Created.")
 
-        if 'all_users' not in self.client.all_dbs():
-            self.client.create_database('all_users')
-            logger.debug("[*] All_users table not in database; created.")
+        if 'users' not in self.client.all_dbs():
+            self.client.create_database('users')
+            logger.debug("[*] Users db is not in database; Created.")
 
     def users_recorder(self):
         count = 0
         while True:
-            # self.lock_users_recorder.acquire()
             while not self.users_queue.empty():
-                (user_, db_name_, caller) = self.users_queue.get()
-                if self.save_user(user_=user_, db_name_=db_name_, caller=caller):
+                user_json = self.users_queue.get()
+                if self.save_user(user_json=user_json):
                     count += 1
                     if count > config.print_log_when_saved:
                         count = 0
-                        logger.info("Saved {} new users to {}".format(config.print_log_when_saved, db_name_))
-            # self.lock_users_recorder.release()
+                        logger.info("Saved {} new users".format(config.print_log_when_saved))
             sleep(1)
 
     def statuses_recorder(self):
@@ -578,8 +577,8 @@ class Worker:
         while True:
             # self.lock_statuses_recorder.acquire()
             while not self.statuses_queue.empty():
-                (status_, is_stream, caller) = self.statuses_queue.get()
-                if self.save_status(status_=status_, caller=caller):
+                (status, is_stream_code) = self.statuses_queue.get()
+                if self.save_status(status=status, is_stream_code=is_stream_code):
                     count += 1
                     if count > config.print_log_when_saved:
                         count = 0

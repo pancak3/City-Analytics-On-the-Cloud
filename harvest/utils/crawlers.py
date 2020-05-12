@@ -61,11 +61,11 @@ class Crawler:
         self.api = tweepy.API(auth)
         self.update_rate_limit_status()
 
-    def stream_filter(self, id_, q, lock, **kwargs):
+    def stream_filter(self, id_, res_queue, lock, **kwargs):
         lock.release()
         lock.acquire()
         try:
-            stream_listener = StreamListener(id_, q)
+            stream_listener = StreamListener(id_, res_queue)
             stream_ = tweepy.Stream(auth=self.api.auth, listener=stream_listener)
             logger.debug("[{}] stream filter locations: {}".format(id_, kwargs.get('locations')))
             # blocking method
