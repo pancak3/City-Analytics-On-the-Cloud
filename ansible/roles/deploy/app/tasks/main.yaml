@@ -1,14 +1,21 @@
 ---
-- name: Upload compose file
+- name: Create app directory
   become: yes
+  file:
+    path: '{{ app.dir }}'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+    recurse: yes
+    state: directory
+
+- name: Upload compose file
   template:
     src: docker-compose.yaml.j2
-    dest: '{{ repository.dest }}/app/docker-compose.yaml'
+    dest: '{{ app.dir }}/docker-compose.yaml'
     owner: '{{ ansible_user }}'
     group: '{{ ansible_user }}'
 
 - name: Upload Caddyfile
-  become: yes
   template:
     src: Caddyfile.j2
     dest: '{{ repository.dest }}/app/Caddyfile'
@@ -24,5 +31,3 @@
     remove_orphans: yes
     recreate: smart
   register: setup_app
-  until: setup_app is not failed
-  retries: 5

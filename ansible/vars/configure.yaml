@@ -20,7 +20,16 @@ repository:
   url: 'git@github.com:comp90024-2020/City-Analytics-On-the-Cloud.git'
   dest: /data/repo
 
+# The Gitlab registry
+registry:
+  url: 'registry.gitlab.com'
+  username: 'comp90024_pull'
+  password: 'S7E7ZcQxi6bfyps3rLg6'
+
 # App variables
 app:
   dir: /data/app
   tag: comp90024_app
+
+harvest:
+  dir: /data/harvest

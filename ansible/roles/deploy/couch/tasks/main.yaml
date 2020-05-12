@@ -20,7 +20,6 @@
 
 # Section 2.2.3, steps 1, 2, 3
 - name: Upload compose file
-  become: yes
   template:
     src: docker-compose.yaml.j2
     dest: '{{ couch.dir }}/docker-compose.yaml'
@@ -29,7 +28,6 @@
 
 # Down
 # - name: couch docker-compose down
-#   become: yes
 #   docker_compose:
 #     project_src: '{{ couch.dir }}'
 #     state: absent
@@ -45,7 +43,6 @@
 
 # Create directory
 - name: Create couch data directory
-  become: yes
   file:
     path: '{{ couch.dir }}/data'
     owner: '5984'
@@ -55,7 +52,6 @@
 
 # Start and wait
 - name: couch docker-compose up
-  become: yes
   docker_compose:
     project_src: '{{ couch.dir }}'
     pull: yes

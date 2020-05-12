@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   app:
-    build: ./
+    image: registry.gitlab.com/comp90024/project-2:app
     environment:
         - DB_USERNAME={{ couch.user }}
         - DB_PASSWORD={{ couch.password }}

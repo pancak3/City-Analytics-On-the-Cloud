@@ -20,6 +20,15 @@
     group: ubuntu
     mode: 0400
 
+- name: Upload deploy key for cloning Github repo
+  become: yes
+  copy:
+    src: '{{ playbook_dir }}/keys/comp90024'
+    dest: /home/ubuntu/.ssh/id_rsa
+    mode: '400'
+    owner: ubuntu
+    group: ubuntu
+
 - name: git clone repository
   git:
     repo: '{{ repository.url }}'

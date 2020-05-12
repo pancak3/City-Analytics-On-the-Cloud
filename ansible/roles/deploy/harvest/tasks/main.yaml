@@ -1,14 +1,29 @@
 ---
-- name: Upload master compose file
+- name: Create harvest directory
   become: yes
+  file:
+    path: '{{ harvest.dir }}'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+    recurse: yes
+    state: directory
+
+- name: Upload master compose file
   template:
-    src: docker-compose.yaml.j2
-    dest: '{{ repository.dest }}/harvest/docker-compose-master.yml'
+    src: docker-compose.yml.j2
+    dest: '{{ harvest.dir }}/docker-compose-master.yml'
     owner: '{{ ansible_user }}'
     group: '{{ ansible_user }}'
 
+- name: Upload worker compose file
+  copy:
+    src: docker-compose.yml
+    dest: '{{ harvest.dir }}/docker-compose.yml'
+    owner: ubuntu
+    group: ubuntu
+    mode: 0644
+
 - name: Upload couchdb config of harvesters
-  become: yes
   template:
     src: couchdb.json.j2
     dest: '{{ repository.dest }}/harvest/couchdb.json'

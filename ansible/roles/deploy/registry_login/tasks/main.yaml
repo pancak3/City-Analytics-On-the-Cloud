@@ -1,0 +1,5 @@
+---
+docker_login:
+  registry: '{{ registry.url }}'
+  username: '{{ registry.username }}'
+  password: '{{ registry.password }}'

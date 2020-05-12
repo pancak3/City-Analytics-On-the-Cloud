@@ -48,7 +48,9 @@
     - vars/configure.yaml
   roles:
     # Clone repository
-    - role: deploy/clone
+    # - role: deploy/clone
+    # Login to registry (deprecates clone)
+    - role: deploy/registry_login
     # Setup couch
     - role: deploy/couch
     # Setup app

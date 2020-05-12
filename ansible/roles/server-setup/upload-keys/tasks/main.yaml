@@ -7,13 +7,3 @@
     mode: '400'
     owner: ubuntu
     group: ubuntu
-
-# Upload private deploy key
-- name: Upload deploy key for cloning Github repo
-  become: yes
-  copy:
-    src: '{{ playbook_dir }}/keys/comp90024'
-    dest: /home/ubuntu/.ssh/id_rsa
-    mode: '400'
-    owner: ubuntu
-    group: ubuntu
