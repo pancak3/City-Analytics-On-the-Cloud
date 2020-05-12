@@ -336,16 +336,22 @@ class Worker:
     def timeline(self, timeline_task):
         self.running_timeline.inc()
         try:
-            (user_id, is_stream_code) = timeline_task
-            logger.debug("[{}] is getting user timeline: {}(stream:{}), running timeline task num: {}".format(self.worker_id, user_id, is_stream_code,
-                                                                     self.running_timeline.get_count()))
+            (user_id, is_stream_user) = timeline_task
+            logger.debug("[{}] is getting user timeline: {}(stream:{}), "
+                         "running timeline task num: {}".format(self.worker_id,
+                                                                user_id,
+                                                                is_stream_user,
+                                                                self.running_timeline.get_count()))
             statuses = self.crawler.get_user_timeline(id=user_id, err_count=0)
             for status in statuses:
-                self.statuses_queue.put((status, is_stream_code))
-            self.client['users'][user_id]['timeline_updated_at'] = int(time())
-            self.client['users'][user_id].save()
-            logger.debug("[{}] finished user timeline: {}(stream:{}), running timeline task num: {}".format(self.worker_id, user_id, is_stream_code,
-                                                                     self.running_timeline.get_count()))
+                self.statuses_queue.put((status, 2))
+            doc = self.client['users'][user_id]
+            doc.update_field(action=doc.field_set, field='timeline_updated_at', value=int(time()))
+            logger.debug("[{}] finished user timeline: {}(stream:{}), "
+                         "running timeline task num: {}".format(self.worker_id,
+                                                                user_id,
+                                                                is_stream_user,
+                                                                self.running_timeline.get_count()))
             self.running_timeline.dec()
             self.crawler.update_rate_limit_status()
         except BaseException:
@@ -355,7 +361,7 @@ class Worker:
         self.running_friends.inc()
         try:
             logger.debug("[{}] getting friends: {}, running friends task num: {}".format(self.worker_id, stream_user_id,
-                                                                    self.running_friends.get_count()))
+                                                                                         self.running_friends.get_count()))
 
             lock_follower = threading.Lock()
             lock_friend = threading.Lock()
@@ -398,8 +404,9 @@ class Worker:
             self.client['users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
             self.client['users'][stream_user_id]['friends_updated_at'] = int(time())
             self.client['users'][stream_user_id].save()
-            logger.debug("[{}] finished friends: {}, running friends task num: {}".format(self.worker_id, stream_user_id,
-                                                                    self.running_friends.get_count()))
+            logger.debug(
+                "[{}] finished friends: {}, running friends task num: {}".format(self.worker_id, stream_user_id,
+                                                                                 self.running_friends.get_count()))
 
             self.running_friends.dec()
             self.crawler.update_rate_limit_status()
@@ -487,10 +494,19 @@ class Worker:
                 return True
             else:
                 if user_json['stream_user']:
-                    if 'friends_updated_at' not in self.client['users'][user_json['id_str']]:
+                    doc = self.client['users'][user_json['id_str']]
+                    if 'friends_updated_at' not in doc:
+                        doc.update_field(
+                            action=doc.field_set,
+                            field='friends_updated_at',
+                            value=0
+                        )
                         self.client['users'][user_json['id_str']]['friends_updated_at'] = 0
-                    self.client['users'][user_json['id_str']]['stream_user'] = True
-                    self.client['users'][user_json['id_str']].save()
+                    doc.update_field(
+                        action=doc.field_set,
+                        field='stream_user',
+                        value=True
+                    )
                     # logger.debug("[{}] marked user as stream user: {}(stream:{})".format(self.worker_id,
                     #                                                                      user_json['id_str'],
                     #                                                                      user_json['stream_user']))

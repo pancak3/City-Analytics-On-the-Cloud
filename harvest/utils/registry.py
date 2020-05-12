@@ -295,7 +295,7 @@ class Registry:
                     self.friends_tasks.put(doc['id'])
             if task_type == 'timeline':
                 for i in range(0, len(result), config.max_ids_single_task):
-                    timeline_tasks = [[doc['id'], 2 if doc['key'][3] else 0] for doc in
+                    timeline_tasks = [[doc['id'], doc['key'][3]] for doc in
                                       result[:config.max_tasks_num][i:i + config.max_ids_single_task]]
                     count += len(timeline_tasks)
                     self.timeline_tasks.put(timeline_tasks)
@@ -432,7 +432,7 @@ class Registry:
         self.lock_worker.acquire()
         self.active_workers.remove(worker_data.worker_id)
         self.api_using.remove(worker_data.api_key_hash)
-        remaining = [worker_data.worker_id for worker_data in self.active_workers]
+        remaining = [worker_id for worker_id in self.active_workers]
         self.lock_worker.release()
 
         # https://stackoverflow.com/questions/409783
