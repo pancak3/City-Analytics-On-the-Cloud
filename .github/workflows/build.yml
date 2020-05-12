@@ -2,6 +2,10 @@ name: Builds harvest and app images
 
 # Adapted from:
 # https://www.prestonlamb.com/blog/creating-a-docker-image-with-github-actions
+on:
+  push:
+    branches:
+      - master
 
 jobs:
   build_harvest:
