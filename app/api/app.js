@@ -7,7 +7,8 @@ const helmet = require('helmet');
 const app = express();
 
 const checkViews = require('./couch/check-views')
-// Check views
+
+// Check views (TODO: async)
 checkViews();
 // Environment for local debug
 if (process.env.NODE_ENV !== 'production') {
@@ -69,4 +70,5 @@ app.get('*', function (req, res) {
     return res.sendFile(path.join(__dirname, 'client/index.html'));
 });
 
+console.log(`[-] Listening on ${process.env.PORT || 3000}`);
 app.listen(process.env.PORT || 3000);

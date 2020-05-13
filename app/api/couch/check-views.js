@@ -72,10 +72,11 @@ async function getCouchDDocs(fileViews) {
 
     if (!user_ddocs.has('_design/api')) {
         await createDDoc('users', fileViews['users']);
-    } else {
-        const users_api_res = await axios.get(`${base_url}/users/_design/api`);
-        users_api_views = users_api_res.data;
     }
+
+    const users_api_res = await axios.get(`${base_url}/users/_design/api`);
+    users_api_views = users_api_res.data;
+
 
     const statuses_ddocs_res = await axios.get(`${base_url}/statuses/_all_docs?inclusive_end=false&start_key=%22_design%22&end_key=%22_design0%22`);
     let statuses_ddocs = new Set();
@@ -84,10 +85,10 @@ async function getCouchDDocs(fileViews) {
     }
     if (!statuses_ddocs.has('_design/api')) {
         await createDDoc('statuses', fileViews['statuses']);
-    } else {
-        const statuses_ddocs_res = await axios.get(`${base_url}/statuses/_design/api`);
-        statuses_api_views = statuses_ddocs_res.data;
     }
+    const statuses_api_res = await axios.get(`${base_url}/statuses/_design/api`);
+    statuses_api_views = statuses_api_res.data;
+
     return {'users': users_api_views, 'statuses': statuses_api_views}
 }
 
@@ -100,7 +101,8 @@ async function updateView(doc_name, couch_doc, view_name, view) {
         console.log(update_res);
         process.exit(0);
     } else {
-        console.log(`[-] Updated ${doc_name}/_design/api/_view/${view_name}:\n\t${JSON.stringify(view)}`);
+        // console.log(`[-] Updated ${doc_name}/_design/api/_view/${view_name}:\n\t${JSON.stringify(view)}`);
+        console.log(`[-] Updated ${doc_name}/_design/api/_view/${view_name}`);
     }
 
 
@@ -108,11 +110,9 @@ async function updateView(doc_name, couch_doc, view_name, view) {
 
 async function checkSingleView(doc_name, view_name, file_view, couch_ddocs) {
 
-    if (couch_ddocs[doc_name].views.hasOwnProperty(view_name)) {
-        const couch_view = couch_ddocs[doc_name].views[view_name];
-        if (JSON.stringify(couch_view) !== JSON.stringify(file_view)) {
-            await updateView(doc_name, couch_ddocs[doc_name], view_name, file_view);
-        }
+    const couch_view = couch_ddocs[doc_name].views[view_name];
+    if (JSON.stringify(couch_view) !== JSON.stringify(file_view)) {
+        await updateView(doc_name, couch_ddocs[doc_name], view_name, file_view);
     }
 
 }
@@ -121,9 +121,7 @@ async function updateViews(file_views, couch_ddocs) {
     //
     for (let [file_ddoc_name, file_ddoc] of Object.entries(file_views)) {
         for (let [view_name, view] of Object.entries(file_ddoc)) {
-            if (couch_ddocs[file_ddoc_name] !== undefined && couch_ddocs[file_ddoc_name].views.hasOwnProperty(view_name)) {
-                await checkSingleView(file_ddoc_name, view_name, view, couch_ddocs);
-            }
+            await checkSingleView(file_ddoc_name, view_name, view, couch_ddocs);
         }
     }
     return true;
@@ -133,6 +131,7 @@ async function checkViews() {
     const fileViews = await getFileViews();
     const couchDDocs = await getCouchDDocs(fileViews);
     await updateViews(fileViews, couchDDocs);
-
+    return true;
 }
+
 module.exports = checkViews;
