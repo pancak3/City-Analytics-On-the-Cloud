@@ -6,6 +6,9 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const app = express();
 
+const checkViews = require('./couch/check-views')
+// Check views
+checkViews();
 // Environment for local debug
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
