@@ -485,25 +485,27 @@ class Worker:
             self.exit("[{}] save user err {} times, exit".format(self.worker_id, config.max_network_err))
             return False
         try:
-            if user_json['id_str'] not in self.client['users']:
-                user_json['_id'] = user_json['id_str']
+            if user_json['stream_user']:
+                user_json['friends_updated_at'] = 0
+                user_json['_id'] = str(1) + ':' + user_json['id_str']
+            else:
+                user_json['_id'] = str(0) + ':' + user_json['id_str']
+
+            if user_json['_id'] not in self.client['users']:
                 user_json['timeline_updated_at'] = 0
-                if user_json['stream_user']:
-                    user_json['friends_updated_at'] = 0
                 self.client['users'].create_document(user_json)
                 sleep(0.001)
                 # logger.debug("[{}] saved user: {}".format(self.worker_id, user_json['id_str']))
                 return True
             else:
                 if user_json['stream_user']:
-                    doc = self.client['users'][user_json['id_str']]
+                    doc = self.client['users'][user_json['_id']]
                     if 'friends_updated_at' not in doc:
                         doc.update_field(
                             action=doc.field_set,
                             field='friends_updated_at',
                             value=0
                         )
-                        self.client['users'][user_json['id_str']]['friends_updated_at'] = 0
                     doc.update_field(
                         action=doc.field_set,
                         field='stream_user',

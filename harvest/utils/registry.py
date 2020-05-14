@@ -124,7 +124,7 @@ class Registry:
 
         design_doc = Document(self.client['users'], '_design/tasks')
         if not design_doc.exists():
-            design_doc = DesignDocument(self.client['users'], '_design/tasks')
+            design_doc = DesignDocument(self.client['users'], '_design/tasks', partitioned=False)
             map_func_friends = 'function(doc) {' \
                                '    var date = new Date();' \
                                '    var timestamp = date.getTime() / 1000;' \
@@ -161,9 +161,9 @@ class Registry:
 
     def check_db(self, db_name):
         if db_name not in self.client.all_dbs():
-            partitioned = False
-            if db_name in {'users'}:
-                partitioned = True
+            partitioned = True
+            if db_name in {'control'}:
+                partitioned = False
             self.client.create_database(db_name, partitioned=partitioned)
             logger.debug("[*] database-{} not in Couch; created.".format(db_name))
 
@@ -261,20 +261,23 @@ class Registry:
 
     def tasks_generator(self):
         logger.info("TaskGenerator started.")
-        self.generate_tasks('timeline')
-        self.generate_tasks('friends')
         to_sleep = config.tasks_generating_window
+        self.generate_tasks('friends')
+        self.generate_tasks('timeline')
         while True:
-            if not self.friends_tasks.qsize():
-                self.generate_tasks('friends')
-            if not self.timeline_tasks.qsize():
-                self.generate_tasks('timeline')
+            if to_sleep < 0 or (self.timeline_tasks.empty() and self.friends_tasks.empty()):
+                self.lock_timeline_tasks_updated_time.acquire()
+                if int(time()) - self.timeline_tasks_updated_time > 5:
+                    self.lock_timeline_tasks_updated_time.release()
+                    if not self.friends_tasks.qsize():
+                        self.generate_tasks('friends')
+                    if not self.timeline_tasks.qsize():
+                        self.generate_tasks('timeline')
+                else:
+                    self.lock_timeline_tasks_updated_time.release()
+                to_sleep = config.tasks_generating_window
             sleep(5)
             to_sleep -= 5
-            if not to_sleep and not (self.friends_tasks.qsize() and self.timeline_tasks.qsize()):
-                self.generate_tasks('timeline')
-                self.generate_tasks('friends')
-                to_sleep = config.tasks_generating_window
             # To avoid session expired.
 
     def generate_tasks(self, task_type):
@@ -297,10 +300,10 @@ class Registry:
             if task_type == 'friends':
                 for doc in result:
                     count += 1
-                    self.friends_tasks.put(doc['id'])
+                    self.friends_tasks.put(doc['id'][2:])
             if task_type == 'timeline':
                 for i in range(0, len(result), config.max_ids_single_task):
-                    timeline_tasks = [[doc['id'], doc['key'][3]] for doc in
+                    timeline_tasks = [[doc['id'][2:], doc['key'][3]] for doc in
                                       result[:config.max_tasks_num][i:i + config.max_ids_single_task]]
                     count += len(timeline_tasks)
                     self.timeline_tasks.put(timeline_tasks)
