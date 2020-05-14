@@ -20,9 +20,12 @@ function readMapReduce(file_path) {
     const map = fs
         .readFileSync(path.join(file_path, 'map.js'), 'utf8')
         .substring(12);
-    const reduce = fs
+    let reduce = fs
         .readFileSync(path.join(file_path, 'reduce.js'), 'utf8')
         .substring(15);
+    if (reduce[0] == '_') {
+        reduce.substring(0, reduce.length - 2);
+    }
     return { map, reduce };
 }
 
