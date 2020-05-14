@@ -1,5 +1,5 @@
 {
-  "registry_port": 8673,
+  "registry_port": 8672,
   "token": "ai@5uc.eUo?s",
   "hash_algorithm": "ripemd160",
   "melbourne_bbox": [
@@ -14,6 +14,7 @@
     149.9767,
     -33.9806
   ],
+  "victoria_areas_path": "data/VictoriaSuburb(ABS-2011)Geojson.json",
   "timeline_updating_window": 604800,
   "friends_updating_window": 604800,
   "tasks_generating_window": 18000,

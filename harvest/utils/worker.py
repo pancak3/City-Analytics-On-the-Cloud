@@ -70,6 +70,8 @@ class Worker:
         self.pid = None
         self.couch = CouchDB()
         self.client = self.couch.client
+        self.areas = self.read_areas()
+
         self.stream_res_queue = queue.Queue()
         self.msg_received = queue.Queue()
         self.msg_to_send = queue.Queue()
@@ -522,6 +524,61 @@ class Worker:
             sleep(config.network_err_reconnect_time)
             return self.save_user(user_json=user_json, err_count=err_count + 1)
 
+    @staticmethod
+    def read_areas():
+        f = open(config.victoria_areas_path)
+        areas_json = json.loads(f.read())['features']
+        f.close()
+        return areas_json
+
+    def retrieve_statuses_areas(self, status):
+        status_json = status._json
+        partition_id = ':' + status.id_str
+        status_json['_id'] = str(0) + partition_id
+        status_json['area_id'] = 0
+        status_json['area_name'] = 'No Where'
+        del status
+        if status_json['coordinates'] is not None and status_json['coordinates']['type'] == 'Point':
+            point_x, point_y = status_json['coordinates']['coordinates']
+        else:
+            return status_json
+        for location_id, location in enumerate(self.areas):
+            geometry = location['geometry']
+            if geometry['type'] == "MultiPolygon":
+                location_name = location["properties"]["feature_name"]
+                is_inside = False
+                for polygons in geometry["coordinates"]:
+                    for polygon in polygons[1:]:
+                        min_x, max_x = polygon[0][0], polygon[0][0]
+                        min_y, max_y = polygon[0][1], polygon[0][1]
+                        for x, y in polygon:
+                            if x < min_x:
+                                min_x = x
+                            elif x > max_x:
+                                max_x = x
+                            if y < min_y:
+                                min_y = y
+                            elif y > max_y:
+                                max_y = y
+                        if point_x < min_x or point_x > max_x \
+                                or point_y < min_y or point_y > max_y:
+                            continue
+                        j = len(polygon) - 1
+                        for i in range(len(polygon)):
+                            if (polygon[i][1] > point_y) != (polygon[j][1] > point_y) \
+                                    and point_x < \
+                                    (polygon[j][0] - polygon[i][0]) * \
+                                    (point_y - polygon[i][1]) / \
+                                    (polygon[j][1] - polygon[i][1]) \
+                                    + polygon[i][0]:
+                                is_inside = not is_inside
+                if is_inside:
+                    status_json['area_id'] = location_id + 1
+                    status_json['area_name'] = location_name
+                    status_json['_id'] = str(location_id + 1) + partition_id
+                    return status_json
+        return status_json
+
     def save_status(self, status, is_stream_code, err_count=0):
         if err_count > config.max_network_err:
             self.exit("[{}] save status err {} times, exit: {}({})".format(self.worker_id,
@@ -534,12 +591,10 @@ class Worker:
         # Implementations should use this rather than the large integer in id
         # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object
         try:
-            if status.id_str not in self.client['statuses']:
-                status_json = status._json
-                status_json['_id'] = status.id_str
+            status_json = self.retrieve_statuses_areas(status)
+            if status_json['_id'] not in self.client['statuses']:
                 if is_stream_code == 0:
                     status_json['stream_status'] = False
-                    status_json['direct_stream'] = False
                 elif is_stream_code == 1:
                     status_json['stream_status'] = True
                     status_json['direct_stream'] = True

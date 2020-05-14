@@ -93,34 +93,34 @@ class Registry:
         # Make view result ascending
         # https://stackoverflow.com/questions/40463629
 
-        design_doc = Document(self.client['statuses'], '_design/stream')
-        if not design_doc.exists():
-            design_doc = DesignDocument(self.client['statuses'], '_design/stream')
-            map_func_statuses = 'function(doc) { ' \
-                                '   if (!doc.hasOwnProperty("direct_stream")) {doc.direct_stream = False;}' \
-                                '   if ( doc.direct_stream ) ' \
-                                '   {emit(doc._id, true);}' \
-                                '}'
-
-            design_doc.add_view('statues', map_func_statuses)
-
-            map_func_statuses_expanded = 'function(doc) { ' \
-                                         '   if (!doc.hasOwnProperty("stream_status")) {doc.stream_status = False;}' \
-                                         '   if ( doc.stream_status ) ' \
-                                         '   {emit(doc._id, true);}' \
-                                         '}'
-            design_doc.add_view('statuses_expanded', map_func_statuses_expanded)
-            design_doc.save()
-
-        design_doc = Document(self.client['users'], '_design/stream')
-        if not design_doc.exists():
-            design_doc = DesignDocument(self.client['users'], '_design/stream')
-            map_func_users = 'function(doc) {' \
-                             '  if (!doc.hasOwnProperty("stream_user")) {doc.stream_user = false;}' \
-                             '  if ( doc.stream_user) {emit(doc._id, true);}' \
-                             '}'
-            design_doc.add_view('users', map_func_users)
-            design_doc.save()
+        # design_doc = Document(self.client['statuses'], '_design/stream')
+        # if not design_doc.exists():
+        #     design_doc = DesignDocument(self.client['statuses'], '_design/stream')
+        #     map_func_statuses = 'function(doc) { ' \
+        #                         '   if (!doc.hasOwnProperty("direct_stream")) {doc.direct_stream = False;}' \
+        #                         '   if ( doc.direct_stream ) ' \
+        #                         '   {emit(doc._id, true);}' \
+        #                         '}'
+        #
+        #     design_doc.add_view('statues', map_func_statuses)
+        #
+        #     map_func_statuses_expanded = 'function(doc) { ' \
+        #                                  '   if (!doc.hasOwnProperty("stream_status")) {doc.stream_status = False;}' \
+        #                                  '   if ( doc.stream_status ) ' \
+        #                                  '   {emit(doc._id, true);}' \
+        #                                  '}'
+        #     design_doc.add_view('statuses_expanded', map_func_statuses_expanded, partitioned=False)
+        #     design_doc.save()
+        #
+        # design_doc = Document(self.client['users'], '_design/stream')
+        # if not design_doc.exists():
+        #     design_doc = DesignDocument(self.client['users'], '_design/stream')
+        #     map_func_users = 'function(doc) {' \
+        #                      '  if (!doc.hasOwnProperty("stream_user")) {doc.stream_user = false;}' \
+        #                      '  if ( doc.stream_user) {emit(doc._id, true);}' \
+        #                      '}'
+        #     design_doc.add_view('users', map_func_users, partitioned=False)
+        #     design_doc.save()
 
         design_doc = Document(self.client['users'], '_design/tasks')
         if not design_doc.exists():
@@ -161,7 +161,10 @@ class Registry:
 
     def check_db(self, db_name):
         if db_name not in self.client.all_dbs():
-            self.client.create_database(db_name)
+            partitioned = False
+            if db_name in {'users'}:
+                partitioned = True
+            self.client.create_database(db_name, partitioned=partitioned)
             logger.debug("[*] database-{} not in Couch; created.".format(db_name))
 
     def check_dbs(self):
@@ -258,22 +261,24 @@ class Registry:
 
     def tasks_generator(self):
         logger.info("TaskGenerator started.")
+        self.generate_tasks('timeline')
+        self.generate_tasks('friends')
+        to_sleep = config.tasks_generating_window
         while True:
-            self.generate_tasks('timeline')
-            self.generate_tasks('friends')
-            to_sleep = config.tasks_generating_window
-            # logger.info("[*] TaskGenerator waits for {} seconds.".format(to_sleep))
-            while to_sleep > 0:
-                if not self.friends_tasks.qsize() or not self.timeline_tasks.qsize():
-                    sleep(5)
-                    break
-                else:
-                    sleep(5)
-                    to_sleep -= 5
+            if not self.friends_tasks.qsize():
+                self.generate_tasks('friends')
+            if not self.timeline_tasks.qsize():
+                self.generate_tasks('timeline')
+            sleep(5)
+            to_sleep -= 5
+            if not to_sleep and not (self.friends_tasks.qsize() and self.timeline_tasks.qsize()):
+                self.generate_tasks('timeline')
+                self.generate_tasks('friends')
+                to_sleep = config.tasks_generating_window
             # To avoid session expired.
-            self.couch.connect()
 
     def generate_tasks(self, task_type):
+        self.client.session_login()
         if task_type == 'friends':
             self.friends_tasks = queue.Queue()
             self.lock_friends_tasks_updated_time.acquire()
@@ -340,7 +345,8 @@ class Registry:
                                 logger.debug("[-] Has {} friends tasks in queue.".format(self.friends_tasks.qsize()))
                                 if self.friends_tasks.empty():
                                     self.lock_friends_tasks_updated_time.acquire()
-                                    if int(time()) - self.friends_tasks_updated_time > 5:
+                                    if self.friends_tasks.empty() \
+                                            and int(time()) - self.friends_tasks_updated_time > 5:
                                         self.lock_friends_tasks_updated_time.release()
                                         self.generate_tasks('friends')
                                     else:
@@ -359,7 +365,8 @@ class Registry:
                                 logger.debug("[-] Has {} timeline tasks in queue.".format(self.timeline_tasks.qsize()))
                                 if self.timeline_tasks.empty():
                                     self.lock_timeline_tasks_updated_time.acquire()
-                                    if int(time()) - self.timeline_tasks_updated_time > 5:
+                                    if self.timeline_tasks.empty() \
+                                            and int(time()) - self.timeline_tasks_updated_time > 5:
                                         self.lock_timeline_tasks_updated_time.release()
                                         self.generate_tasks('timeline')
                                     else:

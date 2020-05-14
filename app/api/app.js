@@ -8,7 +8,9 @@ const _nano = require('nano');
 const app = express();
 
 const checkViews = require('./couch/check-views');
-
+const updateAreas = require('./couch/update-areas')
+// Update areas
+updateAreas();
 // Check views (TODO: async)
 checkViews();
 // Environment for local debug

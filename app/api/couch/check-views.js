@@ -131,6 +131,7 @@ async function checkViews() {
     const fileViews = await getFileViews();
     const couchDDocs = await getCouchDDocs(fileViews);
     await updateViews(fileViews, couchDDocs);
+    console.log("[-] Checked all views.")
     return true;
 }
 
