@@ -15,10 +15,10 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Install cloudant
 COPY --from=cloudant /python-cloudant /python-cloudant
-RUN pip3 install /python-cloudant
+RUN pip3 install /python-cloudant && rm -rf /python-cloudant
 
 # Do not run as root
-RUN adduser -D comp90024
+RUN useradd -m comp90024
 User comp90024
 
 # Command
