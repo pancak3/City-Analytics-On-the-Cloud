@@ -505,7 +505,7 @@ class Registry:
         threading.Thread(target=self.tcp_server, args=(lock,)).start()
         lock.acquire()
         lock.release()
-        self.save_pid()
+        # self.save_pid()
         self.check_dbs()
         self.update_db()
         self.check_views()

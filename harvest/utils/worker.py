@@ -78,7 +78,7 @@ class Worker:
         self.crawler = Crawler()
         self.reg_ip, self.reg_port, self.token = self.get_registry()
         self.socket_send, self.socket_recv, valid_api_key_hash, self.worker_id = self.connect_reg()
-        self.save_pid()
+        # self.save_pid()
         self.crawler.init(valid_api_key_hash, self.worker_id)
         self.task_queue = queue.Queue()
         self.active_time = 0
