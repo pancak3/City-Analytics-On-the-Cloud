@@ -123,7 +123,8 @@ class Worker:
                         msg = {'action': 'init', 'role': 'receiver', 'token': self.token,
                                'worker_id': msg_json['worker_id']}
                         socket_receiver.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
-                        logger.debug("[{}] connected to {}".format(msg_json['worker_id'], (reg_ip, reg_port)))
+                        logger.debug(
+                            "[{}] Connected to Registry -> {}".format(msg_json['worker_id'], (reg_ip, reg_port)))
                         self.update_active_time()
                         return socket_sender, socket_receiver, valid_api_key_hash, msg_json['worker_id']
                     else:
@@ -159,86 +160,63 @@ class Worker:
                 first_pos = data.find('\n')
                 self.msg_received.put(data[:first_pos])
                 data = data[first_pos + 1:]
-            sleep(0.01)
 
     @staticmethod
     def exit(log):
-        # self.lock_users_recorder.acquire()
-        # self.lock_statuses_recorder.acquire()
-        #
-        # self.lock_users_recorder.release()
-        # self.lock_statuses_recorder.release()
-        # if hasattr(self, 'socket_send') and hasattr(self, 'socket_recv'):
-        #     # https://stackoverflow.com/questions/409783
-        #     self.socket_send.close()
-        #     self.socket_recv.close()
-        #     while self.socket_send._io_refs > 0:
-        #         sleep(0.01)
-        #     while self.socket_recv._io_refs > 0:
-        #         sleep(0.01)
         logger.error(log)
         os._exit(1)
 
     def msg_sender(self):
         while True:
-            while not self.msg_to_send.empty():
-                msg = self.msg_to_send.get()
-                try:
-                    self.socket_send.send(bytes(msg + '\n', 'utf-8'))
-                except Exception:
-                    self.exit("[*] Registry-{}:{} was down.".format(self.reg_ip, self.reg_port))
-                # logger.debug("[{}] sent: {}".format(self.worker_id, msg))
-            sleep(0.01)
+            msg = self.msg_to_send.get()
+            try:
+                self.socket_send.send(bytes(msg + '\n', 'utf-8'))
+            except Exception:
+                self.exit("[*] Registry-{}:{} was down.".format(self.reg_ip, self.reg_port))
+            # logger.debug("[{}] sent: {}".format(self.worker_id, msg))
 
     def keep_alive(self):
         msg_json_str = json.dumps({'token': self.token, 'action': 'ping', 'worker_id': self.worker_id})
         self.update_active_time()
         while True:
-            if self.running_friends.get_count() or self.running_timeline.get_count():
-                sleep(config.heartbeat_time)
-                continue
-            else:
-                self.msg_to_send.put(msg_json_str)
-                sleep(config.heartbeat_time)
 
-                self.lock_active_time.acquire()
-                if int(time()) - self.active_time > config.max_heartbeat_lost_time:
-                    self.lock_active_time.release()
-                    self.exit("[!] Lost heartbeat for {} seconds, exit.".format(config.max_heartbeat_lost_time))
-                else:
-                    self.lock_active_time.release()
+            self.msg_to_send.put(msg_json_str)
+            sleep(config.heartbeat_time)
+            self.lock_active_time.acquire()
+            if int(time()) - self.active_time > config.max_heartbeat_lost_time:
+                self.lock_active_time.release()
+                self.exit("[!] Lost heartbeat for {} seconds, exit.".format(config.max_heartbeat_lost_time))
+            else:
+                self.lock_active_time.release()
 
     def msg_received_handler(self):
         while True:
-            if not self.msg_received.empty():
-                msg = self.msg_received.get()
-                try:
-                    msg_json = json.loads(msg)
-                    if 'token' in msg_json and msg_json['token'] == self.token:
-                        self.update_active_time()
-                        del msg_json['token']
-                        # logger.debug("[{}] received: {}".format(self.worker_id, msg))
-                        task = msg_json['task']
-                        if task == 'stream':
-                            # continue
-                            self.stream(msg_json['data']['locations'])
-                        elif task == 'task':
-                            logger.debug("[{}] got task: {}".format(self.worker_id, msg_json))
-                            if 'friends_ids' in msg_json and len(msg_json['friends_ids']):
-                                task = Task('friends', msg_json['friends_ids'])
-                                self.task_queue.put(task)
-                            if 'timeline_ids' in msg_json and len(msg_json['timeline_ids']):
-                                task = Task('timeline', msg_json['timeline_ids'])
-                                self.task_queue.put(task)
-                        elif task == 'pong':
-                            pass
+            msg = self.msg_received.get()
+            try:
+                msg_json = json.loads(msg)
+                if 'token' in msg_json and msg_json['token'] == self.token:
+                    self.update_active_time()
+                    del msg_json['token']
+                    # logger.debug("[{}] received: {}".format(self.worker_id, msg))
+                    task = msg_json['task']
+                    if task == 'stream':
+                        # continue
+                        self.stream(msg_json['data']['locations'])
+                    elif task == 'task':
+                        logger.debug("[{}] got task: {}".format(self.worker_id, msg_json))
+                        if 'friends_ids' in msg_json and len(msg_json['friends_ids']):
+                            task = Task('friends', msg_json['friends_ids'])
+                            self.task_queue.put(task)
+                        if 'timeline_ids' in msg_json and len(msg_json['timeline_ids']):
+                            task = Task('timeline', msg_json['timeline_ids'])
+                            self.task_queue.put(task)
+                    elif task == 'pong':
+                        pass
 
-                except json.decoder.JSONDecodeError as e:
-                    logger.error("[{}] received invalid json: {} \n{}".format(self.worker_id, e, msg))
-                except KeyError as e:
-                    logger.error("[{}] received invalid json; KeyError: {}\n{}".format(self.worker_id, e, msg))
-            else:
-                sleep(0.01)
+            except json.decoder.JSONDecodeError as e:
+                logger.error("[{}] received invalid json: {} \n{}".format(self.worker_id, e, msg))
+            except KeyError as e:
+                logger.error("[{}] received invalid json; KeyError: {}\n{}".format(self.worker_id, e, msg))
 
     def decrease_rate_limit(self, entry):
         self.lock_rate_limit.acquire()
@@ -331,39 +309,44 @@ class Worker:
             lock.release()
             to_sleep = count ** 2
             logger.warning(
-                "[{}] stream err, sleep {} seconds: {}".format(self.worker_id, to_sleep, traceback.format_exc()))
+                "[{}] stream err, sleep {} seconds:{}".format(self.worker_id, to_sleep, traceback.format_exc()))
             sleep(to_sleep)
             self.stream(bbox_, count + 1)
 
     def timeline(self, timeline_task):
         self.running_timeline.inc()
+        (user_id, is_stream_user) = timeline_task
         try:
-            (user_id, is_stream_user) = timeline_task
-            logger.debug("[{}] is getting user timeline: {}(stream:{}), "
+            logger.debug("[{}] is getting user timeline:{}(stream:{}), "
                          "running timeline task num: {}".format(self.worker_id,
                                                                 user_id,
                                                                 is_stream_user,
                                                                 self.running_timeline.get_count()))
-            statuses = self.crawler.get_user_timeline(id=user_id, err_count=0)
+            statuses = self.crawler.get_user_timeline(user_id=user_id[2:], err_count=0)
             for status in statuses:
                 self.statuses_queue.put((status, 2))
             doc = self.client['users'][user_id]
             doc.update_field(action=doc.field_set, field='timeline_updated_at', value=int(time()))
-            logger.debug("[{}] finished user timeline: {}(stream:{}), "
+            logger.debug("[{}] finished user timeline:{}(stream:{}), "
                          "running timeline task num: {}".format(self.worker_id,
                                                                 user_id,
                                                                 is_stream_user,
                                                                 self.running_timeline.get_count()))
             self.running_timeline.dec()
             self.crawler.update_rate_limit_status()
-        except BaseException:
+        except Exception as e:
             self.running_timeline.dec()
+            logger.warning(e)
+            logger.debug("[{}] Exciption! user timeline:{}(stream:{}), "
+                         "current task : {}".format(self.worker_id, user_id, is_stream_user,
+                                                    self.running_timeline.get_count()))
 
     def friends(self, stream_user_id):
         self.running_friends.inc()
         try:
-            logger.debug("[{}] getting friends: {}, running friends task num: {}".format(self.worker_id, stream_user_id,
-                                                                                         self.running_friends.get_count()))
+            logger.debug("[{}] getting friends: {}, current task:{}".format(self.worker_id,
+                                                                            stream_user_id,
+                                                                            self.running_friends.get_count()))
 
             lock_follower = threading.Lock()
             lock_friend = threading.Lock()
@@ -374,143 +357,134 @@ class Worker:
             friend_ids_set = [set(), 0]
 
             threading.Thread(target=self.crawler.get_followers_ids,
-                             args=(lock_follower, follower_ids_set, 0,),
-                             kwargs={'id': stream_user_id}).start()
+                             args=(lock_follower, follower_ids_set,),
+                             kwargs={'user_id': stream_user_id[2:]}).start()
 
             threading.Thread(target=self.crawler.get_friends_ids,
-                             args=(lock_friend, friend_ids_set, 0,),
-                             kwargs={'id': stream_user_id}).start()
+                             args=(lock_friend, friend_ids_set,),
+                             kwargs={'user_id': stream_user_id[2:]}).start()
 
             max_sleep = 5 * 60
             while max_sleep:
                 lock_follower.acquire()
                 lock_friend.acquire()
-                if follower_ids_set[1] == -1 or friend_ids_set[1] == -1:
-                    raise BaseException
-                elif follower_ids_set[1] and friend_ids_set[1]:
+                if follower_ids_set[1] and friend_ids_set[1]:
                     break
                 else:
-                    sleep(0.01)
-                    max_sleep -= 0.01
+                    sleep(1)
+                    max_sleep -= 1
                 lock_follower.release()
                 lock_friend.release()
 
             mutual_follow = list(follower_ids_set[0].intersection(friend_ids_set[0]))[:config.friends_max_ids]
-            users_res = self.crawler.lookup_users(mutual_follow, err_count=0)
+            users_res = self.crawler.lookup_users(mutual_follow)
             for user in users_res:
-                user = user._json
-                user['stream_user'] = False
-                self.users_queue.put(user)
-            self.client['users'][stream_user_id]['follower_ids'] = list(follower_ids_set)
-            self.client['users'][stream_user_id]['friend_ids'] = list(friend_ids_set)
+                user_json = user._json
+                user_json['stream_user'] = False
+                self.users_queue.put(user_json)
+            self.client['users'][stream_user_id]['follower_ids'] = list(follower_ids_set[0])
+            self.client['users'][stream_user_id]['friend_ids'] = list(friend_ids_set[0])
             self.client['users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
             self.client['users'][stream_user_id]['friends_updated_at'] = int(time())
             self.client['users'][stream_user_id].save()
             logger.debug(
-                "[{}] finished friends: {}, running friends task num: {}".format(self.worker_id, stream_user_id,
-                                                                                 self.running_friends.get_count()))
+                "[{}] finished friends: {}, current task:{}".format(self.worker_id, stream_user_id,
+                                                                    self.running_friends.get_count()))
 
             self.running_friends.dec()
             self.crawler.update_rate_limit_status()
-        except BaseException:
-            self.running_friends.dec()
         except Exception as e:
+            self.running_friends.dec()
             logger.warning(e)
-            pass
+            logger.debug(
+                "[{}] Exception! running friends: {}, current task:{}".format(self.worker_id, stream_user_id,
+                                                                              self.running_friends.get_count()))
 
-    def task_requester_and_handler(self):
-        last_time_sent = int(time())
-
+    def task_requester(self):
+        timeline_last_time_sent = int(time())
+        friends_last_time_sent = int(time())
         while True:
-            if self.task_queue.empty():
-                if int(time()) - last_time_sent > 5:
-                    # print("running_timeline===> {}".format(self.running_timeline.get_count()))
-                    if self.running_timeline.get_count() < config.max_running_timeline:
-                        rate_limit = self.refresh_local_rate_limit()
-                        timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
-                        for i in range(config.max_running_timeline):
-                            timeline_remaining -= 1
-                            if timeline_remaining < 1:
-                                break
-                            msg = {'timeline': timeline_remaining,
-                                   'worker_id': self.worker_id,
-                                   'token': self.token,
-                                   'action': 'ask_for_task'}
-                            self.msg_to_send.put(json.dumps(msg))
-                        last_time_sent = int(time())
+            if int(time()) - timeline_last_time_sent > 5 \
+                    and self.running_timeline.get_count() < config.max_running_timeline:
+                rate_limit = self.refresh_local_rate_limit()
+                timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
+                for i in range(config.max_running_timeline):
+                    timeline_remaining -= 1
+                    if timeline_remaining < 1:
+                        break
+                    msg = {'timeline': timeline_remaining,
+                           'worker_id': self.worker_id,
+                           'token': self.token,
+                           'action': 'ask_for_task'}
+                    self.msg_to_send.put(json.dumps(msg))
+                timeline_last_time_sent = int(time())
+            if int(time()) - friends_last_time_sent > 5 \
+                    and self.running_friends.get_count() < config.max_running_friends:
+                rate_limit = self.refresh_local_rate_limit()
+                running_num = self.running_friends.get_count()
+                friends_remaining = rate_limit['friends'] - running_num
+                followers_remaining = rate_limit['followers'] - running_num
+                for i in range(config.max_running_friends):
+                    friends_remaining -= 1
+                    if friends_remaining < 1 or followers_remaining < 1:
+                        break
+                    msg = {'friends': friends_remaining,
+                           'followers': followers_remaining,
+                           'worker_id': self.worker_id,
+                           'token': self.token,
+                           'action': 'ask_for_task'}
+                    self.msg_to_send.put(json.dumps(msg))
+                    friends_last_time_sent = int(time())
+            sleep(5)
 
-                    # print("running_friends===> {}".format(self.running_friends.get_count()))
-                    if self.running_friends.get_count() < config.max_running_friends:
-                        rate_limit = self.refresh_local_rate_limit()
-                        running_num = self.running_friends.get_count()
-                        friends_remaining = rate_limit['friends'] - running_num
-                        followers_remaining = rate_limit['followers'] - running_num
-                        for i in range(config.max_running_friends):
-                            followers_remaining -= 1
-                            friends_remaining -= 1
-                            if friends_remaining < 1 or followers_remaining < 1:
-                                break
-                            msg = {'friends': friends_remaining,
-                                   'followers': followers_remaining,
-                                   'worker_id': self.worker_id,
-                                   'token': self.token,
-                                   'action': 'ask_for_task'}
-                            self.msg_to_send.put(json.dumps(msg))
-                            last_time_sent = int(time())
-                    sleep(5)
-                else:
-                    sleep(0.01)
-            else:
-
-                while not self.task_queue.empty():
-                    task = self.task_queue.get()
-                    for user_id in task.user_ids:
-                        if task.type == 'timeline':
-                            threading.Thread(target=self.timeline, args=(user_id,)).start()
-
-                        if task.type == 'friends':
-                            threading.Thread(target=self.friends, args=(user_id,)).start()
-                            # self.friends(task.user_ids)
+    def task_handler(self):
+        while True:
+            task = self.task_queue.get()
+            for user_id in task.user_ids:
+                if task.type == 'timeline':
+                    threading.Thread(target=self.timeline, args=(user_id,)).start()
+                elif task.type == 'friends':
+                    threading.Thread(target=self.friends, args=(user_id,)).start()
 
     def stream_status_handler(self):
         while True:
-            if not self.stream_res_queue.empty():
-                status = self.stream_res_queue.get()
-                self.statuses_queue.put((status, 1))
-            else:
-                sleep(0.01)
+            status = self.stream_res_queue.get()
+            self.statuses_queue.put((status, 1))
 
     def save_user(self, user_json, err_count=0):
         if err_count > config.max_network_err:
             self.exit("[{}] save user err {} times, exit".format(self.worker_id, config.max_network_err))
             return False
         try:
+            # https://developer.twitter.com/en/docs/basics/twitter-ids
+            if 'id' in user_json:
+                del user_json['id']
+            # generate partitioned id
             if user_json['stream_user']:
                 user_json['friends_updated_at'] = 0
-                user_json['_id'] = str(1) + ':' + user_json['id_str']
+                user_json['_id'] = "{}:{}".format(1, user_json['id_str'])
             else:
-                user_json['_id'] = str(0) + ':' + user_json['id_str']
+                user_json['_id'] = "{}:{}".format(0, user_json['id_str'])
 
             if user_json['_id'] not in self.client['users']:
+                # if user dose not exist in db
                 user_json['timeline_updated_at'] = 0
                 self.client['users'].create_document(user_json)
                 sleep(0.001)
                 # logger.debug("[{}] saved user: {}".format(self.worker_id, user_json['id_str']))
                 return True
             else:
+                # if user exists in db
                 if user_json['stream_user']:
+                    # and is stream user, check existed doc
                     doc = self.client['users'][user_json['_id']]
-                    if 'friends_updated_at' not in doc:
+                    if not doc['stream_user']:
+                        # if exist doc is not stream user
                         doc.update_field(
                             action=doc.field_set,
                             field='friends_updated_at',
                             value=0
                         )
-                    doc.update_field(
-                        action=doc.field_set,
-                        field='stream_user',
-                        value=True
-                    )
                     # logger.debug("[{}] marked user as stream user: {}(stream:{})".format(self.worker_id,
                     #                                                                      user_json['id_str'],
                     #                                                                      user_json['stream_user']))
@@ -535,7 +509,10 @@ class Worker:
 
     def retrieve_statuses_areas(self, status):
         status_json = status._json
-        partition_id = ':' + status.id_str
+        partition_id = ':{}'.format(status.id_str)
+        # https://developer.twitter.com/en/docs/basics/twitter-ids
+        if 'id' in status_json:
+            del status_json['id']
         status_json['_id'] = str(0) + partition_id
         status_json['area_id'] = 0
         status_json['area_name'] = 'No Where'
@@ -586,7 +563,7 @@ class Worker:
     def save_status(self, status, is_stream_code, err_count=0):
         if err_count > config.max_network_err:
             self.exit("[{}] save status err {} times, exit: {}({})".format(self.worker_id,
-                                                                           status.id_str,
+                                                                           status.id,
                                                                            is_stream_code,
                                                                            config.max_network_err))
             return False
@@ -609,14 +586,14 @@ class Worker:
                     return False
                 self.client['statuses'].create_document(status_json)
                 if is_stream_code == 1:
-                    user = status.author._json
-                    user['stream_user'] = True
-                    self.users_queue.put(user)
+                    user_json = status.author._json
+                    user_json['stream_user'] = True
+                    self.users_queue.put(user_json)
                 sleep(0.001)
-                # logger.debug("[{}] saved status: {}(stream:{})".format(self.worker_id, status.id_str, is_stream_code))
+                # logger.debug("[{}] saved status: {}(stream:{})".format(self.worker_id, status.id, is_stream_code))
                 return True
             else:
-                # logger.debug("[{}] ignored status: {}(stream:{})".format(self.worker_id, status.id_str, is_stream_code))
+                # logger.debug("[{}] ignored status: {}(stream:{})".format(self.worker_id, status.id, is_stream_code))
                 return False
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
@@ -637,30 +614,20 @@ class Worker:
     def users_recorder(self):
         count = 0
         while True:
-            while not self.users_queue.empty():
-                user_json = self.users_queue.get()
-                if self.save_user(user_json=user_json):
-                    count += 1
-                    if count > config.print_log_when_saved:
-                        count = 0
-                        logger.info("Saved {} new users".format(config.print_log_when_saved))
-            sleep(1)
+            user_json = self.users_queue.get()
+            if self.save_user(user_json=user_json):
+                count += 1
+                if count % config.print_log_when_saved == 0:
+                    logger.info("Saved {} new users in total".format(count))
 
     def statuses_recorder(self):
         count = 0
-
         while True:
-            # self.lock_statuses_recorder.acquire()
-            while not self.statuses_queue.empty():
-                (status, is_stream_code) = self.statuses_queue.get()
-                if self.save_status(status=status, is_stream_code=is_stream_code):
-                    count += 1
-                    if count > config.print_log_when_saved:
-                        count = 0
-                        logger.info("Saved {} new statuses".format(config.print_log_when_saved))
-            # self.lock_statuses_recorder.release()
-            sleep(1)
-        pass
+            (status, is_stream_code) = self.statuses_queue.get()
+            if self.save_status(status=status, is_stream_code=is_stream_code):
+                count += 1
+                if count % config.print_log_when_saved == 0:
+                    logger.info("Saved {} new statuses in total".format(count))
 
     def run(self):
         self.check_db()
@@ -671,7 +638,8 @@ class Worker:
         threading.Thread(target=self.msg_sender).start()
         threading.Thread(target=self.msg_receiver).start()
         threading.Thread(target=self.msg_received_handler).start()
-        threading.Thread(target=self.task_requester_and_handler).start()
+        threading.Thread(target=self.task_requester).start()
+        threading.Thread(target=self.task_handler).start()
         threading.Thread(target=self.users_recorder).start()
         threading.Thread(target=self.statuses_recorder).start()
         threading.Thread(target=self.keep_alive).start()

@@ -79,14 +79,11 @@ class Crawler:
             kill(getpid(), SIGUSR1)
 
         self.lock_rate_limits.acquire()
-        now_time = int(time())
-        time_diff = now_time - self.rate_limits_updated_at
-        if time_diff <= 2:
-            sleep(time_diff)
-        self.rate_limits_updated_at = now_time
+        self.sleep(int(time()) - self.rate_limits_updated_at, 2)
+        self.rate_limits_updated_at = int(time())
+        self.lock_rate_limits.release()
         try:
             self.rate_limits = self.api.rate_limit_status()
-            self.lock_rate_limits.release()
             logger.debug("[{}] Updated rate limit status.".format(self.id))
         except tweepy.TweepError:
             if self.rate_limits is None:
@@ -100,7 +97,8 @@ class Crawler:
                     to_sleep = 10
                 logger.warning("TweepError, sleep {} seconds and try again.".format(to_sleep))
                 sleep(to_sleep)
-            self.lock_rate_limits.release()
+
+            self.rate_limits_updated_at = int(time())
             self.update_rate_limit_status(err_count + 1)
 
     def limit_handled(self, cursor, cursor_type):
@@ -139,116 +137,71 @@ class Crawler:
                 # https://stackoverflow.com/questions/51700960
                 break
 
-    @staticmethod
-    def sleep(time_diff_, to_sleep_):
-        if time_diff_ <= to_sleep_:
-            if time_diff_ < 0:
-                time_diff_ = 0
-            sleep(time_diff_)
-
-    def get_followers_ids(self, lock, out, err_count, **kwargs):
+    def get_followers_ids(self, lock, out, **kwargs):
         # lock this func in case of occurring rate limit err
         lock.acquire()
-
-        now_time = int(time())
         self.lock_followers.acquire()
-        time_diff = now_time - self.access_followers
-        if time_diff <= 5:
-            sleep(time_diff)
-        self.access_followers = now_time
+        self.sleep(int(time()) - self.access_followers, 2)
+        self.access_followers = int(time())
+        self.lock_followers.release()
 
         # up to a maximum of 5,000 per distinct request
         # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-followers-ids
 
         # user wrapper to use variable reference
         # https://stackoverflow.com/questions/986006
-        # follower_ids_set = set()
-        # for follower_id in self.limit_handled(
-        #         tweepy.Cursor(self.api.followers_ids, **kwargs).items(5000), 'followers'):
-        #     follower_ids_set.add(follower_id)
         try:
             out[0] = set(self.api.followers_ids(count=5000, **kwargs))
             out[1] = 1
             lock.release()
-            self.lock_followers.release()
         except Exception:
+            self.access_followers = int(time())
             lock.release()
-            self.lock_followers.release()
-            if err_count < 0:
-                err_count = 0
-            elif err_count < 5:
-                self.get_followers_ids(lock, out, err_count + 1, **kwargs)
-            else:
-                out[1] = -1
+            logger.warning(traceback.format_exc())
+            out[1] = -1
+            raise BaseException
 
-    def get_friends_ids(self, lock, out, err_count, **kwargs):
+    def get_friends_ids(self, lock, out, **kwargs):
         # lock this func in case of occurring rate limit err
         lock.acquire()
-        now_time = int(time())
         self.lock_friends.acquire()
-        self.sleep(now_time - self.access_friends, 5)
-        self.access_friends = now_time
+        self.sleep(int(time()) - self.access_friends, 2)
+        self.access_friends = int(time())
+        self.lock_friends.release()
 
         # up to a maximum of 5,000 per distinct request
         # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-friends-ids
 
         # user wrapper to use variable reference
         # https://stackoverflow.com/questions/986006
-        # friends_ids_set = set()
-        # for friend_id in self.limit_handled(tweepy.Cursor(self.api.friends_ids, **kwargs).items(5000),
-        #                                     'friends'):
-        #     friends_ids_set.add(friend_id)
         try:
             out[0] = set(self.api.friends_ids(count=5000, **kwargs))
             out[1] = 1
             lock.release()
-            self.lock_friends.release()
         except Exception:
-            self.lock_friends.release()
+            logger.warning(traceback.format_exc())
+            self.access_friends = int(time())
             lock.release()
-            if err_count < 0:
-                err_count = 0
-            elif err_count < 5:
-                self.get_friends_ids(lock, out, err_count + 1, **kwargs)
-            else:
-                out[1] = -1
+            out[1] = -1
+            raise BaseException
 
     def get_user_timeline(self, err_count, **kwargs):
         # lock this func in case of occurring rate limit err
-        now_time = int(time())
         self.lock_user_timeline.acquire()
-        self.sleep(now_time - self.access_user_timeline, 5)
-        self.access_user_timeline = now_time
-
+        self.sleep(int(time()) - self.access_user_timeline, 2)
+        self.access_user_timeline = int(time())
+        self.lock_user_timeline.release()
         # up to a maximum of 200 per distinct request
         # https://developer.twitter.com/en/docs/tweets/timelines/api-reference/get-statuses-user_timeline
-        # statuses = []
-        # for status in self.limit_handled(
-        #         tweepy.Cursor(self.api.user_timeline, **kwargs).items(config.user_timeline_max_statues), 'timeline'):
-        #     statuses.append(status)
-        # kwargs.get('count', config.user_timeline_max_statues)
-        try:
-            statuses = self.api.user_timeline(count=config.user_timeline_max_statues, **kwargs)
-            self.lock_user_timeline.release()
-            return statuses
-        except Exception:
-            self.lock_user_timeline.release()
-            if err_count < 0:
-                err_count = 0
-            elif err_count >= 5:
-                raise BaseException
-            return self.get_user_timeline(err_count + 1, **kwargs)
 
-    def lookup_users(self, users_ids, err_count):
-        if err_count > config.max_network_err:
-            logger.debug("[*] Err {} times, exit".format(config.max_network_err))
-            raise BaseException
-            # kill(getpid(), SIGUSR1)
+        return self.api.user_timeline(count=config.user_timeline_max_statues, **kwargs)
+
+    def lookup_users(self, users_ids):
         # lock this func in case of occurring rate limit err
-        now_time = int(time())
         self.lock_lookup_users.acquire()
-        self.sleep(now_time - self.access_lookup_users, 1)
-        self.access_lookup_users = now_time
+        self.sleep(int(time()) - self.access_lookup_users, 1)
+        self.access_lookup_users = int(time())
+        self.lock_lookup_users.release()
 
         # Note, this method is not in tweepy official doc but in its source file
         # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-users-lookup
@@ -258,12 +211,10 @@ class Crawler:
             try:
                 users_res = self.api.lookup_users(user_ids=users_ids[i:i + 100])
                 users += users_res
-            except Exception:
-                logger.warning("Occurs exceptions, sleep 10 seconds and try again. \n{}".format(
-                    traceback.format_exc()))
-                self.lock_lookup_users.release()
-                return users + self.lookup_users(users_ids[i:], err_count + 1)
-        self.lock_lookup_users.release()
+            except Exception as e:
+                logger.warning(e)
+                self.access_lookup_users = int(time())
+                raise BaseException
         return users
 
     @staticmethod
@@ -271,6 +222,13 @@ class Crawler:
         h = hashlib.new(config.hash_algorithm)
         h.update(bytes(api_key_, 'utf-8'))
         return h.hexdigest()
+
+    @staticmethod
+    def sleep(time_diff_, to_sleep_):
+        if time_diff_ <= to_sleep_:
+            if time_diff_ < 0:
+                time_diff_ = 0
+            sleep(time_diff_)
 
 
 class StreamListener(tweepy.StreamListener):
@@ -282,7 +240,7 @@ class StreamListener(tweepy.StreamListener):
 
     def on_status(self, status):
         self.res_queue.put(status)
-        logger.debug("[{}] got stream status: {}".format(self.id, status._json['id_str']))
+        logger.debug("[{}] got stream status: {}".format(self.id, status._json['id']))
 
     def on_error(self, status_code):
         self.err_count += 1
@@ -307,9 +265,7 @@ if __name__ == '__main__':
     for item in crawler.api_keys.items():
         crawler.init(item[0], 0)
         break
-    # crawler.get_followers_ids(user_id=25042316)
-    # crawler.get_friends_ids(user_id=25042316)
-    # crawler.get_user_timeline(user_id=25042316)
-    crawler.lookup_users([25042316], 0)
-    # users = crawler.get_followers(screen_name='ronaldolatabo', cursor=-1)
+    # crawler.lookup_users([25042316], 0)
+    res = [None, None]
+    crawler.get_friends_ids(Lock(), res, id=345275528)
     print()

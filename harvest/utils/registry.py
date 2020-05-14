@@ -4,6 +4,7 @@ import threading
 import json
 import queue
 import traceback
+import os
 
 from os import kill, getpid
 from signal import SIGUSR1
@@ -80,7 +81,7 @@ class Registry:
                 'port': config.registry_port,
                 'token': self.token
             })
-            logger.debug('Created in database: {}:{}'.format(self.ip, config.registry_port))
+            logger.debug('Updated registry info in database: {}:{}'.format(self.ip, config.registry_port))
         else:
             doc = self.client['control']['registry']
             doc['ip'] = self.ip
@@ -194,10 +195,8 @@ class Registry:
     def conn_handler(self):
         logger.info("ConnectionHandler started.")
         while True:
-            while not self.conn_queue.empty():
-                (conn, addr) = self.conn_queue.get()
-                threading.Thread(target=self.registry_msg_handler, args=(conn, addr,)).start()
-            sleep(0.01)
+            (conn, addr) = self.conn_queue.get()
+            threading.Thread(target=self.registry_msg_handler, args=(conn, addr,)).start()
 
     def registry_msg_handler(self, conn, addr):
         data = ''
@@ -235,7 +234,7 @@ class Registry:
                                     self.lock_msg_queue_dict.release()
 
                                     threading.Thread(target=self.master_receiver, args=(worker_data,)).start()
-
+                                    self.update_available_api_keys_num()
                                     msg = {'token': self.token, 'res': 'use_api_key',
                                            'api_key_hash': valid_api_key_hash, 'worker_id': worker_id}
 
@@ -267,7 +266,7 @@ class Registry:
         while True:
             if to_sleep < 0 or (self.timeline_tasks.empty() and self.friends_tasks.empty()):
                 self.lock_timeline_tasks_updated_time.acquire()
-                if int(time()) - self.timeline_tasks_updated_time > 5:
+                if int(time()) - self.timeline_tasks_updated_time > 120:
                     self.lock_timeline_tasks_updated_time.release()
                     if not self.friends_tasks.qsize():
                         self.generate_tasks('friends')
@@ -281,7 +280,7 @@ class Registry:
             # To avoid session expired.
 
     def generate_tasks(self, task_type):
-        self.client.session_login()
+        self.client.connect()
         if task_type == 'friends':
             self.friends_tasks = queue.Queue()
             self.lock_friends_tasks_updated_time.acquire()
@@ -300,10 +299,10 @@ class Registry:
             if task_type == 'friends':
                 for doc in result:
                     count += 1
-                    self.friends_tasks.put(doc['id'][2:])
+                    self.friends_tasks.put(doc['id'])
             if task_type == 'timeline':
                 for i in range(0, len(result), config.max_ids_single_task):
-                    timeline_tasks = [[doc['id'][2:], doc['key'][3]] for doc in
+                    timeline_tasks = [[doc['id'], doc['key'][3]] for doc in
                                       result[:config.max_tasks_num][i:i + config.max_ids_single_task]]
                     count += len(timeline_tasks)
                     self.timeline_tasks.put(timeline_tasks)
@@ -349,7 +348,7 @@ class Registry:
                                 if self.friends_tasks.empty():
                                     self.lock_friends_tasks_updated_time.acquire()
                                     if self.friends_tasks.empty() \
-                                            and int(time()) - self.friends_tasks_updated_time > 5:
+                                            and int(time()) - self.friends_tasks_updated_time > 120:
                                         self.lock_friends_tasks_updated_time.release()
                                         self.generate_tasks('friends')
                                     else:
@@ -361,7 +360,7 @@ class Registry:
                                         worker_data.msg_queue.put(json.dumps(msg))
                                         del msg['token']
                                         logger.debug(
-                                            "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, recv_json))
+                                            "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, msg))
                                     except queue.Empty:
                                         pass
                             if 'timeline' in recv_json and recv_json['timeline'] > 0:
@@ -369,7 +368,7 @@ class Registry:
                                 if self.timeline_tasks.empty():
                                     self.lock_timeline_tasks_updated_time.acquire()
                                     if self.timeline_tasks.empty() \
-                                            and int(time()) - self.timeline_tasks_updated_time > 5:
+                                            and int(time()) - self.timeline_tasks_updated_time > 120:
                                         self.lock_timeline_tasks_updated_time.release()
                                         self.generate_tasks('timeline')
                                     else:
@@ -413,20 +412,19 @@ class Registry:
             worker_data.sender_conn.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
             logger.debug('[*] Sent stream task to Worker-{}.'.format(worker_data.worker_id))
             while True:
-                while not worker_data.msg_queue.empty():
-                    msg = worker_data.msg_queue.get()
-                    try:
-                        worker_data.sender_conn.send(bytes(msg + '\n', 'utf-8'))
-                        # logger.debug("[*] Sent to Worker-{}: {} ".format(worker_data.worker_id, msg))
-                    except socket.error:
-                        worker_data.msg_queue.put(msg)
+                msg = worker_data.msg_queue.get()
+                try:
+                    worker_data.sender_conn.send(bytes(msg + '\n', 'utf-8'))
+                    # logger.debug("[*] Sent to Worker-{}: {} ".format(worker_data.worker_id, msg))
+                except socket.error:
+                    worker_data.msg_queue.put(msg)
                 # Check worker status
                 self.lock_worker.acquire()
                 if worker_data.worker_id not in self.active_workers:
                     self.lock_worker.release()
                     break
                 self.lock_worker.release()
-                sleep(0.01)
+                sleep(1)
         except socket.error as e:
             self.remove_worker(worker_data, e)
 
@@ -448,38 +446,36 @@ class Registry:
         # https://stackoverflow.com/questions/409783
         worker_data.sender_conn.close()
         worker_data.receiver_conn.close()
-
+        self.update_available_api_keys_num()
         logger.warning(
             "[-] Worker-{} exit: {}(remaining active workers:{})".format(worker_data.worker_id, e, remaining))
 
     def update_available_api_keys_num(self):
-        while True:
-            with open("twitter.json") as t:
-                t_json = json.loads(t.read())
-                api_keys_num = len(t_json)
-                self.lock_worker.acquire()
-                occupied_api_keys_num = len(self.active_workers)
-                self.lock_worker.release()
-                try:
-                    if 'available_api_keys_num' not in self.client['control']:
-                        self.client['control'].create_document({
-                            '_id': 'available_api_keys_num',
-                            'available': api_keys_num - occupied_api_keys_num,
-                            'occupied': occupied_api_keys_num,
-                            'total': api_keys_num,
-                            'updated_at': int(time())
-                        })
-                    else:
-                        doc = self.client['control']['available_api_keys_num']
-                        doc['available'] = api_keys_num - occupied_api_keys_num
-                        doc['occupied'] = occupied_api_keys_num
-                        doc['total'] = api_keys_num
-                        doc['updated_at'] = int(time())
-                        self.save_doc(doc)
-                except Exception:
-                    logger.error('[!] CouchDB err: \n{}'.format(traceback.format_exc()))
-                    kill(self.pid, SIGUSR1)
-            sleep(5)
+        with open("twitter.json") as t:
+            t_json = json.loads(t.read())
+            api_keys_num = len(t_json)
+            self.lock_worker.acquire()
+            occupied_api_keys_num = len(self.active_workers)
+            self.lock_worker.release()
+            try:
+                if 'available_api_keys_num' not in self.client['control']:
+                    self.client['control'].create_document({
+                        '_id': 'available_api_keys_num',
+                        'available': api_keys_num - occupied_api_keys_num,
+                        'occupied': occupied_api_keys_num,
+                        'total': api_keys_num,
+                        'updated_at': int(time())
+                    })
+                else:
+                    doc = self.client['control']['available_api_keys_num']
+                    doc['available'] = api_keys_num - occupied_api_keys_num
+                    doc['occupied'] = occupied_api_keys_num
+                    doc['total'] = api_keys_num
+                    doc['updated_at'] = int(time())
+                    self.save_doc(doc)
+            except Exception:
+                logger.error('[!] CouchDB err: \n{}'.format(traceback.format_exc()))
+                os._exit(1)
 
     @staticmethod
     def save_doc(doc):

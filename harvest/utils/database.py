@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 from cloudant.client import Cloudant
 from cloudant.replicator import Replicator
 from requests.exceptions import HTTPError
@@ -31,7 +32,7 @@ class CouchDB:
             logger.debug("[*] CouchDB connected -> {}".format(config.couch.url))
         except HTTPError as e:
             logger.error("[*] CouchDB connecting failed:\n\t{}".format(e))
-            exit(1)
+            os._exit(1)
 
 
 def fix_db():
