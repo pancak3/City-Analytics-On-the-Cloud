@@ -1,3 +1,9 @@
+# Clone cloudant
+FROM alpine:latest as cloudant
+RUN apk add git
+RUN git clone https://github.com/cloudant/python-cloudant.git
+
+# Build harvest image
 FROM pypy:3-7-slim-buster
 
 # Copy app
@@ -6,7 +12,14 @@ COPY . /app
 
 # Install deps
 RUN pip3 install --no-cache-dir -r requirements.txt
-RUN pip3 install git+https://github.com/cloudant/python-cloudant.git
+
+# Install cloudant
+COPY --from=cloudant /python-cloudant /python-cloudant
+RUN pip3 install /python-cloudant
+
+# Do not run as root
+RUN adduser -D comp90024
+User comp90024
 
 # Command
 ENTRYPOINT [ "pypy3", "harvest.py" ]
