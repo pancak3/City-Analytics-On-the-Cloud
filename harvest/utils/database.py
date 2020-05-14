@@ -1,6 +1,7 @@
 import logging
 import json
 import os
+from time import sleep
 from cloudant.client import Cloudant
 from cloudant.replicator import Replicator
 from requests.exceptions import HTTPError
@@ -24,15 +25,18 @@ class CouchDB:
             f.close()
 
     def connect(self):
-        logger.debug("[*] Connecting to CouchDB -> {}".format(config.couch.url))
-        try:
-            self.client = Cloudant(config.couch.username, config.couch.password, url=config.couch.url, connect=True)
-            self.session = self.client.session()
-            self.client.connect()
-            logger.debug("[*] CouchDB connected -> {}".format(config.couch.url))
-        except HTTPError as e:
-            logger.error("[*] CouchDB connecting failed:\n\t{}".format(e))
-            os._exit(1)
+        count = 5
+        while count:
+            logger.debug("[*] Connecting to CouchDB -> {}".format(config.couch.url))
+            try:
+                self.client = Cloudant(config.couch.username, config.couch.password, url=config.couch.url, connect=True)
+                self.client.connect()
+                logger.debug("[*] CouchDB connected -> {}".format(config.couch.url))
+                return
+            except HTTPError as e:
+                logger.error("[*] CouchDB connecting failed:\n\t{}".format(e))
+                sleep(1)
+        os._exit(1)
 
 
 def fix_db():
