@@ -10625,13 +10625,14 @@ async function readAreasFile() {
     const areas_json = JSON.parse(areas_file).features;
     for (let i = 0; i < areas_json.length; i++) {
         areas_json[i]['_id'] = i.toString();
-        areas_json[i]['area_name'] = areas_json[i]['properties']['feature_name'];
+        areas_json[i]['area_name'] =
+            areas_json[i]['properties']['feature_name'];
     }
 
     const couch_dbs_res = await axios.get(`${base_url}/_all_dbs`);
 
     const couch_dbs = new Set(couch_dbs_res.data);
-    const put_url = `${base_url}/areas`
+    const put_url = `${base_url}/areas`;
     if (couch_dbs.has('areas')) {
         // Delete areas db
         await axios.delete(put_url);
@@ -10644,7 +10645,7 @@ async function readAreasFile() {
         let doc_url = `${base_url}/areas/${doc._id + 1}`;
         await axios.put(doc_url, doc);
     }
-    console.log(`[-] Created ${areas_json.length} areas.`)
+    console.log(`[-] Created ${areas_json.length} areas.`);
 }
 
 async function updateAreas() {

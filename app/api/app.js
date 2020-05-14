@@ -8,7 +8,7 @@ const _nano = require('nano');
 const app = express();
 
 const checkViews = require('./couch/check-views');
-const updateAreas = require('./couch/update-areas')
+const updateAreas = require('./couch/update-areas');
 // Update areas
 updateAreas();
 // Check views (TODO: async)
@@ -41,7 +41,7 @@ app.use(express.static(path.join(__dirname, 'client')));
 
 // Database status
 app.get('/api', async (req, res) => {
-    const resp = await axios.get(base_url, {responseType: 'stream'});
+    const resp = await axios.get(base_url, { responseType: 'stream' });
     resp.data.pipe(res);
 });
 
@@ -53,19 +53,23 @@ app.get('/api/dbs', async (req, res) => {
         const db_res = await nano.db.get(db);
         db_info.push(db_res);
     }
-    return res.send(db_info.map((info) => {
-        return {
-            name: info.db_name,
-            size: info.sizes.active,
-            count: info.doc_count
-        };
-    }));
+    return res.send(
+        db_info.map((info) => {
+            return {
+                name: info.db_name,
+                size: info.sizes.active,
+                count: info.doc_count,
+            };
+        })
+    );
 });
 
 // Gets users count with mapreduce
 app.get('/api/users_count', async (req, res) => {
-    const users_count_res = await axios.get(`${base_url}/users/_design/api/_view/count`);
-    return res.send({user_count: users_count_res.data.rows[0].value});
+    const users_count_res = await axios.get(
+        `${base_url}/users/_design/api/_view/count`
+    );
+    return res.send({ user_count: users_count_res.data.rows[0].value });
 });
 
 // Frontend
