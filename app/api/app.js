@@ -1,12 +1,13 @@
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
 const morgan = require('morgan');
 const helmet = require('helmet');
+const axios = require('axios');
+const _nano = require('nano');
 const app = express();
 
-const checkViews = require('./couch/check-views')
+const checkViews = require('./couch/check-views');
 
 // Check views (TODO: async)
 checkViews();
@@ -22,6 +23,7 @@ const db_password = process.env.DB_PASSWORD;
 const db_port = process.env.DB_PORT || 5984;
 const db_host = process.env.DB_HOST || 'couchdb';
 const base_url = `${db_prot}://${db_username}:${db_password}@${db_host}:${db_port}`;
+const nano = _nano(base_url);
 
 // Helmet
 app.use(helmet());
@@ -37,18 +39,17 @@ app.use(express.static(path.join(__dirname, 'client')));
 
 // Database status
 app.get('/api', async (req, res) => {
-    console.log(base_url);
     const resp = await axios.get(base_url, {responseType: 'stream'});
     resp.data.pipe(res);
 });
 
 // Gets and returns info about dbs
 app.get('/api/dbs', async (req, res) => {
-    const all_dbs_res = await axios.get(`${base_url}/_all_dbs`);
+    const all_dbs_res = await nano.db.list();
     const db_info = [];
-    for (const db of all_dbs_res.data) {
-        const db_res = await axios.get(`${base_url}/${db}`);
-        db_info.push(db_res.data);
+    for (const db of all_dbs_res) {
+        const db_res = await nano.db.get(db);
+        db_info.push(db_res);
     }
     return res.send(db_info.map((info) => {
         return {
@@ -70,5 +71,7 @@ app.get('*', function (req, res) {
     return res.sendFile(path.join(__dirname, 'client/index.html'));
 });
 
-console.log(`[-] Listening on ${process.env.PORT || 3000}`);
-app.listen(process.env.PORT || 3000);
+// Listen
+app.listen(process.env.PORT || 3000, () => {
+    console.log(`[-] Listening on ${process.env.PORT || 3000}`);
+});
