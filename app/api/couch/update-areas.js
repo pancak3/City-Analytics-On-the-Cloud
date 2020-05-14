@@ -10641,8 +10641,12 @@ async function readAreasFile() {
     await axios.put(put_url);
 
     // Put area documents
+    const doc_0 = {_id: '0', area_name: "No Where"};
+    const doc_1 = {_id: '1', area_name: "Out of Victoria"};
+    await axios.put(`${base_url}/areas/0`, doc_0);
+    await axios.put(`${base_url}/areas/1`, doc_1);
     for (const doc of areas_json) {
-        let doc_url = `${base_url}/areas/${doc._id + 1}`;
+        let doc_url = `${base_url}/areas/${parseInt(doc._id) + 2}`;
         await axios.put(doc_url, doc);
     }
     console.log(`[-] Created ${areas_json.length} areas.`);

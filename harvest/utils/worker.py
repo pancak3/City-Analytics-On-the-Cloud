@@ -541,6 +541,8 @@ class Worker:
         status_json['area_name'] = 'No Where'
         del status
         if status_json['coordinates'] is not None and status_json['coordinates']['type'] == 'Point':
+            status_json['area_id'] = 1
+            status_json['area_name'] = 'Out of Victoria'
             point_x, point_y = status_json['coordinates']['coordinates']
         else:
             return status_json
@@ -575,9 +577,9 @@ class Worker:
                                     + polygon[i][0]:
                                 is_inside = not is_inside
                 if is_inside:
-                    status_json['area_id'] = location_id + 1
+                    status_json['area_id'] = location_id + 2
                     status_json['area_name'] = location_name
-                    status_json['_id'] = str(location_id + 1) + partition_id
+                    status_json['_id'] = str(location_id + 2) + partition_id
                     return status_json
         return status_json
 
