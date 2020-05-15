@@ -382,11 +382,11 @@ class Worker:
                 user_json = user._json
                 user_json['stream_user'] = False
                 self.users_queue.put(user_json)
-            self.client['users'][stream_user_id]['follower_ids'] = list(follower_ids_set[0])
-            self.client['users'][stream_user_id]['friend_ids'] = list(friend_ids_set[0])
-            self.client['users'][stream_user_id]['mutual_follow_ids'] = list(mutual_follow)
-            self.client['users'][stream_user_id]['friends_updated_at'] = int(time())
-            self.client['users'][stream_user_id].save()
+            doc = self.client['users'][stream_user_id]
+            doc.update_field(action=doc.field_set, field='follower_ids', value=list(follower_ids_set[0]))
+            doc.update_field(action=doc.field_set, field='friend_ids', value=list(friend_ids_set[0]))
+            doc.update_field(action=doc.field_set, field='mutual_follow_ids', value=list(mutual_follow))
+            doc.update_field(action=doc.field_set, field='friends_updated_at', value=int(time()))
             logger.debug(
                 "[{}] finished friends: {}, current task:{}".format(self.worker_id, stream_user_id,
                                                                     self.running_friends.get_count()))
