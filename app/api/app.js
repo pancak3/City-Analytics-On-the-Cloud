@@ -5,18 +5,21 @@ const helmet = require('helmet');
 const _nano = require('nano');
 const app = express();
 
-// Environment for local debug
+// Environment variables for local debug
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
 }
 
+// Read env vars
+const {
+    DB_PROT = 'http',
+    DB_USERNAME,
+    DB_PORT = 5984,
+    DB_PASSWORD,
+    DB_HOST = 'couchdb',
+} = process.env;
+const base_url = `${DB_PROT}://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}`;
 // DB setup
-const db_prot = process.env.DB_PROT || 'http';
-const db_username = process.env.DB_USERNAME;
-const db_password = process.env.DB_PASSWORD;
-const db_port = process.env.DB_PORT || 5984;
-const db_host = process.env.DB_HOST || 'couchdb';
-const base_url = `${db_prot}://${db_username}:${db_password}@${db_host}:${db_port}`;
 const nano = _nano(base_url);
 
 // Helmet
