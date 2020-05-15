@@ -183,9 +183,12 @@ class Worker:
             self.msg_to_send.put(msg_json_str)
             sleep(config.heartbeat_time)
             self.lock_active_time.acquire()
-            if int(time()) - self.active_time > config.max_heartbeat_lost_time:
+
+            if not self.running_friends.get_count() and not self.running_timeline.get_count() \
+                    and int(time()) - self.active_time > config.max_heartbeat_lost_time:
                 self.lock_active_time.release()
-                self.exit("[!] Lost heartbeat for {} seconds, exit.".format(config.max_heartbeat_lost_time))
+                self.exit("[!] No running task and Lost heartbeat for {} seconds, exit.".format(
+                    config.max_heartbeat_lost_time))
             else:
                 self.lock_active_time.release()
 
