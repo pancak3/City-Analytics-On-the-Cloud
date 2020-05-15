@@ -83,6 +83,7 @@ class Registry:
             })
             logger.debug('Updated registry info in database: {}:{}'.format(self.ip, config.registry_port))
         else:
+            self.client.create_database('control')
             doc = self.client['control']['registry']
             doc['ip'] = self.ip
             doc['port'] = config.registry_port
