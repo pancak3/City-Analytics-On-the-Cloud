@@ -469,6 +469,7 @@ class Worker:
             if user_json['_id'] not in self.client['users']:
                 # if user dose not exist in db
                 user_json['timeline_updated_at'] = 0
+                user_json['inserted_time'] = int(time())
                 self.client['users'].create_document(user_json)
                 sleep(0.001)
                 # logger.debug("[{}] saved user: {}".format(self.worker_id, user_json['id_str']))
@@ -584,6 +585,7 @@ class Worker:
                     status_json['direct_stream'] = False
                 else:
                     return False
+                status_json['inserted_time'] = int(time())
                 self.client['statuses'].create_document(status_json)
                 if is_stream_code == 1:
                     user_json = status.author._json

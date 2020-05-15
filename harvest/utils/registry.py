@@ -74,22 +74,16 @@ class Registry:
         return id_tmp
 
     def update_db(self):
-        if 'control' in self.client.all_dbs():
-            self.client['control'].create_document({
-                '_id': 'registry',
-                'ip': self.ip,
-                'port': config.registry_port,
-                'token': self.token
-            })
-            logger.debug('Updated registry info in database: {}:{}'.format(self.ip, config.registry_port))
-        else:
+        if 'control' not in self.client.all_dbs():
             self.client.create_database('control')
-            doc = self.client['control']['registry']
-            doc['ip'] = self.ip
-            doc['port'] = config.registry_port
-            doc['token'] = self.token
-            self.save_doc(doc)
-            logger.debug('Updated registry addr in database: {}:{}'.format(self.ip, config.registry_port))
+
+        self.client['control'].create_document({
+            '_id': 'registry',
+            'ip': self.ip,
+            'port': config.registry_port,
+            'token': self.token
+        })
+        logger.debug('Updated registry info in database: {}:{}'.format(self.ip, config.registry_port))
 
     def check_views(self):
         # Make view result ascending
@@ -135,7 +129,7 @@ class Registry:
                                '    if (doc.stream_user && timestamp - doc.friends_updated_at > ' \
                                + str(config.timeline_updating_window) + \
                                '                                          ) {' \
-                               '        emit([doc.friends_updated_at, doc._id]);}' \
+                               '        emit([doc.friends_updated_at, doc.inserted_time]);}' \
                                '}'
             design_doc.add_view('friends', map_func_friends)
 
@@ -152,9 +146,9 @@ class Registry:
                                 '        doc.stream_user = false;' \
                                 '      }' \
                                 '       if (doc.stream_user) {' \
-                                '        emit([doc.timeline_updated_at,0, doc._id,true],"stream_user");' \
+                                '        emit([doc.timeline_updated_at,0, doc.inserted_time,true],"stream_user");' \
                                 '       }else{' \
-                                '        emit([doc.timeline_updated_at,1, doc._id,false],"not_stream");' \
+                                '        emit([doc.timeline_updated_at,1, doc.inserted_time,false],"not_stream");' \
                                 '      }' \
                                 '    }' \
                                 '}'
