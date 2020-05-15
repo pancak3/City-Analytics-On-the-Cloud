@@ -76,7 +76,13 @@ class Registry:
     def update_db(self):
         if 'control' not in self.client.all_dbs():
             self.client.create_database('control')
-
+        count = 0
+        while 'control' not in self.client.all_dbs():
+            sleep(1)
+            count += 1
+            if count > 10:
+                logger.error('[!] Cannot create control')
+                os._exit(1)
         self.client['control'].create_document({
             '_id': 'registry',
             'ip': self.ip,
@@ -88,35 +94,6 @@ class Registry:
     def check_views(self):
         # Make view result ascending
         # https://stackoverflow.com/questions/40463629
-
-        # design_doc = Document(self.client['statuses'], '_design/stream')
-        # if not design_doc.exists():
-        #     design_doc = DesignDocument(self.client['statuses'], '_design/stream')
-        #     map_func_statuses = 'function(doc) { ' \
-        #                         '   if (!doc.hasOwnProperty("direct_stream")) {doc.direct_stream = False;}' \
-        #                         '   if ( doc.direct_stream ) ' \
-        #                         '   {emit(doc._id, true);}' \
-        #                         '}'
-        #
-        #     design_doc.add_view('statues', map_func_statuses)
-        #
-        #     map_func_statuses_expanded = 'function(doc) { ' \
-        #                                  '   if (!doc.hasOwnProperty("stream_status")) {doc.stream_status = False;}' \
-        #                                  '   if ( doc.stream_status ) ' \
-        #                                  '   {emit(doc._id, true);}' \
-        #                                  '}'
-        #     design_doc.add_view('statuses_expanded', map_func_statuses_expanded, partitioned=False)
-        #     design_doc.save()
-        #
-        # design_doc = Document(self.client['users'], '_design/stream')
-        # if not design_doc.exists():
-        #     design_doc = DesignDocument(self.client['users'], '_design/stream')
-        #     map_func_users = 'function(doc) {' \
-        #                      '  if (!doc.hasOwnProperty("stream_user")) {doc.stream_user = false;}' \
-        #                      '  if ( doc.stream_user) {emit(doc._id, true);}' \
-        #                      '}'
-        #     design_doc.add_view('users', map_func_users, partitioned=False)
-        #     design_doc.save()
 
         design_doc = Document(self.client['users'], '_design/tasks')
         if not design_doc.exists():
@@ -446,6 +423,13 @@ class Registry:
             "[-] Worker-{} exit: {}(remaining active workers:{})".format(worker_data.worker_id, e, remaining))
 
     def update_available_api_keys_num(self):
+        count = 0
+        while 'control' not in self.client.all_dbs():
+            sleep(1)
+            count += 1
+            if count > 10:
+                logger.error('[!] Cannot create control')
+                os._exit(1)
         with open("twitter.json") as t:
             t_json = json.loads(t.read())
             api_keys_num = len(t_json)

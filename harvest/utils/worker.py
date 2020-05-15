@@ -329,6 +329,8 @@ class Worker:
             for status in statuses:
                 self.statuses_queue.put((status, 2))
             doc = self.client['users'][user_id]
+
+            doc.update_field(action=doc.field_set, field='timeline_authorized', value=True)
             doc.update_field(action=doc.field_set, field='timeline_updated_at', value=int(time()))
             logger.debug("[{}] finished user timeline:{}(stream:{}), "
                          "running timeline task num: {}".format(self.worker_id,
@@ -339,6 +341,9 @@ class Worker:
             self.crawler.update_rate_limit_status()
         except Exception as e:
             self.running_timeline.dec()
+            doc = self.client['users'][user_id]
+            doc.update_field(action=doc.field_set, field='timeline_authorized', value=False)
+            doc.update_field(action=doc.field_set, field='timeline_updated_at', value=int(time()))
             logger.warning(e)
             logger.debug("[{}] Exciption! user timeline:{}(stream:{}), "
                          "current task : {}".format(self.worker_id, user_id, is_stream_user,
@@ -390,6 +395,7 @@ class Worker:
             doc.update_field(action=doc.field_set, field='friend_ids', value=list(friend_ids_set[0]))
             doc.update_field(action=doc.field_set, field='mutual_follow_ids', value=list(mutual_follow))
             doc.update_field(action=doc.field_set, field='friends_updated_at', value=int(time()))
+            doc.update_field(action=doc.field_set, field='friends_authorized', value=True)
             logger.debug(
                 "[{}] finished friends: {}, current task:{}".format(self.worker_id, stream_user_id,
                                                                     self.running_friends.get_count()))
@@ -398,6 +404,9 @@ class Worker:
             self.crawler.update_rate_limit_status()
         except Exception as e:
             self.running_friends.dec()
+            doc = self.client['users'][stream_user_id]
+            doc.update_field(action=doc.field_set, field='friends_updated_at', value=int(time()))
+            doc.update_field(action=doc.field_set, field='friends_authorized', value=False)
             logger.warning(e)
             logger.debug(
                 "[{}] Exception! running friends: {}, current task:{}".format(self.worker_id, stream_user_id,
