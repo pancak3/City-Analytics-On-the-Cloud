@@ -1,23 +1,30 @@
-# Build client
-FROM node:14-alpine as client
-COPY ./client /client
-ENV NODE_ENV production
-RUN cd /client \
+# Build client and server
+FROM node:14-alpine as builder
+
+COPY ./api /build/api
+RUN cd /build/api \
+    && yarn install --production=false && yarn run build \
+    && rm -rf node_modules \
+    && yarn cache clean
+
+COPY ./client /build/client
+RUN cd /build/client \
     && yarn install --production && yarn run build \
-    && rm -rf node_modules
+    && rm -rf node_modules \
+    && yarn cache clean
 
 # Build server
-FROM node:14-alpine
+FROM node:14-alpine as server
 
 # Copy files
 WORKDIR /app
-COPY --from=client /client/build /app/client
+COPY --from=builder /build/api/dist /app
+COPY --from=builder /build/api/package.json /app
+COPY --from=builder /build/client/build /app/client
 ENV NODE_ENV production
 
-COPY ./api /app
-
 # Install deps
-RUN yarn install --production
+RUN yarn install --production && yarn cache clean
 RUN adduser -D comp90024
 User comp90024
 

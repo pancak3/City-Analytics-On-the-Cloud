@@ -1,8 +1,8 @@
-const path = require('path');
-const express = require('express');
-const morgan = require('morgan');
-const helmet = require('helmet');
-const _nano = require('nano');
+import path from 'path';
+import express, { Request, Response } from 'express';
+import morgan from 'morgan';
+import helmet from 'helmet';
+import _nano from 'nano';
 const app = express();
 
 // Environment variables for local debug
@@ -18,9 +18,10 @@ const {
     DB_PASSWORD,
     DB_HOST = 'couchdb',
 } = process.env;
-const base_url = `${DB_PROT}://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}`;
 // DB setup
-const nano = _nano(base_url);
+const nano = _nano(
+    `${DB_PROT}://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}`
+);
 
 // Helmet
 app.use(helmet());
@@ -38,16 +39,17 @@ if (process.env.NODE_ENV !== 'production') {
 app.use(express.static(path.join(__dirname, 'client')));
 
 // Database status
-app.get('/api', async (req, res) => {
+app.get('/api', async (req: Request, res: Response) => {
+    // @ts-ignore
     const info = await nano.request({ path: '/' });
     return res.send(info);
 });
 
 // Gets and returns info about dbs
-app.get('/api/dbs', async (req, res) => {
-    const all_dbs_res = await nano.db.list();
+app.get('/api/dbs', async (req: Request, res: Response) => {
+    const all_dbs = await nano.db.list();
     const db_info = [];
-    for (const db of all_dbs_res) {
+    for (const db of all_dbs) {
         const db_res = await nano.db.get(db);
         db_info.push(db_res);
     }
