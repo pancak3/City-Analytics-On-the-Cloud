@@ -133,7 +133,7 @@ class Worker:
                 self.exit("[!] Registry didn't respond correctly. Exit. -> {}".format(msg))
             else:
                 self.exit("[!] Cannot connect to {}:{}: Empty respond".format(reg_ip, reg_port))
-        except json.decoder.JSONDecodeError as e:
+        except Exception as e:
             self.exit("[!] Cannot connect to {}:{} using token {}. Exit: {}".format(reg_ip, reg_port, token, e))
 
     def update_active_time(self):
