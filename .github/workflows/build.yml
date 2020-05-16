@@ -38,3 +38,16 @@ jobs:
       - name: Push docker image
         run: docker push registry.gitlab.com/comp90024/project-2:app
         working-directory: ./app
+
+  build_mapreduce:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      - name: Login to Gitlab Registry
+        run: echo ${{ secrets.REG_PASS }} | docker login registry.gitlab.com -u ${{ secrets.REG_USER }} --password-stdin
+      - name: Build mapreduce image
+        run: docker build . -t registry.gitlab.com/comp90024/project-2:mapreduce
+        working-directory: ./mapreduce
+      - name: Push docker image
+        run: docker push registry.gitlab.com/comp90024/project-2:mapreduce
+        working-directory: ./mapreduce
