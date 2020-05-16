@@ -65,10 +65,20 @@ app.get('/api/dbs', async (req: Request, res: Response) => {
 });
 
 // Gets users count with mapreduce
-app.get('/api/users/count', async (req, res) => {
+app.get('/api/stats', async (req, res) => {
     const users = nano.db.use('users');
-    const view = await users.view('api', 'count', { include_docs: false });
-    return res.send(view);
+    const user_view = await users.view('api-global', 'count', {
+        include_docs: false,
+    });
+    const user_count = user_view['rows'][0]['value']
+
+    const status = nano.db.use('statuses');
+    const status_view = await status.view('api-global', 'count', {
+        include_docs: false
+    });
+    const status_count = status_view['rows'][0]['value']
+
+    return res.send({ user: user_count, status: status_count });
 });
 
 // Frontend
