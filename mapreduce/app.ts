@@ -1,9 +1,6 @@
 import _nano from 'nano';
-import express from 'express';
 // import checkViews from './couch/check-views';
 import updateAreas from './couch/update-areas';
-
-const app = express();
 
 // Environment variables for local debug
 if (process.env.NODE_ENV !== 'production') {
@@ -23,11 +20,6 @@ const nano = _nano(
     `${DB_PROT}://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}`
 );
 
-// Serve a route indicating the commit that app is on
-app.get('/', (req, res) => {
-    res.send({ commit: process.env.COMMIT })
-});
-
 const init = async (): Promise<void> => {
     // Update areas
     await updateAreas(nano);
@@ -37,10 +29,4 @@ const init = async (): Promise<void> => {
 
 init().then(() => {
     console.log('init complete');
-
-    app.listen(3000, () => {
-        console.log('App listening on port 3000')
-    });
 });
-
-

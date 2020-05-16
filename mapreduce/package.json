@@ -4,7 +4,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "build": "tsc && cp -r data/ dist/",
+        "build": "tsc && cp -r data/ dist/ && cp -r couch/views dist/couch/views && cp package.json yarn.lock dist/",
         "start": "node app.js",
         "prettier": "prettier --single-quote --tab-width 4 --write package.json \"**/*.js\""
     },
@@ -12,7 +12,6 @@
     "license": "MIT",
     "dependencies": {
         "axios": "^0.19.2",
-        "express": "^4.17.1",
         "nano": "^8.2.2"
     },
     "devDependencies": {
