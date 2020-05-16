@@ -1,20 +1,8 @@
-const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
-const util = require('util');
+import fs from 'fs';
+import path from 'path';
+import util from 'util';
+import { ServerScope } from 'nano';
 const readDir = util.promisify(fs.readdir);
-// Environment for local debug
-if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config();
-}
-
-// DB setup
-const db_prot = process.env.DB_PROT || 'http';
-const db_username = process.env.DB_USERNAME;
-const db_password = process.env.DB_PASSWORD;
-const db_port = process.env.DB_PORT || 5984;
-const db_host = process.env.DB_HOST || 'couchdb';
-const base_url = `${db_prot}://${db_username}:${db_password}@${db_host}:${db_port}`;
 
 function readMapReduce(file_path) {
     const map = fs
@@ -30,7 +18,7 @@ function readMapReduce(file_path) {
 }
 
 async function getFileViews() {
-    const views_path = path.join(process.cwd(), 'couch');
+    const views_path = path.join(process.cwd(), 'couch', 'views');
     let file_api_views = [];
 
     const ddoc_names = await readDir(views_path);
@@ -138,12 +126,11 @@ async function updateViews(file_views, couch_ddocs) {
     return true;
 }
 
-async function checkViews() {
+async function checkViews(nano: ServerScope): Promise<void> {
     const fileViews = await getFileViews();
     const couchDDocs = await getCouchDDocs(fileViews);
     await updateViews(fileViews, couchDDocs);
     console.log('[-] Checked all views.');
-    return true;
 }
 
 module.exports = checkViews;
