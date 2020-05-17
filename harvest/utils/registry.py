@@ -353,27 +353,26 @@ class Registry:
                             "{}(remaining active workers:{})".format(worker_data.worker_id, e, remaining))
 
     def registry_msg_handler(self, conn, addr):
-        data = ''
-        while True:
-            try:
-                data += conn.recv(1024).decode('utf-8')
-                while data.find('\n') != -1:
-                    first_pos = data.find('\n')
-                    recv_json = json.loads(data[:first_pos])
-                    if 'token' in recv_json and recv_json['token'] == self.token:
-                        # del recv_json['token']
-                        max_err = 5
-                        if recv_json['action'] == 'init':
-                            if recv_json['role'] == 'sender':
-                                self.handle_action_init_sender(recv_json, conn, addr)
-                            elif recv_json['role'] == 'receiver':
-                                self.handle_action_init_receiver(recv_json, conn, addr)
+        try:
+            data = conn.recv(1024).decode('uft-8')
+            while data.find('\n') != -1:
+                first_pos = data.find('\n')
+                recv_json = json.loads(data[:first_pos])
+                if 'token' in recv_json and recv_json['token'] == self.token:
+                    # del recv_json['token']
+                    if recv_json['action'] == 'init':
+                        if recv_json['role'] == 'sender':
+                            self.handle_action_init_sender(recv_json, conn, addr)
+                        elif recv_json['role'] == 'receiver':
+                            self.handle_action_init_receiver(recv_json, conn, addr)
 
-                    data = data[first_pos + 1:]
-            except json.JSONDecodeError:
-                pass
-            except socket.error:
-                logging.warning(traceback.format_exc())
+                data = data[first_pos + 1:]
+        except json.JSONDecodeError:
+            traceback.format_exc()
+        except socket.error:
+            traceback.format_exc()
+        except Exception:
+            traceback.format_exc()
 
     def tasks_generator(self):
         self.logger.info("TaskGenerator started.")
