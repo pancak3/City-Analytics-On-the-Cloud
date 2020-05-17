@@ -5,15 +5,15 @@
 import hashlib
 import logging
 import traceback
+import tweepy
+
 from math import ceil
 from os import kill, getpid
 from signal import SIGUSR1
 from threading import Lock
 from time import sleep, time
 
-import tweepy
-
-from utils.config import config
+from utils.config import Config
 from utils.logger import get_logger
 
 logger = get_logger('Crawler', logging.DEBUG)
@@ -27,6 +27,7 @@ class APIStatus:
 class Crawler:
 
     def __init__(self):
+        self.config = Config()
         self.lock_friends = Lock()
         self.lock_user_timeline = Lock()
         self.lock_rate_limits = Lock()
@@ -36,7 +37,7 @@ class Crawler:
         # self.active_time_ref = active_time_ref
         self.id = None
         self.api_keys = {}
-        for credential in config.twitter:
+        for credential in self.config.twitter:
             api_key = credential.api_key
             api_secret_key = credential.api_secrete_key
             access_token = credential.access_token
@@ -74,8 +75,8 @@ class Crawler:
             lock.release()
 
     def update_rate_limit_status(self, err_count=0):
-        if err_count > config.max_network_err:
-            logger.debug("[*] Err {} times, exit".format(config.max_network_err))
+        if err_count > self.config.max_network_err:
+            logger.debug("[*] Err {} times, exit".format(self.config.max_network_err))
             kill(getpid(), SIGUSR1)
 
         self.lock_rate_limits.acquire()
@@ -194,7 +195,7 @@ class Crawler:
         # up to a maximum of 200 per distinct request
         # https://developer.twitter.com/en/docs/tweets/timelines/api-reference/get-statuses-user_timeline
 
-        return self.api.user_timeline(count=config.user_timeline_max_statues, **kwargs)
+        return self.api.user_timeline(count=self.config.user_timeline_max_statues, **kwargs)
 
     def lookup_users(self, users_ids):
         # lock this func in case of occurring rate limit err
@@ -217,9 +218,8 @@ class Crawler:
                 raise BaseException
         return users
 
-    @staticmethod
-    def hash(api_key_):
-        h = hashlib.new(config.hash_algorithm)
+    def hash(self, api_key_):
+        h = hashlib.new(self.config.hash_algorithm)
         h.update(bytes(api_key_, 'utf-8'))
         return h.hexdigest()
 

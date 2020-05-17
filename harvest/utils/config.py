@@ -83,4 +83,3 @@ def get_external_ip():
         logger.warning('[*] Unable to get Hostname and IP: {}'.format(e))
 
 
-config = Config()

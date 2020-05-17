@@ -17,7 +17,7 @@
   "victoria_areas_path": "data/VictoriaSuburb(ABS-2011)Geojson.json",
   "timeline_updating_window": 604800,
   "friends_updating_window": 604800,
-  "tasks_generating_window": 18000,
+  "tasks_generating_window": 1800,
   "max_tasks_num": 1000,
   "task_chunk_size": 20,
   "heartbeat_time": 5,

@@ -10,7 +10,7 @@ from os import getpid
 from math import ceil
 from time import sleep, time
 from collections import defaultdict
-from utils.config import config
+from utils.config import Config
 from utils.database import CouchDB
 from utils.crawlers import Crawler
 from utils.logger import get_logger
@@ -62,6 +62,7 @@ class RunningTask:
 
 class Worker:
     def __init__(self):
+        self.config = Config()
         # self.lock_users_recorder = threading.Lock()
         # self.lock_statuses_recorder = threading.Lock()
         self.lock_active_time = threading.Lock()
@@ -181,14 +182,14 @@ class Worker:
         while True:
 
             self.msg_to_send.put(msg_json_str)
-            sleep(config.heartbeat_time)
+            sleep(self.config.heartbeat_time)
             self.lock_active_time.acquire()
 
             if not self.running_friends.get_count() and not self.running_timeline.get_count() \
-                    and int(time()) - self.active_time > config.max_heartbeat_lost_time:
+                    and int(time()) - self.active_time > self.config.max_heartbeat_lost_time:
                 self.lock_active_time.release()
                 self.exit("[!] No running task and Lost heartbeat for {} seconds, exit.".format(
-                    config.max_heartbeat_lost_time))
+                    self.config.max_heartbeat_lost_time))
             else:
                 self.lock_active_time.release()
 
@@ -339,6 +340,7 @@ class Worker:
                                                                 user_id,
                                                                 is_stream_user,
                                                                 self.running_timeline.get_count()))
+            self.update_active_time()
             self.running_timeline.dec()
             self.crawler.update_rate_limit_status()
         except Exception as e:
@@ -387,7 +389,7 @@ class Worker:
                 lock_follower.release()
                 lock_friend.release()
 
-            mutual_follow = list(follower_ids_set[0].intersection(friend_ids_set[0]))[:config.friends_max_ids]
+            mutual_follow = list(follower_ids_set[0].intersection(friend_ids_set[0]))[:self.config.friends_max_ids]
             users_res = self.crawler.lookup_users(mutual_follow)
             for user in users_res:
                 user_json = user._json
@@ -402,7 +404,7 @@ class Worker:
             logger.debug(
                 "[{}] finished friends: {}, current task:{}".format(self.worker_id, stream_user_id,
                                                                     self.running_friends.get_count()))
-
+            self.update_active_time()
             self.running_friends.dec()
             self.crawler.update_rate_limit_status()
         except Exception as e:
@@ -420,10 +422,10 @@ class Worker:
         friends_last_time_sent = int(time())
         while True:
             if int(time()) - timeline_last_time_sent > 5 \
-                    and self.running_timeline.get_count() < config.max_running_timeline:
+                    and self.running_timeline.get_count() < self.config.max_running_timeline:
                 rate_limit = self.refresh_local_rate_limit()
                 timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
-                for i in range(config.max_running_timeline):
+                for i in range(self.config.max_running_timeline):
                     timeline_remaining -= 1
                     if timeline_remaining < 1:
                         break
@@ -434,12 +436,12 @@ class Worker:
                     self.msg_to_send.put(json.dumps(msg))
                 timeline_last_time_sent = int(time())
             if int(time()) - friends_last_time_sent > 5 \
-                    and self.running_friends.get_count() < config.max_running_friends:
+                    and self.running_friends.get_count() < self.config.max_running_friends:
                 rate_limit = self.refresh_local_rate_limit()
                 running_num = self.running_friends.get_count()
                 friends_remaining = rate_limit['friends'] - running_num
                 followers_remaining = rate_limit['followers'] - running_num
-                for i in range(config.max_running_friends):
+                for i in range(self.config.max_running_friends):
                     friends_remaining -= 1
                     if friends_remaining < 1 or followers_remaining < 1:
                         break
@@ -467,8 +469,8 @@ class Worker:
             self.statuses_queue.put((status, 1))
 
     def save_user(self, user_json, err_count=0):
-        if err_count > config.max_network_err:
-            self.exit("[{}] save user err {} times, exit".format(self.worker_id, config.max_network_err))
+        if err_count > self.config.max_network_err:
+            self.exit("[{}] save user err {} times, exit".format(self.worker_id, self.config.max_network_err))
             return False
         try:
             # https://developer.twitter.com/en/docs/basics/twitter-ids
@@ -513,12 +515,11 @@ class Worker:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
             # https://stackoverflow.com/questions/4990718/
             logger.error("[!] Save user err: {}".format(traceback.format_exc()))
-            sleep(config.network_err_reconnect_time)
+            sleep(self.config.network_err_reconnect_time)
             return self.save_user(user_json=user_json, err_count=err_count + 1)
 
-    @staticmethod
-    def read_areas():
-        f = open(config.victoria_areas_path)
+    def read_areas(self):
+        f = open(self.config.victoria_areas_path)
         areas_json = json.loads(f.read())['features']
         f.close()
         return areas_json
@@ -577,11 +578,11 @@ class Worker:
         return status_json
 
     def save_status(self, status, is_stream_code, err_count=0):
-        if err_count > config.max_network_err:
+        if err_count > self.config.max_network_err:
             self.exit("[{}] save status err {} times, exit: {}({})".format(self.worker_id,
                                                                            status.id,
                                                                            is_stream_code,
-                                                                           config.max_network_err))
+                                                                           self.config.max_network_err))
             return False
         # use id_str
         # The string representation of the unique identifier for this Tweet.
@@ -616,7 +617,7 @@ class Worker:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
             # https://stackoverflow.com/questions/4990718/
             logger.warning("[!] Save status err: {}".format(traceback.format_exc()))
-            sleep(config.network_err_reconnect_time)
+            sleep(self.config.network_err_reconnect_time)
             return self.save_status(status=status, is_stream_code=is_stream_code, err_count=err_count + 1)
 
     def check_db(self):
@@ -634,7 +635,7 @@ class Worker:
             user_json = self.users_queue.get()
             if self.save_user(user_json=user_json):
                 count += 1
-                if count % config.print_log_when_saved == 0:
+                if count % self.config.print_log_when_saved == 0:
                     logger.info("Saved {} new users in total".format(count))
 
     def statuses_recorder(self):
@@ -643,7 +644,7 @@ class Worker:
             (status, is_stream_code) = self.statuses_queue.get()
             if self.save_status(status=status, is_stream_code=is_stream_code):
                 count += 1
-                if count % config.print_log_when_saved == 0:
+                if count % self.config.print_log_when_saved == 0:
                     logger.info("Saved {} new statuses in total".format(count))
 
     def run(self):
