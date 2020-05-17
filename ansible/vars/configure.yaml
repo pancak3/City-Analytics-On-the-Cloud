@@ -13,6 +13,7 @@ couch:
   port: 5984
   dir: /data/couch
   data_dir: ./data
+  config_path: ./default.ini
   node_count: 4
 
 # The Github repository
