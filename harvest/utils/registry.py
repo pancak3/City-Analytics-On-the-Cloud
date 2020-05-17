@@ -258,15 +258,8 @@ class Registry:
     def handle_task_friends(self, worker_data):
         self.logger.debug("[-] Has {} friends tasks in queue.".format(self.friends_tasks.qsize()))
 
-        if self.friends_tasks.empty():
-            self.lock_friends_tasks_updated_time.acquire()
-            if self.friends_tasks.empty() and int(time()) - self.friends_tasks_updated_time > 60:
-                self.lock_friends_tasks_updated_time.release()
-                self.generate_tasks('friends')
-            else:
-                self.lock_friends_tasks_updated_time.release()
-
         try:
+            self.generate_friends_task()
             user_id = self.friends_tasks.get(timeout=0.01)
             msg = {'token': self.token, 'task': 'task', 'friends_ids': [user_id]}
             worker_data.msg_queue.put(json.dumps(msg))
@@ -277,16 +270,9 @@ class Registry:
 
     def handle_task_timeline(self, worker_data):
         self.logger.debug("[-] Has {} timeline tasks in queue.".format(self.timeline_tasks.qsize()))
-
-        if self.timeline_tasks.empty():
-            self.lock_timeline_tasks_updated_time.acquire()
-            if self.timeline_tasks.empty() and int(time()) - self.timeline_tasks_updated_time > 60:
-                self.lock_timeline_tasks_updated_time.release()
-                self.generate_tasks('timeline')
-            else:
-                self.lock_timeline_tasks_updated_time.release()
-
         try:
+            self.generate_timeline_task()
+
             timeline_tasks = self.timeline_tasks.get(timeout=0.01)
             msg = {'token': self.token, 'task': 'task', 'timeline_ids': timeline_tasks}
             worker_data.msg_queue.put(json.dumps(msg))
@@ -376,6 +362,7 @@ class Registry:
                     recv_json = json.loads(data[:first_pos])
                     if 'token' in recv_json and recv_json['token'] == self.token:
                         # del recv_json['token']
+                        max_err = 5
                         if recv_json['action'] == 'init':
                             if recv_json['role'] == 'sender':
                                 self.handle_action_init_sender(recv_json, conn, addr)
@@ -383,71 +370,64 @@ class Registry:
                                 self.handle_action_init_receiver(recv_json, conn, addr)
 
                     data = data[first_pos + 1:]
-
             except json.JSONDecodeError:
-                logging.warning(traceback.format_exc())
+                pass
             except socket.error:
                 logging.warning(traceback.format_exc())
 
     def tasks_generator(self):
         self.logger.info("TaskGenerator started.")
-        to_sleep = self.config.tasks_generating_window
-        self.generate_tasks('friends')
-        self.generate_tasks('timeline')
         while True:
-            self.lock_timeline_tasks_updated_time.acquire()
-            if self.timeline_tasks.empty() and int(time()) - self.timeline_tasks_updated_time > 5:
-                self.lock_timeline_tasks_updated_time.release()
-                self.generate_tasks('timeline')
-            self.lock_friends_tasks_updated_time.acquire()
-            if self.friends_tasks.empty() and int(time()) - self.friends_tasks_updated_time > 5:
-                self.lock_friends_tasks_updated_time.release()
-                self.generate_tasks('friends')
+            self.generate_timeline_task()
+            self.generate_friends_task()
             sleep(5)
 
-    def generate_tasks(self, task_type):
-        self.client.connect()
-        if task_type == 'friends':
-            self.friends_tasks = queue.Queue()
-            self.lock_friends_tasks_updated_time.acquire()
-        elif task_type == 'timeline':
-            self.timeline_tasks = queue.Queue()
-            self.lock_timeline_tasks_updated_time.acquire()
+    def generate_friends_task(self):
+        self.lock_friends_tasks_updated_time.acquire()
+        if not self.friends_tasks.empty() or int(time()) - self.friends_tasks_updated_time < 5:
+            return
         else:
-            return 0
-        start_time = time()
-        self.logger.debug("Start to generate {} tasks.".format(task_type))
-        if 'users' in self.client.all_dbs():
-            count = 0
-            result = self.client['users'].get_view_result('_design/tasks', view_name=task_type,
-                                                          limit=self.config.max_tasks_num).all()
-            if task_type == 'friends':
-                for doc in result:
-                    count += 1
-                    self.friends_tasks.put(doc['id'])
-            if task_type == 'timeline':
+            try:
+                self.client.connect()
+                if 'users' in self.client.all_dbs():
+                    count = 0
+                    result = self.client['users'].get_view_result('_design/tasks', view_name='friends',
+                                                                  limit=self.config.max_tasks_num).all()
+                    for doc in result:
+                        count += 1
+                        self.friends_tasks.put(doc['id'])
+                    self.logger.debug("Generated {} friends tasks".format(count))
+                    self.friends_tasks_updated_time = int(time())
+
+            except Exception:
+                traceback.format_exc()
+            self.lock_friends_tasks_updated_time.release()
+
+    def generate_timeline_task(self):
+        self.lock_timeline_tasks_updated_time.acquire()
+        if not self.timeline_tasks.empty() or int(time()) - self.timeline_tasks_updated_time < 5:
+            self.lock_timeline_tasks_updated_time.release()
+            return
+        try:
+            self.client.connect()
+            if 'users' in self.client.all_dbs():
+                count = 0
+                result = self.client['users'].get_view_result('_design/tasks', view_name='timeline',
+                                                              limit=self.config.max_tasks_num).all()
+
                 for i in range(0, len(result), self.config.max_ids_single_task):
                     timeline_tasks = [[doc['id'], doc['key'][3]] for doc in
                                       result[:self.config.max_tasks_num][i:i + self.config.max_ids_single_task]]
                     count += len(timeline_tasks)
                     self.timeline_tasks.put(timeline_tasks)
 
-            self.logger.debug("Generated {} {} tasks in {:.2} seconds.".format(count, task_type, time() - start_time))
-            if task_type == 'friends':
-                self.friends_tasks_updated_time = int(time())
-                self.lock_friends_tasks_updated_time.release()
-            elif task_type == 'timeline':
                 self.timeline_tasks_updated_time = int(time())
-                self.lock_timeline_tasks_updated_time.release()
-            return count
-        self.logger.debug("Finished generating {} tasks.".format(task_type))
-        if task_type == 'friends':
-            self.friends_tasks_updated_time = int(time())
-            self.lock_friends_tasks_updated_time.release()
-        elif task_type == 'timeline':
-            self.timeline_tasks_updated_time = int(time())
-            self.lock_timeline_tasks_updated_time.release()
-        return 0
+                self.logger.debug("Generated {} friends tasks.".format(count))
+
+        except Exception:
+            traceback.format_exc()
+
+        self.lock_timeline_tasks_updated_time.release()
 
     def update_doc(self, db, key, values):
         if key not in db:

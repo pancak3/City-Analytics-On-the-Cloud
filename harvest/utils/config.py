@@ -63,7 +63,6 @@ class Config:
             self.network_err_reconnect_time = harvest_json['network_err_reconnect_time']
             self.max_network_err = harvest_json['max_network_err']
             self.friends_max_ids = harvest_json['friends_max_ids']
-            self.tasks_generating_window = harvest_json['tasks_generating_window']
             self.max_save_tries = harvest_json['max_save_tries']
             self.max_running_friends = harvest_json['max_running_friends']
             self.max_running_timeline = harvest_json['max_running_timeline']
