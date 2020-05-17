@@ -325,7 +325,9 @@ class Worker:
                                                                 user_id,
                                                                 is_stream_user,
                                                                 self.running_timeline.get_count()))
-            statuses = self.crawler.get_user_timeline(user_id=user_id[2:], err_count=0)
+
+            real_user_id = user_id[user_id.find(':') + 1:]
+            statuses = self.crawler.get_user_timeline(user_id=real_user_id, err_count=0)
             for status in statuses:
                 self.statuses_queue.put((status, 2))
             doc = self.client['users'][user_id]
@@ -364,13 +366,14 @@ class Worker:
             follower_ids_set = [set(), 0]
             friend_ids_set = [set(), 0]
 
+            real_user_id = stream_user_id[stream_user_id.find(':') + 1:]
             threading.Thread(target=self.crawler.get_followers_ids,
                              args=(lock_follower, follower_ids_set,),
-                             kwargs={'user_id': stream_user_id[2:]}).start()
+                             kwargs={'user_id': real_user_id}).start()
 
             threading.Thread(target=self.crawler.get_friends_ids,
                              args=(lock_friend, friend_ids_set,),
-                             kwargs={'user_id': stream_user_id[2:]}).start()
+                             kwargs={'user_id': real_user_id}).start()
 
             max_sleep = 5 * 60
             while max_sleep:
@@ -474,9 +477,9 @@ class Worker:
             # generate partitioned id
             if user_json['stream_user']:
                 user_json['friends_updated_at'] = 0
-                user_json['_id'] = "{}:{}".format(1, user_json['id_str'])
+                user_json['_id'] = "{}:{}".format('stream', user_json['id_str'])
             else:
-                user_json['_id'] = "{}:{}".format(0, user_json['id_str'])
+                user_json['_id'] = "{}:{}".format('not_stream', user_json['id_str'])
 
             if user_json['_id'] not in self.client['users']:
                 # if user dose not exist in db
@@ -526,11 +529,12 @@ class Worker:
         # https://developer.twitter.com/en/docs/basics/twitter-ids
         if 'id' in status_json:
             del status_json['id']
-        status_json['_id'] = str(0) + partition_id
+        status_json['_id'] = 'no_where' + partition_id
         status_json['area_id'] = 0
         status_json['area_name'] = 'No Where'
         del status
         if status_json['coordinates'] is not None and status_json['coordinates']['type'] == 'Point':
+            status_json['_id'] = 'out_of_victoria' + partition_id
             status_json['area_id'] = 1
             status_json['area_name'] = 'Out of Victoria'
             point_x, point_y = status_json['coordinates']['coordinates']
@@ -539,7 +543,6 @@ class Worker:
         for location_id, location in enumerate(self.areas):
             geometry = location['geometry']
             if geometry['type'] == "MultiPolygon":
-                location_name = location["properties"]["feature_name"]
                 is_inside = False
                 for polygons in geometry["coordinates"]:
                     for polygon in polygons[1:]:
@@ -567,9 +570,9 @@ class Worker:
                                     + polygon[i][0]:
                                 is_inside = not is_inside
                 if is_inside:
-                    status_json['area_id'] = location_id + 2
-                    status_json['area_name'] = location_name
-                    status_json['_id'] = str(location_id + 2) + partition_id
+                    status_json['area_code'] = location["properties"]["feature_code"]
+                    status_json['area_name'] = location["properties"]["feature_name"]
+                    status_json['_id'] = status_json['area_code'] + partition_id
                     return status_json
         return status_json
 

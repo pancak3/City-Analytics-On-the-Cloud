@@ -65,6 +65,8 @@ class Registry:
         self.lock_friends_tasks_updated_time = threading.Lock()
         self.lock_timeline_tasks_updated_time = threading.Lock()
 
+        self.lock_available_api_keys_num = threading.Lock()
+
     def get_worker_id(self):
         self.lock_worker.acquire()
         self.worker_id += 1
@@ -72,24 +74,6 @@ class Registry:
         self.active_workers.add(id_tmp)
         self.lock_worker.release()
         return id_tmp
-
-    def update_db(self):
-        if 'control' not in self.client.all_dbs():
-            self.client.create_database('control')
-        count = 0
-        while 'control' not in self.client.all_dbs():
-            sleep(1)
-            count += 1
-            if count > 10:
-                logger.error('[!] Cannot create control')
-                os._exit(1)
-        self.client['control'].create_document({
-            '_id': 'registry',
-            'ip': self.ip,
-            'port': config.registry_port,
-            'token': self.token
-        })
-        logger.debug('Updated registry info in database: {}:{}'.format(self.ip, config.registry_port))
 
     def check_views(self):
         # Make view result ascending
@@ -141,11 +125,8 @@ class Registry:
             logger.debug("[*] database-{} not in Couch; created.".format(db_name))
 
     def check_dbs(self):
-        self.check_db('statuses')
-        self.check_db('users')
-        if 'control' in self.client.all_dbs():
-            self.client['control'].delete()
-        self.check_db('control')
+        for dn_name in {'statuses', 'users', 'control'}:
+            self.check_db(dn_name)
 
     def tcp_server(self, lock):
         lock.acquire()
@@ -422,47 +403,48 @@ class Registry:
         logger.warning(
             "[-] Worker-{} exit: {}(remaining active workers:{})".format(worker_data.worker_id, e, remaining))
 
-    def update_available_api_keys_num(self):
-        count = 0
-        while 'control' not in self.client.all_dbs():
-            sleep(1)
-            count += 1
-            if count > 10:
-                logger.error('[!] Cannot create control')
-                os._exit(1)
-        with open("twitter.json") as t:
-            t_json = json.loads(t.read())
-            api_keys_num = len(t_json)
-            self.lock_worker.acquire()
-            occupied_api_keys_num = len(self.active_workers)
-            self.lock_worker.release()
-            try:
-                if 'available_api_keys_num' not in self.client['control']:
-                    self.client['control'].create_document({
-                        '_id': 'available_api_keys_num',
-                        'available': api_keys_num - occupied_api_keys_num,
-                        'occupied': occupied_api_keys_num,
-                        'total': api_keys_num,
-                        'updated_at': int(time())
-                    })
-                else:
-                    doc = self.client['control']['available_api_keys_num']
-                    doc['available'] = api_keys_num - occupied_api_keys_num
-                    doc['occupied'] = occupied_api_keys_num
-                    doc['total'] = api_keys_num
-                    doc['updated_at'] = int(time())
-                    self.save_doc(doc)
-            except Exception:
-                logger.error('[!] CouchDB err: \n{}'.format(traceback.format_exc()))
-                os._exit(1)
-
     @staticmethod
-    def save_doc(doc):
-        try:
-            doc.save()
-        except Exception:
-            # prevent unexpected err
-            pass
+    def update_doc(db, key, values):
+        if key not in db:
+            db.create_document(values)
+        else:
+            doc = db[key]
+            del values['_id']
+            for (k, v) in values.items():
+                doc.update_field(action=doc.field_set, field=k, value=v)
+        logger.debug('Updated {} info in database'.format(key))
+        sleep(1)
+
+    def update_registry_info(self):
+        # update registry info
+        values = {
+            '_id': 'registry',
+            'ip': self.ip,
+            'port': config.registry_port,
+            'token': self.token,
+            'updated_at': int(time())
+
+        }
+        self.update_doc(self.client['control'], 'registry', values)
+
+    def update_available_api_keys_num(self):
+        self.lock_available_api_keys_num.acquire()
+        t = open("twitter.json")
+        t_json = json.loads(t.read())
+        t.close()
+        api_keys_num = len(t_json)
+        self.lock_worker.acquire()
+        occupied_api_keys_num = len(self.active_workers)
+        self.lock_worker.release()
+        values = {
+            '_id': 'available_api_keys_num',
+            'available': api_keys_num - occupied_api_keys_num,
+            'occupied': occupied_api_keys_num,
+            'total': api_keys_num,
+            'updated_at': int(time())
+        }
+        self.update_doc(self.client['control'], 'available_api_keys_num', values)
+        self.lock_available_api_keys_num.release()
 
     def save_pid(self):
         # Record PID for daemon
@@ -482,8 +464,10 @@ class Registry:
         lock.release()
         # self.save_pid()
         self.check_dbs()
-        self.update_db()
+        self.update_registry_info()
+        self.update_available_api_keys_num()
+
         self.check_views()
+
         threading.Thread(target=self.conn_handler).start()
         threading.Thread(target=self.tasks_generator).start()
-        threading.Thread(target=self.update_available_api_keys_num).start()
