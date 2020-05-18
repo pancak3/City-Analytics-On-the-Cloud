@@ -23,6 +23,7 @@ class Task:
         self.type = _type
         self.user_ids = _ids
 
+
 class RunningTask:
     def __init__(self):
         self.count = 0

@@ -55,6 +55,32 @@ class ActiveTime:
         return t
 
 
+class RunningTask:
+    def __init__(self):
+        self.count = 0
+        self.lock = threading.Lock()
+
+    def get_count(self):
+        self.lock.acquire()
+        c = self.count
+        self.lock.release()
+        return c
+
+    def inc(self):
+        self.lock.acquire()
+        self.count += 1
+        self.lock.release()
+
+    def dec(self):
+        self.lock.acquire()
+        if self.count > 0:
+            self.count -= 1
+
+        else:
+            self.count = 0
+        self.lock.release()
+
+
 class Registry:
     def __init__(self, ip):
         self.logger = get_logger('Registry', level_name=logging.DEBUG)
@@ -80,12 +106,8 @@ class Registry:
         self.friends_tasks = queue.Queue()
         self.timeline_tasks = queue.Queue()
 
-        self.friends_tasks_updated_time = 0
-        self.timeline_tasks_updated_time = 0
-        self.lock_friends_tasks_updated_time = threading.Lock()
-        self.lock_timeline_tasks_updated_time = threading.Lock()
-
-        self.lock_available_api_keys_num = threading.Lock()
+        self.generating_friends = RunningTask()
+        self.generating_timeline = RunningTask()
 
     def get_worker_id(self):
         self.lock_worker.acquire()
@@ -423,10 +445,9 @@ class Registry:
     def generate_friends_task(self):
         if not self.friends_tasks.empty():
             return
-        self.lock_friends_tasks_updated_time.acquire()
-        if not self.friends_tasks.empty():
-            return
-        if int(time()) - self.friends_tasks_updated_time < 5:
+        if self.generating_friends.get_count() == 0:
+            self.generating_friends.inc()
+        else:
             return
         try:
             self.client.connect()
@@ -438,20 +459,18 @@ class Registry:
                     count += 1
                     self.friends_tasks.put(doc['id'])
                 self.logger.debug("Generated {} friends tasks".format(count))
-                self.friends_tasks_updated_time = int(time())
 
         except Exception:
             traceback.format_exc()
-        self.lock_friends_tasks_updated_time.release()
+
+        self.generating_friends.dec()
 
     def generate_timeline_task(self):
         if not self.timeline_tasks.empty():
             return
-        self.lock_timeline_tasks_updated_time.acquire()
-        if not self.timeline_tasks.empty():
-            return
-        if int(time()) - self.timeline_tasks_updated_time < 5:
-            self.lock_timeline_tasks_updated_time.release()
+        if self.generating_timeline.get_count() == 0:
+            self.generating_timeline.inc()
+        else:
             return
         try:
             self.client.connect()
@@ -465,14 +484,11 @@ class Registry:
                                       result[:self.config.max_tasks_num][i:i + self.config.max_ids_single_task]]
                     count += len(timeline_tasks)
                     self.timeline_tasks.put(timeline_tasks)
-
-                self.timeline_tasks_updated_time = int(time())
                 self.logger.debug("Generated {} friends tasks.".format(count))
 
         except Exception:
             traceback.format_exc()
-
-        self.lock_timeline_tasks_updated_time.release()
+        self.generating_timeline.dec()
 
     def update_doc(self, db, key, values):
         try:
