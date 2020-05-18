@@ -327,7 +327,8 @@ class Registry:
 
     def remove_worker_data(self, worker_data):
         self.lock_worker.acquire()
-        del self.worker_data[worker_data.worker_id]
+        if worker_data.worker_id in self.worker_data:
+            del self.worker_data[worker_data.worker_id]
         self.lock_worker.release()
 
     def remove_msg_queue(self, worker_data):
