@@ -157,7 +157,7 @@ class Registry:
         except OSError as e:
             lock.release()
             self.logger.error('[!] Cannot bind to 0.0.0.0:{}.'.format(self.config.registry_port))
-            kill(getpid(), SIGUSR1)
+            os._exit(0)
 
     def conn_handler(self):
         self.logger.info("ConnectionHandler started.")
@@ -353,8 +353,12 @@ class Registry:
                             "{}(remaining active workers:{})".format(worker_data.worker_id, e, remaining))
 
     def registry_msg_handler(self, conn, addr):
+        self.logger.info("registry start msg handler")
+        data = ''
         try:
-            data = conn.recv(1024).decode('uft-8')
+            data += conn.recv(1024).decode('utf-8')
+            self.logger.info("registry received data " + data)
+
             while data.find('\n') != -1:
                 first_pos = data.find('\n')
                 recv_json = json.loads(data[:first_pos])
@@ -365,14 +369,15 @@ class Registry:
                             self.handle_action_init_sender(recv_json, conn, addr)
                         elif recv_json['role'] == 'receiver':
                             self.handle_action_init_receiver(recv_json, conn, addr)
-
-                data = data[first_pos + 1:]
+                data = data[first_pos:]
         except json.JSONDecodeError:
             traceback.format_exc()
         except socket.error:
             traceback.format_exc()
-        except Exception:
+        except Exception as e:
+            self.logger.warning(e)
             traceback.format_exc()
+        self.logger.info("registry exit")
 
     def tasks_generator(self):
         self.logger.info("TaskGenerator started.")
@@ -462,6 +467,7 @@ class Registry:
 
     def run(self):
         lock = threading.Lock()
+        threading.Thread(target=self.conn_handler).start()
         threading.Thread(target=self.tcp_server, args=(lock,)).start()
         lock.acquire()
         lock.release()
@@ -470,5 +476,4 @@ class Registry:
         self.update_registry_info()
         self.check_views()
 
-        threading.Thread(target=self.conn_handler).start()
         threading.Thread(target=self.tasks_generator).start()

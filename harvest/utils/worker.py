@@ -105,14 +105,18 @@ class Worker:
             socket_sender.connect((reg_ip, reg_port))
             msg = {'action': 'init', 'role': 'sender', 'token': self.token,
                    'api_keys_hashes': list(self.crawler.api_keys)}
-            socket_sender.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
-
+            buffer = bytes(json.dumps(msg) + '\n', 'utf-8')
+            socket_sender.send(buffer)
+            logger.info("worker sent " + str(buffer))
             data = socket_sender.recv(1024).decode('utf-8')
             if len(data):
                 first_pos = data.find('\n')
-                if first_pos == -1:
-                    self.exit("[!] Cannot connect to {}:{} using token {}. Exit: No \\n found".format(reg_ip, reg_port,
-                                                                                                      token))
+                while first_pos == -1:
+                    data += socket_sender.recv(1024).decode('utf-8')
+                    first_pos = data.find('\n')
+                # if first_pos == -1:
+                #     self.exit("[!] Cannot connect to {}:{} using token {}. Exit: No \\n found".format(reg_ip, reg_port,
+                #                                           z                                            token))
                 msg_json = json.loads(data[:first_pos])
                 if 'token' in msg_json and msg_json['token'] == self.token:
                     del msg_json['token']
