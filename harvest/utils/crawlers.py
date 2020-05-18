@@ -63,17 +63,15 @@ class Crawler:
         self.update_rate_limit_status()
         logger.info("Init crawler")
 
-    def stream_filter(self, id_, res_queue, lock, **kwargs):
-        lock.release()
-        lock.acquire()
+    def stream_filter(self, id_, res_queue, **kwargs):
         try:
             stream_listener = StreamListener(id_, res_queue)
             stream_ = tweepy.Stream(auth=self.api.auth, listener=stream_listener)
             logger.debug("[{}] stream filter locations: {}".format(id_, kwargs.get('locations')))
             # blocking method
             stream_.filter(**kwargs)
-        except Exception:
-            lock.release()
+        except Exception as e:
+            logger.warning(e)
 
     def update_rate_limit_status(self, err_count=0):
         if err_count > self.config.max_network_err:

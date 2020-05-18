@@ -35,24 +35,24 @@ class WorkerData:
         self.receiver_addr = receiver_addr
         self.api_key_hash = api_key_hash
         self.msg_queue = queue.Queue()
-        self.active_time = ActiveTime()
+        self.active = Status()
 
 
-class ActiveTime:
+class Status:
     def __init__(self):
-        self.time = int(time())
+        self.active = True
         self.lock = threading.Lock()
 
-    def update(self):
+    def set(self, is_active):
         self.lock.acquire()
-        self.time = int(time())
+        self.active = is_active
         self.lock.release()
 
-    def get(self):
+    def is_active(self):
         self.lock.acquire()
-        t = self.time = int(time())
+        status = self.active
         self.lock.release()
-        return t
+        return status
 
 
 class RunningTask:
@@ -207,20 +207,20 @@ class Registry:
 
     def keep_alive(self, worker_data):
         while True:
-            if int(time()) - worker_data.active_time.get() > self.config.max_heartbeat_lost_time:
+            if not worker_data.active.is_active():
                 self.remove_worker(worker_data,
                                    'Lost heartbeat for {} seconds.'.format(self.config.max_heartbeat_lost_time))
                 break
-            sleep(5)
-            # print(worker_data.worker_id, int(time()) - active_time[0])
+            worker_data.active.set(False)
+            sleep(self.config.max_heartbeat_lost_time)
 
     def receiver(self, worker_data):
-        buffer_data = ['']
+        buffer_data = ''
         threading.Thread(target=self.keep_alive, args=(worker_data,)).start()
 
         while True:
             try:
-                self.handle_receive_buffer_data(buffer_data, worker_data)
+                buffer_data = self.handle_receive_buffer_data(buffer_data, worker_data)
             except socket.error as e:
                 self.remove_worker(worker_data, e)
                 break
@@ -231,20 +231,25 @@ class Registry:
                 break
 
     def handle_receive_buffer_data(self, buffer_data, worker_data):
-        buffer_data[0] += worker_data.receiver_conn.recv(1024).decode('utf-8')
-        while buffer_data[0].find('\n') != -1:
-            first_pos = buffer_data[0].find('\n')
-            recv_json = json.loads(buffer_data[0][:first_pos])
-            # self.logger.info("Received: {}".format(recv_json))
-            if 'token' in recv_json and recv_json['token'] == self.token:
-                worker_data.active_time.update()
-                del recv_json['token']
-                if recv_json['action'] == 'ping':
-                    self.handle_action_ping(worker_data)
-                if recv_json['action'] == 'ask_for_task':
-                    self.handle_action_ask_for_task(worker_data, recv_json)
+        try:
+            buffer_data += worker_data.receiver_conn.recv(1024).decode('utf-8')
+            print(buffer_data, buffer_data.find('\n'))
+            while buffer_data.find('\n') != -1:
+                first_pos = buffer_data.find('\n')
+                recv_json = json.loads(buffer_data[:first_pos])
+                self.logger.info("Received: {}".format(recv_json))
+                if 'token' in recv_json and recv_json['token'] == self.token:
+                    worker_data.active.set(True)
+                    del recv_json['token']
+                    if recv_json['action'] == 'ping':
+                        self.handle_action_ping(worker_data)
+                    if recv_json['action'] == 'ask_for_task':
+                        self.handle_action_ask_for_task(worker_data, recv_json)
+                buffer_data = buffer_data[first_pos + 1:]
 
-            buffer_data[0] = buffer_data[0][first_pos + 1:]
+            return buffer_data
+        except Exception as e:
+            self.logger.warning(e)
 
     def handle_action_ping(self, worker_data):
         msg = {'token': self.token, 'task': 'pong'}
@@ -261,25 +266,29 @@ class Registry:
         self.lock_worker.release()
         if valid_api_key_hash is None:
             msg = {'token': self.token, 'res': 'deny', 'msg': 'no valid api key'}
+            conn.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
         else:
-            worker_id = self.get_worker_id()
-            worker_data = WorkerData(worker_id, conn, addr, valid_api_key_hash)
-            self.lock_worker.acquire()
-            self.worker_data[worker_id] = worker_data
-            self.api_using.add(valid_api_key_hash)
-            self.lock_worker.release()
+            self.start_a_receiver(conn, addr, valid_api_key_hash)
 
-            # msg queue dict used to broadcast
-            self.lock_msg_queue_dict.acquire()
-            self.msg_queue_dict[worker_id] = worker_data.msg_queue
-            self.lock_msg_queue_dict.release()
+    def start_a_receiver(self, conn, addr, valid_api_key_hash):
+        worker_id = self.get_worker_id()
+        worker_data = WorkerData(worker_id, conn, addr, valid_api_key_hash)
+        self.lock_worker.acquire()
+        self.worker_data[worker_id] = worker_data
+        self.api_using.add(valid_api_key_hash)
+        self.lock_worker.release()
 
-            threading.Thread(target=self.receiver, args=(worker_data,)).start()
-            self.update_worker_info_in_db(worker_id, valid_api_key_hash, True)
-            msg = {'token': self.token, 'res': 'use_api_key',
-                   'api_key_hash': valid_api_key_hash, 'worker_id': worker_id}
+        # msg queue dict used to broadcast
+        self.lock_msg_queue_dict.acquire()
+        self.msg_queue_dict[worker_id] = worker_data.msg_queue
+        self.lock_msg_queue_dict.release()
 
+        threading.Thread(target=self.receiver, args=(worker_data,)).start()
+        self.update_worker_info_in_db(worker_id, valid_api_key_hash, True)
+        msg = {'token': self.token, 'res': 'use_api_key',
+               'api_key_hash': valid_api_key_hash, 'worker_id': worker_id}
         conn.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
+        self.logger.debug("Started a receiver")
 
     def handle_action_init_receiver(self, recv_json, conn, addr):
         worker_id = recv_json['worker_id']
@@ -353,7 +362,7 @@ class Registry:
         msg = worker_data.msg_queue.get()
         try:
             worker_data.sender_conn.send(bytes(msg + '\n', 'utf-8'))
-            # self.logger.debug("[*] Sent to Worker-{}: {} ".format(worker_data.worker_id, msg))
+            self.logger.debug("[*] Sent to Worker-{}: {} ".format(worker_data.worker_id, msg))
         except socket.error:
             worker_data.msg_queue.put(msg)
 
@@ -374,7 +383,8 @@ class Registry:
 
     def remove_msg_queue(self, worker_data):
         self.lock_msg_queue_dict.acquire()
-        del self.msg_queue_dict[worker_data.worker_id]
+        if worker_data.worker_id in self.msg_queue_dict:
+            del self.msg_queue_dict[worker_data.worker_id]
         self.lock_msg_queue_dict.release()
 
     def deactivate_worker(self, worker_data):
