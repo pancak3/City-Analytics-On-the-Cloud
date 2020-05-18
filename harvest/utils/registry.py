@@ -229,11 +229,11 @@ class Registry:
                 break
             if not self.is_worker_active(worker_data):
                 break
+            sleep(1)
 
     def handle_receive_buffer_data(self, buffer_data, worker_data):
         try:
             buffer_data += worker_data.receiver_conn.recv(1024).decode('utf-8')
-            print(buffer_data, buffer_data.find('\n'))
             while buffer_data.find('\n') != -1:
                 first_pos = buffer_data.find('\n')
                 recv_json = json.loads(buffer_data[:first_pos])
@@ -246,7 +246,6 @@ class Registry:
                     if recv_json['action'] == 'ask_for_task':
                         self.handle_action_ask_for_task(worker_data, recv_json)
                 buffer_data = buffer_data[first_pos + 1:]
-
             return buffer_data
         except Exception as e:
             self.logger.warning(e)

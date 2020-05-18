@@ -238,7 +238,7 @@ class StreamListener(tweepy.StreamListener):
 
     def on_status(self, status):
         self.res_queue.put(status)
-        logger.debug("[{}] got stream status: {}".format(self.id, status._json['id']))
+        logger.debug("[{}] got stream status: {}".format(self.id, status._json['id_str']))
 
     def on_error(self, status_code):
         self.err_count += 1
