@@ -61,6 +61,7 @@ class Crawler:
         auth.set_access_token(access_token, access_token_secret)
         self.api = tweepy.API(auth)
         self.update_rate_limit_status()
+        logger.info("Init crawler")
 
     def stream_filter(self, id_, res_queue, lock, **kwargs):
         lock.release()
@@ -227,7 +228,7 @@ class Crawler:
     def sleep(time_diff_, to_sleep_):
         if time_diff_ <= to_sleep_:
             time_diff_ = to_sleep_
-        sleep(time_diff_)
+            sleep(time_diff_)
 
 
 class StreamListener(tweepy.StreamListener):

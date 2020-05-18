@@ -86,8 +86,8 @@ class Worker:
         self.crawler = Crawler()
         self.reg_ip, self.reg_port, self.token = self.get_registry()
         self.socket_send, self.socket_recv, valid_api_key_hash, self.worker_id = self.connect_reg()
-        # self.save_pid()
         self.crawler.init(valid_api_key_hash, self.worker_id)
+
         self.task_queue = queue.Queue()
         self.has_task = False
         self.access_timeline = 0
@@ -195,12 +195,14 @@ class Worker:
     def msg_received_handler(self):
         while True:
             msg = self.msg_received.get()
+            # logger.debug("[{}] received: {}".format(self.worker_id, msg))
+
             try:
                 msg_json = json.loads(msg)
+
                 if 'token' in msg_json and msg_json['token'] == self.token:
                     self.active_time.update()
                     # del msg_json['token']
-                    # logger.debug("[{}] received: {}".format(self.worker_id, msg))
                     task = msg_json['task']
                     if task == 'stream':
                         # continue
@@ -656,7 +658,6 @@ class Worker:
         threading.Thread(target=self.stream_status_handler).start()
         threading.Thread(target=self.msg_sender).start()
         threading.Thread(target=self.msg_receiver).start()
-        threading.Thread(target=self.msg_received_handler).start()
         threading.Thread(target=self.task_requester).start()
         threading.Thread(target=self.task_handler).start()
         threading.Thread(target=self.users_recorder).start()

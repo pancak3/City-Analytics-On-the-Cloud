@@ -334,7 +334,9 @@ class Registry:
                 if not self.is_worker_active(worker_data):
                     break
                 self.send_msg_in_queue(worker_data)
-        except socket.error as e:
+            self.remove_worker(worker_data, 'Worker is not active')
+
+        except Exception as e:
             self.remove_worker(worker_data, e)
 
     def send_stream_task(self, worker_data):
