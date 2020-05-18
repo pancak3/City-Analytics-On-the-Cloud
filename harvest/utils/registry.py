@@ -165,32 +165,38 @@ class Registry:
             (conn, addr) = self.conn_queue.get()
             threading.Thread(target=self.registry_msg_handler, args=(conn, addr,)).start()
 
+    def keep_alive(self, worker_data, active_time):
+        while True:
+            if int(time()) - active_time[0] > self.config.max_heartbeat_lost_time:
+                self.remove_worker(worker_data,
+                                   'Lost heartbeat for {} seconds.'.format(self.config.max_heartbeat_lost_time))
+                break
+            sleep(5)
+            # print(worker_data.worker_id, int(time()) - active_time[0])
+
     def receiver(self, worker_data):
         buffer_data = ['']
         active_time = [int(time())]
+        threading.Thread(target=self.keep_alive, args=(worker_data, active_time)).start()
+
         while True:
             try:
-                self.handle_buffer_data(buffer_data, worker_data, active_time)
+                self.handle_receive_buffer_data(buffer_data, worker_data, active_time)
             except socket.error as e:
                 self.remove_worker(worker_data, e)
                 break
             except json.JSONDecodeError as e:
                 self.remove_worker(worker_data, e)
                 break
-
-            if int(time()) - active_time[0] > self.config.max_heartbeat_lost_time:
-                self.remove_worker(worker_data,
-                                   'Lost heartbeat for {} seconds.'.format(self.config.max_heartbeat_lost_time))
-                break
-
             if not self.is_worker_active(worker_data):
                 break
 
-    def handle_buffer_data(self, buffer_data, worker_data, active_time):
+    def handle_receive_buffer_data(self, buffer_data, worker_data, active_time):
         buffer_data[0] += worker_data.receiver_conn.recv(1024).decode('utf-8')
         while buffer_data[0].find('\n') != -1:
             first_pos = buffer_data[0].find('\n')
             recv_json = json.loads(buffer_data[0][:first_pos])
+            # self.logger.info("Received: {}".format(recv_json))
             if 'token' in recv_json and recv_json['token'] == self.token:
                 del recv_json['token']
                 active_time[0] = int(time())
@@ -301,8 +307,8 @@ class Registry:
         worker_data.sender_conn.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
         self.logger.debug('[*] Sent stream task to Worker-{}.'.format(worker_data.worker_id))
 
-    @staticmethod
-    def send_msg_in_queue(worker_data):
+    # @staticmethod
+    def send_msg_in_queue(self, worker_data):
         msg = worker_data.msg_queue.get()
         try:
             worker_data.sender_conn.send(bytes(msg + '\n', 'utf-8'))
@@ -340,8 +346,10 @@ class Registry:
     @staticmethod
     def close_socket_connection(worker_data):
         # https://stackoverflow.com/questions/409783
-        worker_data.sender_conn.close()
-        worker_data.receiver_conn.close()
+        if worker_data.sender_conn is not None:
+            worker_data.sender_conn.close()
+        if worker_data.receiver_conn is not None:
+            worker_data.receiver_conn.close()
 
     def remove_worker(self, worker_data, e):
         self.remove_worker_data(worker_data)
@@ -349,35 +357,43 @@ class Registry:
         remaining = self.deactivate_worker(worker_data)
         self.close_socket_connection(worker_data)
         self.update_worker_info_in_db(worker_data.worker_id, worker_data.api_key_hash, False)
+        self.remove_worker_info_from_db(worker_data)
         self.logger.warning("[-] Worker-{} exit: "
                             "{}(remaining active workers:{})".format(worker_data.worker_id, e, remaining))
+
+    def remove_worker_info_from_db(self, worker_data):
+        try:
+            self.client['control']["worker-" + str(worker_data.worker_id)].delete()
+        except Exception:
+            traceback.format_exc()
 
     def registry_msg_handler(self, conn, addr):
         self.logger.info("registry start msg handler")
         data = ''
-        try:
-            data += conn.recv(1024).decode('utf-8')
-            self.logger.info("registry received data " + data)
-
-            while data.find('\n') != -1:
-                first_pos = data.find('\n')
-                recv_json = json.loads(data[:first_pos])
-                if 'token' in recv_json and recv_json['token'] == self.token:
-                    # del recv_json['token']
-                    if recv_json['action'] == 'init':
-                        if recv_json['role'] == 'sender':
-                            self.handle_action_init_sender(recv_json, conn, addr)
-                        elif recv_json['role'] == 'receiver':
-                            self.handle_action_init_receiver(recv_json, conn, addr)
-                data = data[first_pos:]
-        except json.JSONDecodeError:
-            traceback.format_exc()
-        except socket.error:
-            traceback.format_exc()
-        except Exception as e:
-            self.logger.warning(e)
-            traceback.format_exc()
-        self.logger.info("registry exit")
+        while True:
+            try:
+                data += conn.recv(1024).decode('utf-8')
+                while data.find('\n') != -1:
+                    first_pos = data.find('\n')
+                    recv_json = json.loads(data[:first_pos])
+                    if 'token' in recv_json and recv_json['token'] == self.token:
+                        # del recv_json['token']
+                        if recv_json['action'] == 'init':
+                            if recv_json['role'] == 'sender':
+                                self.handle_action_init_sender(recv_json, conn, addr)
+                            elif recv_json['role'] == 'receiver':
+                                self.handle_action_init_receiver(recv_json, conn, addr)
+                    data = data[first_pos:]
+            except json.JSONDecodeError:
+                traceback.format_exc()
+                break
+            except socket.error:
+                traceback.format_exc()
+                break
+            except Exception as e:
+                self.logger.warning(e)
+                traceback.format_exc()
+                break
 
     def tasks_generator(self):
         self.logger.info("TaskGenerator started.")
@@ -387,29 +403,36 @@ class Registry:
             sleep(5)
 
     def generate_friends_task(self):
-        self.lock_friends_tasks_updated_time.acquire()
-        if not self.friends_tasks.empty() or int(time()) - self.friends_tasks_updated_time < 5:
+        if not self.friends_tasks.empty():
             return
-        else:
-            try:
-                self.client.connect()
-                if 'users' in self.client.all_dbs():
-                    count = 0
-                    result = self.client['users'].get_view_result('_design/tasks', view_name='friends',
-                                                                  limit=self.config.max_tasks_num).all()
-                    for doc in result:
-                        count += 1
-                        self.friends_tasks.put(doc['id'])
-                    self.logger.debug("Generated {} friends tasks".format(count))
-                    self.friends_tasks_updated_time = int(time())
+        self.lock_friends_tasks_updated_time.acquire()
+        if not self.friends_tasks.empty():
+            return
+        if int(time()) - self.friends_tasks_updated_time < 5:
+            return
+        try:
+            self.client.connect()
+            if 'users' in self.client.all_dbs():
+                count = 0
+                result = self.client['users'].get_view_result('_design/tasks', view_name='friends',
+                                                              limit=self.config.max_tasks_num).all()
+                for doc in result:
+                    count += 1
+                    self.friends_tasks.put(doc['id'])
+                self.logger.debug("Generated {} friends tasks".format(count))
+                self.friends_tasks_updated_time = int(time())
 
-            except Exception:
-                traceback.format_exc()
-            self.lock_friends_tasks_updated_time.release()
+        except Exception:
+            traceback.format_exc()
+        self.lock_friends_tasks_updated_time.release()
 
     def generate_timeline_task(self):
+        if not self.timeline_tasks.empty():
+            return
         self.lock_timeline_tasks_updated_time.acquire()
-        if not self.timeline_tasks.empty() or int(time()) - self.timeline_tasks_updated_time < 5:
+        if not self.timeline_tasks.empty():
+            return
+        if int(time()) - self.timeline_tasks_updated_time < 5:
             self.lock_timeline_tasks_updated_time.release()
             return
         try:
@@ -434,15 +457,17 @@ class Registry:
         self.lock_timeline_tasks_updated_time.release()
 
     def update_doc(self, db, key, values):
-        if key not in db:
-            db.create_document(values)
-        else:
-            doc = db[key]
-            del values['_id']
-            for (k, v) in values.items():
-                doc.update_field(action=doc.field_set, field=k, value=v)
-        self.logger.debug('Updated {} info in database'.format(key))
-        sleep(1)
+        try:
+            if key not in db:
+                db.create_document(values)
+            else:
+                doc = db[key]
+                del values['_id']
+                for (k, v) in values.items():
+                    doc.update_field(action=doc.field_set, field=k, value=v)
+            self.logger.debug('Updated {} info in database'.format(key))
+        except Exception:
+            traceback.format_exc()
 
     def update_registry_info(self):
         # update registry info
@@ -455,6 +480,14 @@ class Registry:
 
         }
         self.update_doc(self.client['control'], 'registry', values)
+
+    def remove_all_worker_info(self):
+        try:
+            for doc in self.client['control']:
+                if 'worker' in doc['_id']:
+                    doc.delete()
+        except Exception:
+            traceback.format_exc()
 
     def update_worker_info_in_db(self, worker_id, api_key_hash, is_running):
         values = {
@@ -474,6 +507,7 @@ class Registry:
         # self.save_pid()
         self.check_dbs()
         self.update_registry_info()
+        self.remove_all_worker_info()
         self.check_views()
 
         threading.Thread(target=self.tasks_generator).start()

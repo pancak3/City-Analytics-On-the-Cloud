@@ -55,6 +55,7 @@ class RunningTask:
         self.lock.acquire()
         if self.count > 0:
             self.count -= 1
+
         else:
             self.count = 0
         self.lock.release()
@@ -107,7 +108,6 @@ class Worker:
                    'api_keys_hashes': list(self.crawler.api_keys)}
             buffer = bytes(json.dumps(msg) + '\n', 'utf-8')
             socket_sender.send(buffer)
-            logger.info("worker sent " + str(buffer))
             data = socket_sender.recv(1024).decode('utf-8')
             if len(data):
                 first_pos = data.find('\n')
@@ -189,8 +189,7 @@ class Worker:
             sleep(self.config.heartbeat_time)
             self.lock_active_time.acquire()
 
-            if not self.running_friends.get_count() and not self.running_timeline.get_count() \
-                    and int(time()) - self.active_time > self.config.max_heartbeat_lost_time:
+            if int(time()) - self.active_time > self.config.max_heartbeat_lost_time:
                 self.lock_active_time.release()
                 self.exit("[!] No running task and Lost heartbeat for {} seconds, exit.".format(
                     self.config.max_heartbeat_lost_time))
@@ -204,7 +203,7 @@ class Worker:
                 msg_json = json.loads(msg)
                 if 'token' in msg_json and msg_json['token'] == self.token:
                     self.update_active_time()
-                    del msg_json['token']
+                    # del msg_json['token']
                     # logger.debug("[{}] received: {}".format(self.worker_id, msg))
                     task = msg_json['task']
                     if task == 'stream':
@@ -219,7 +218,7 @@ class Worker:
                             task = Task('timeline', msg_json['timeline_ids'])
                             self.task_queue.put(task)
                     elif task == 'pong':
-                        pass
+                        self.update_active_time()
 
             except json.decoder.JSONDecodeError as e:
                 logger.error("[{}] received invalid json: {} \n{}".format(self.worker_id, e, msg))
@@ -348,6 +347,7 @@ class Worker:
             self.running_timeline.dec()
             self.crawler.update_rate_limit_status()
         except Exception as e:
+            self.update_active_time()
             self.running_timeline.dec()
             doc = self.client['users'][user_id]
             doc.update_field(action=doc.field_set, field='timeline_authorized', value=False)
@@ -412,6 +412,7 @@ class Worker:
             self.running_friends.dec()
             self.crawler.update_rate_limit_status()
         except Exception as e:
+            self.update_active_time()
             self.running_friends.dec()
             doc = self.client['users'][stream_user_id]
             doc.update_field(action=doc.field_set, field='friends_updated_at', value=int(time()))
