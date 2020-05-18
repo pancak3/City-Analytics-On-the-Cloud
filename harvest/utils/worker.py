@@ -180,14 +180,18 @@ class Worker:
     def keep_alive(self):
         msg_json_str = json.dumps({'token': self.token, 'action': 'ping', 'worker_id': self.worker_id})
         self.active.set(True)
+        to_sleep = self.config.max_heartbeat_lost_time
         while True:
 
             self.msg_to_send.put(msg_json_str)
-            sleep(self.config.max_heartbeat_lost_time)
-            if not self.active.is_active():
-                self.exit("[!] No running task and Lost heartbeat for {} seconds, exit.".format(
-                    self.config.max_heartbeat_lost_time))
-            self.active.set(False)
+            sleep(5)
+            to_sleep -= 5
+            if to_sleep < 0:
+                to_sleep = self.config.max_heartbeat_lost_time
+                if not self.active.is_active():
+                    self.exit("[!] No running task and Lost heartbeat for {} seconds, exit.".format(
+                        self.config.max_heartbeat_lost_time))
+                self.active.set(False)
 
     def msg_received_handler(self):
         while True:
@@ -593,7 +597,7 @@ class Worker:
         # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object
         try:
             status_json = self.retrieve_statuses_areas(status)
-            if status_json['area_code'] in {'0'}:
+            if status_json['area_code'] in {'0'} and is_stream_code != 1:
                 return False
             if status_json['_id'] not in self.client['statuses']:
                 if is_stream_code == 0:
