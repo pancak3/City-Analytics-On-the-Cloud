@@ -532,12 +532,12 @@ class Worker:
         if 'id' in status_json:
             del status_json['id']
         status_json['_id'] = 'no_where' + partition_id
-        status_json['area_code'] = 0
+        status_json['area_code'] = '0'
         status_json['area_name'] = 'No Where'
         del status
         if status_json['coordinates'] is not None and status_json['coordinates']['type'] == 'Point':
             status_json['_id'] = 'out_of_victoria' + partition_id
-            status_json['area_code'] = 1
+            status_json['area_code'] = '1'
             status_json['area_name'] = 'Out of Victoria'
             point_x, point_y = status_json['coordinates']['coordinates']
         else:
