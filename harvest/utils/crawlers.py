@@ -80,7 +80,7 @@ class Crawler:
             kill(getpid(), SIGUSR1)
 
         self.lock_rate_limits.acquire()
-        self.sleep(int(time()) - self.rate_limits_updated_at, 2)
+        self.sleep(int(time()) - self.rate_limits_updated_at, 5)
         self.rate_limits_updated_at = int(time())
         self.lock_rate_limits.release()
         try:
@@ -226,9 +226,8 @@ class Crawler:
     @staticmethod
     def sleep(time_diff_, to_sleep_):
         if time_diff_ <= to_sleep_:
-            if time_diff_ < 0:
-                time_diff_ = 0
-            sleep(time_diff_)
+            time_diff_ = to_sleep_
+        sleep(time_diff_)
 
 
 class StreamListener(tweepy.StreamListener):
