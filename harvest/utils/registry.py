@@ -440,7 +440,7 @@ class Registry:
         while True:
             self.generate_timeline_task()
             self.generate_friends_task()
-            sleep(5)
+            sleep(120)
 
     def generate_friends_task(self):
         if not self.friends_tasks.empty():
