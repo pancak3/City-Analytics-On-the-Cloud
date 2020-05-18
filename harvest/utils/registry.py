@@ -246,6 +246,7 @@ class Registry:
                     if recv_json['action'] == 'ask_for_task':
                         self.handle_action_ask_for_task(worker_data, recv_json)
                 buffer_data = buffer_data[first_pos + 1:]
+                buffer_data += worker_data.receiver_conn.recv(1024).decode('utf-8')
             return buffer_data
         except Exception as e:
             self.logger.warning(e)
