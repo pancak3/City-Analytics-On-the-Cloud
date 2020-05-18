@@ -23,18 +23,6 @@ class Task:
         self.type = _type
         self.user_ids = _ids
 
-
-class WorkerData:
-    def __init__(self, _id, receiver_conn, receiver_addr, api_key_hash):
-        self.worker_id = _id
-        self.sender_conn = None
-        self.sender_addr = None
-        self.receiver_conn = receiver_conn
-        self.receiver_addr = receiver_addr
-        self.api_key_hash = api_key_hash
-        self.msg_queue = queue.Queue()
-
-
 class RunningTask:
     def __init__(self):
         self.count = 0
@@ -80,6 +68,7 @@ class ActiveTime:
 
 class Worker:
     def __init__(self):
+        self.active_time = ActiveTime()
         self.config = Config()
         # self.lock_users_recorder = threading.Lock()
         # self.lock_statuses_recorder = threading.Lock()
@@ -99,7 +88,6 @@ class Worker:
         # self.save_pid()
         self.crawler.init(valid_api_key_hash, self.worker_id)
         self.task_queue = queue.Queue()
-        self.active_time = ActiveTime()
         self.has_task = False
         self.access_timeline = 0
         self.access_friends = 0
