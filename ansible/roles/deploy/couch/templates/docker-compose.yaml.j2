@@ -17,7 +17,6 @@ services:
       - "9100:9100"
     volumes:
       - {{ couch.data_dir }}:/opt/couchdb/data
-      - {{ couch.config_path }}:/opt/couchdb/etc/default.ini
     networks:
       - comp90024
     # Define hostname/ip mappings for FQDN
