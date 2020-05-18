@@ -35,6 +35,24 @@ class WorkerData:
         self.receiver_addr = receiver_addr
         self.api_key_hash = api_key_hash
         self.msg_queue = queue.Queue()
+        self.active_time = ActiveTime()
+
+
+class ActiveTime:
+    def __init__(self):
+        self.time = int(time())
+        self.lock = threading.Lock()
+
+    def update(self):
+        self.lock.acquire()
+        self.time = int(time())
+        self.lock.release()
+
+    def get(self):
+        self.lock.acquire()
+        t = self.time = int(time())
+        self.lock.release()
+        return t
 
 
 class Registry:
@@ -165,9 +183,9 @@ class Registry:
             (conn, addr) = self.conn_queue.get()
             threading.Thread(target=self.registry_msg_handler, args=(conn, addr,)).start()
 
-    def keep_alive(self, worker_data, active_time):
+    def keep_alive(self, worker_data):
         while True:
-            if int(time()) - active_time[0] > self.config.max_heartbeat_lost_time:
+            if int(time()) - worker_data.active_time.get() > self.config.max_heartbeat_lost_time:
                 self.remove_worker(worker_data,
                                    'Lost heartbeat for {} seconds.'.format(self.config.max_heartbeat_lost_time))
                 break
@@ -176,12 +194,11 @@ class Registry:
 
     def receiver(self, worker_data):
         buffer_data = ['']
-        active_time = [int(time())]
-        threading.Thread(target=self.keep_alive, args=(worker_data, active_time)).start()
+        threading.Thread(target=self.keep_alive, args=(worker_data,)).start()
 
         while True:
             try:
-                self.handle_receive_buffer_data(buffer_data, worker_data, active_time)
+                self.handle_receive_buffer_data(buffer_data, worker_data)
             except socket.error as e:
                 self.remove_worker(worker_data, e)
                 break
@@ -191,15 +208,15 @@ class Registry:
             if not self.is_worker_active(worker_data):
                 break
 
-    def handle_receive_buffer_data(self, buffer_data, worker_data, active_time):
+    def handle_receive_buffer_data(self, buffer_data, worker_data):
         buffer_data[0] += worker_data.receiver_conn.recv(1024).decode('utf-8')
         while buffer_data[0].find('\n') != -1:
             first_pos = buffer_data[0].find('\n')
             recv_json = json.loads(buffer_data[0][:first_pos])
             # self.logger.info("Received: {}".format(recv_json))
             if 'token' in recv_json and recv_json['token'] == self.token:
+                worker_data.active_time.update()
                 del recv_json['token']
-                active_time[0] = int(time())
                 if recv_json['action'] == 'ping':
                     self.handle_action_ping(worker_data)
                 if recv_json['action'] == 'ask_for_task':

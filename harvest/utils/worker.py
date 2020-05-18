@@ -61,12 +61,28 @@ class RunningTask:
         self.lock.release()
 
 
+class ActiveTime:
+    def __init__(self):
+        self.time = int(time())
+        self.lock = threading.Lock()
+
+    def update(self):
+        self.lock.acquire()
+        self.time = int(time())
+        self.lock.release()
+
+    def get(self):
+        self.lock.acquire()
+        t = self.time = int(time())
+        self.lock.release()
+        return t
+
+
 class Worker:
     def __init__(self):
         self.config = Config()
         # self.lock_users_recorder = threading.Lock()
         # self.lock_statuses_recorder = threading.Lock()
-        self.lock_active_time = threading.Lock()
         self.lock_rate_limit = threading.Lock()
 
         self.pid = None
@@ -83,7 +99,7 @@ class Worker:
         # self.save_pid()
         self.crawler.init(valid_api_key_hash, self.worker_id)
         self.task_queue = queue.Queue()
-        self.active_time = 0
+        self.active_time = ActiveTime()
         self.has_task = False
         self.access_timeline = 0
         self.access_friends = 0
@@ -120,7 +136,7 @@ class Worker:
                 msg_json = json.loads(data[:first_pos])
                 if 'token' in msg_json and msg_json['token'] == self.token:
                     del msg_json['token']
-                    self.update_active_time()
+                    self.active_time.update()
                     if msg_json['res'] == 'use_api_key':
                         valid_api_key_hash = msg_json['api_key_hash']
                         socket_receiver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -130,7 +146,6 @@ class Worker:
                         socket_receiver.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
                         logger.debug(
                             "[{}] Connected to Registry -> {}".format(msg_json['worker_id'], (reg_ip, reg_port)))
-                        self.update_active_time()
                         return socket_sender, socket_receiver, valid_api_key_hash, msg_json['worker_id']
                     else:
                         self.exit("[!] No valid api key. Exit.")
@@ -140,11 +155,6 @@ class Worker:
                 self.exit("[!] Cannot connect to {}:{}: Empty respond".format(reg_ip, reg_port))
         except Exception as e:
             self.exit("[!] Cannot connect to {}:{} using token {}. Exit: {}".format(reg_ip, reg_port, token, e))
-
-    def update_active_time(self):
-        self.lock_active_time.acquire()
-        self.active_time = int(time())
-        self.lock_active_time.release()
 
     def save_pid(self):
         # Record PID for daemon
@@ -182,19 +192,16 @@ class Worker:
 
     def keep_alive(self):
         msg_json_str = json.dumps({'token': self.token, 'action': 'ping', 'worker_id': self.worker_id})
-        self.update_active_time()
+        self.active_time.update()
         while True:
 
             self.msg_to_send.put(msg_json_str)
             sleep(self.config.heartbeat_time)
-            self.lock_active_time.acquire()
-
-            if int(time()) - self.active_time > self.config.max_heartbeat_lost_time:
-                self.lock_active_time.release()
+            if self.running_friends.get_count() or self.running_timeline.get_count():
+                continue
+            if int(time()) - self.active_time.get() > self.config.max_heartbeat_lost_time:
                 self.exit("[!] No running task and Lost heartbeat for {} seconds, exit.".format(
                     self.config.max_heartbeat_lost_time))
-            else:
-                self.lock_active_time.release()
 
     def msg_received_handler(self):
         while True:
@@ -202,7 +209,7 @@ class Worker:
             try:
                 msg_json = json.loads(msg)
                 if 'token' in msg_json and msg_json['token'] == self.token:
-                    self.update_active_time()
+                    self.active_time.update()
                     # del msg_json['token']
                     # logger.debug("[{}] received: {}".format(self.worker_id, msg))
                     task = msg_json['task']
@@ -218,7 +225,7 @@ class Worker:
                             task = Task('timeline', msg_json['timeline_ids'])
                             self.task_queue.put(task)
                     elif task == 'pong':
-                        self.update_active_time()
+                        pass
 
             except json.decoder.JSONDecodeError as e:
                 logger.error("[{}] received invalid json: {} \n{}".format(self.worker_id, e, msg))
@@ -343,11 +350,11 @@ class Worker:
                                                                 user_id,
                                                                 is_stream_user,
                                                                 self.running_timeline.get_count()))
-            self.update_active_time()
+            self.active_time.update()
             self.running_timeline.dec()
             self.crawler.update_rate_limit_status()
         except Exception as e:
-            self.update_active_time()
+            self.active_time.update()
             self.running_timeline.dec()
             doc = self.client['users'][user_id]
             doc.update_field(action=doc.field_set, field='timeline_authorized', value=False)
@@ -408,11 +415,11 @@ class Worker:
             logger.debug(
                 "[{}] finished friends: {}, current task:{}".format(self.worker_id, stream_user_id,
                                                                     self.running_friends.get_count()))
-            self.update_active_time()
+            self.active_time.update()
             self.running_friends.dec()
             self.crawler.update_rate_limit_status()
         except Exception as e:
-            self.update_active_time()
+            self.active_time.update()
             self.running_friends.dec()
             doc = self.client['users'][stream_user_id]
             doc.update_field(action=doc.field_set, field='friends_updated_at', value=int(time()))
@@ -536,17 +543,17 @@ class Worker:
         if 'id' in status_json:
             del status_json['id']
         status_json['_id'] = 'no_where' + partition_id
-        status_json['area_id'] = 0
+        status_json['area_code'] = 0
         status_json['area_name'] = 'No Where'
         del status
         if status_json['coordinates'] is not None and status_json['coordinates']['type'] == 'Point':
             status_json['_id'] = 'out_of_victoria' + partition_id
-            status_json['area_id'] = 1
+            status_json['area_code'] = 1
             status_json['area_name'] = 'Out of Victoria'
             point_x, point_y = status_json['coordinates']['coordinates']
         else:
             return status_json
-        for location_id, location in enumerate(self.areas):
+        for location in self.areas:
             geometry = location['geometry']
             if geometry['type'] == "MultiPolygon":
                 is_inside = False
