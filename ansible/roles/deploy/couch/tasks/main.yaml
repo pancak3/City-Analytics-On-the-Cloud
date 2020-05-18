@@ -130,17 +130,6 @@
   with_items:
     - "{{ hostvars['localhost']['instance_names'] | difference(couch_cluster_nodes) }}"
 
-# Set max_partition_size to 0
-- name: Set max_partition_size to 0 of each node
-  run_once: true
-  uri:
-    url: 'http://{{ couch.user }}:{{ couch.password }}@{{ inventory_hostname }}:5984/_node/nonode@nohost/_config/couchdb/max_partition_size'
-    method: 'PUT'
-    body: "0"
-    body_format: json
-    force_basic_auth: yes
-    status_code: 201
-
 # Trigger web interface refresh
 - name: Access /
   run_once: true
