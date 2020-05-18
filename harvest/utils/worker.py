@@ -540,43 +540,45 @@ class Worker:
             status_json['area_code'] = '1'
             status_json['area_name'] = 'Out of Victoria'
             point_x, point_y = status_json['coordinates']['coordinates']
+
+            for location in self.areas:
+                geometry = location['geometry']
+                if geometry['type'] == "MultiPolygon":
+                    is_inside = False
+                    for polygons in geometry["coordinates"]:
+                        for polygon in polygons:
+                            min_x, max_x = polygon[0][0], polygon[0][0]
+                            min_y, max_y = polygon[0][1], polygon[0][1]
+                            for x, y in polygon[1:]:
+                                if x < min_x:
+                                    min_x = x
+                                elif x > max_x:
+                                    max_x = x
+                                if y < min_y:
+                                    min_y = y
+                                elif y > max_y:
+                                    max_y = y
+                            if point_x < min_x or point_x > max_x \
+                                    or point_y < min_y or point_y > max_y:
+                                continue
+                            j = len(polygon) - 1
+                            for i in range(len(polygon)):
+                                if (polygon[i][1] > point_y) != (polygon[j][1] > point_y) \
+                                        and point_x < \
+                                        (polygon[j][0] - polygon[i][0]) * \
+                                        (point_y - polygon[i][1]) / \
+                                        (polygon[j][1] - polygon[i][1]) \
+                                        + polygon[i][0]:
+                                    is_inside = not is_inside
+                    if is_inside:
+                        status_json['area_code'] = location["properties"]["feature_code"]
+                        status_json['area_name'] = location["properties"]["feature_name"]
+                        status_json['_id'] = status_json['area_code'] + partition_id
+                        return status_json
+            return status_json
+
         else:
             return status_json
-        for location in self.areas:
-            geometry = location['geometry']
-            if geometry['type'] == "MultiPolygon":
-                is_inside = False
-                for polygons in geometry["coordinates"]:
-                    for polygon in polygons[1:]:
-                        min_x, max_x = polygon[0][0], polygon[0][0]
-                        min_y, max_y = polygon[0][1], polygon[0][1]
-                        for x, y in polygon:
-                            if x < min_x:
-                                min_x = x
-                            elif x > max_x:
-                                max_x = x
-                            if y < min_y:
-                                min_y = y
-                            elif y > max_y:
-                                max_y = y
-                        if point_x < min_x or point_x > max_x \
-                                or point_y < min_y or point_y > max_y:
-                            continue
-                        j = len(polygon) - 1
-                        for i in range(len(polygon)):
-                            if (polygon[i][1] > point_y) != (polygon[j][1] > point_y) \
-                                    and point_x < \
-                                    (polygon[j][0] - polygon[i][0]) * \
-                                    (point_y - polygon[i][1]) / \
-                                    (polygon[j][1] - polygon[i][1]) \
-                                    + polygon[i][0]:
-                                is_inside = not is_inside
-                if is_inside:
-                    status_json['area_code'] = location["properties"]["feature_code"]
-                    status_json['area_name'] = location["properties"]["feature_name"]
-                    status_json['_id'] = status_json['area_code'] + partition_id
-                    return status_json
-        return status_json
 
     def save_status(self, status, is_stream_code, err_count=0):
         if err_count > self.config.max_network_err:
