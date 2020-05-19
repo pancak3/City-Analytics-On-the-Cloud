@@ -12,6 +12,29 @@ html, body, #root {
     height: 100%;
 }
 
+/* Loading animation */
+/* Adapted from: react-placeholder, licensed under MIT */
+/* https://github.com/buildo/react-placeholder */
+.loading {
+    animation: pulse 1.5s infinite;
+    background-color: #CDCDCD;
+    display: inline-block;
+    * {
+        visibility: hidden;
+    }
+}
+@keyframes pulse {
+  0% {
+    opacity: .6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: .6;
+  }
+}
+
 .card {
     background-color: white;
     padding: 1.5em;
@@ -71,7 +94,7 @@ a {
 aside {
     padding: 3vh 2.5vw;
 
-    width: 300px;
+    width: 400px;
     box-shadow: 1px 1px 2px 0px rgba(0,0,0,0.1);
     z-index: 1;
 

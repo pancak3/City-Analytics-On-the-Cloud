@@ -1,12 +1,8 @@
 import axios from 'axios';
 const BASE_URL = process.env.URL || 'http://localhost:3000';
 
-export function getMessages() {
-    return axios.get(BASE_URL).then((response) => {
+export function getStats() {
+    return axios.get(`${BASE_URL}/api/stats`).then((response) => {
         return response.data;
     });
-}
-
-export function sendMessage(message) {
-    return axios.post(BASE_URL, { message }).then();
 }
