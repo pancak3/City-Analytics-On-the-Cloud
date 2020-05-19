@@ -43,14 +43,25 @@ class CouchDB:
 
 if __name__ == '__main__':
     couch = CouchDB()
-    # couch.dump_db('statues', 'statues.json')
-    # couch.dump_db('all_users', 'all_users.json')
-    # for user in couch.client['stream_users']:
-    #     # user['friends_updated_at'] = 0
-    #     user['timeline_updated_at'] = 0
-    #     user.save()
-    # replication = Replicator(couch.client)
-    # if 'users' not in couch.client.all_dbs():
-    #     couch.client.create_database('users')
-    # replication.create_replication(couch.client['all_users'], couch.client['users'])
+    with open("data/VictoriaSuburb(ABS-2011)Geojson.json") as f:
+        vic_areas = json.loads(f.read())["features"]
+
+        if "areas" not in couch.client.all_dbs():
+            couch.client.create_database("areas", partitioned=False)
+            no_where = {"_id": "0",
+                        "area_code": "0",
+                        "area_name": "No Where"}
+
+            out_of_vitoria = {"_id": "1",
+                              "area_code": "1",
+                              "area_name": "Out of Victoria"}
+
+            couch.client["areas"].create_document(no_where)
+            couch.client["areas"].create_document(out_of_vitoria)
+            for area in vic_areas:
+                area["_id"] = area['properties']['feature_code']
+                area["area_code"] = area['properties']['feature_code']
+                area["area_name"] = area['properties']['feature_name']
+                couch.client["areas"].create_document(area)
+
     print('done')

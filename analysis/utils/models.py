@@ -19,7 +19,7 @@ class SemanticAnalysis:
 
     def predict(self, doc):
         """
-        Implement your predict heare
+        Implement your predict here
         :param doc:
         :return:
         """

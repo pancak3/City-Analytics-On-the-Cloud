@@ -25,7 +25,7 @@ def get_unprocessed_statuses(limit=None):
     couch_db = CouchDB()
 
     res = []
-    # Get ML unprocessed tasks
+    # Get ML unprocessed statuses
     if 'statuses' in couch_db.client.all_dbs():
         if limit is not None:
             result = couch_db.client['statuses'].get_view_result('_design/api-global',
@@ -49,10 +49,10 @@ if __name__ == '__main__':
     results = get_unprocessed_statuses(limit=3)
 
     # load config
-    config = Config()
+    # config = Config()
 
     # create ML model
-    model = SemanticAnalysis(model_path=config.emotion)
+    model = SemanticAnalysis(model_path="path/to/your/model")
 
     # predict statuses
     predicted_results = []
