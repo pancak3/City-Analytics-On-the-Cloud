@@ -11,7 +11,7 @@ RUN cd /build/api \
 COPY ./client /build/client
 RUN cd /build/client \
     && yarn install --production \
-    && URL="" yarn run build \
+    && yarn run build \
     && rm -rf node_modules \
     && yarn cache clean
 
