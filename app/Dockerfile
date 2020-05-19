@@ -4,13 +4,14 @@ FROM node:14-alpine as builder
 COPY ./api /build/api
 RUN cd /build/api \
     && yarn install --production=false \
-    && URL="" yarn run build \
+    && yarn run build \
     && rm -rf node_modules \
     && yarn cache clean
 
 COPY ./client /build/client
 RUN cd /build/client \
-    && yarn install --production && yarn run build \
+    && yarn install --production \
+    && URL="" yarn run build \
     && rm -rf node_modules \
     && yarn cache clean
 
