@@ -40,7 +40,7 @@ function Summary() {
 
     return (
         <React.Fragment>
-            <div className="container-fluid">
+            <div id="summary" className="container-fluid">
                 <h2>Summary</h2>
                 <div className="row justify-content-start">
                     <div className="col-3">

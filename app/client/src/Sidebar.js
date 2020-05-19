@@ -16,28 +16,31 @@ class Sidebar extends React.Component {
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/exercise">
+                        <NavLink
+                            activeClassName="selected"
+                            to="/scenario/exercise"
+                        >
                             <FontAwesomeIcon icon={faRunning} />
                             Exercise
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/s2">
+                        <NavLink activeClassName="selected" to="/scenario/s2">
                             Scenario 2
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/s3">
+                        <NavLink activeClassName="selected" to="/scenario/s3">
                             Scenario 3
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/s4">
+                        <NavLink activeClassName="selected" to="/scenario/s4">
                             Scenario 4
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/s5">
+                        <NavLink activeClassName="selected" to="/scenario/s5">
                             Scenario 5
                         </NavLink>
                     </li>
