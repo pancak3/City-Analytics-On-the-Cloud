@@ -1,4 +1,4 @@
-html {
+body {
     font-family: 'Fira Sans', sans-serif;
 }
 
@@ -12,6 +12,53 @@ html, body, #root {
     height: 100%;
 }
 
+.card {
+    background-color: white;
+    padding: 1.5em;
+    width: 100%;
+    display: inline-block;
+    box-sizing: border-box;
+    border-radius: .8em;
+}
+.card-disp-num {
+    max-height: 150px;
+
+    h3 {
+        margin-bottom: .3em;
+        font-size: 1.8em;
+
+    }
+    p {
+        margin: 0;
+        font-weight: 300;
+        font-size: 1.6em;
+    }
+
+    svg {
+        position: absolute;
+        right: 2em;
+        bottom: 2em;
+        float: right;
+        transform: scale(1.5);
+    }
+}
+.card-blue {
+    border: 2px solid #66A;
+    svg {
+        color: #66A;
+    }
+}
+.card-green {
+    border: 2px solid #6cb9b5;
+    svg {
+        color: #6cb9b5;
+    }
+}
+
+.row {
+    margin-bottom: 2em;
+}
+
 a {
     color: #66A;
 }
@@ -22,7 +69,7 @@ a {
 }
 
 aside {
-    padding: 2vh 2.5vw;
+    padding: 3vh 2.5vw;
 
     width: 300px;
     box-shadow: 1px 1px 2px 0px rgba(0,0,0,0.1);
@@ -80,10 +127,11 @@ aside {
 main {
     width: 100%;
     background-color: #f5f5ff;
-    padding: 2vh 3vw;
+    padding: 3vh 3vw;
 
     h2 {
         font-weight: 400;
         font-size: 2em;
+        margin-bottom: 1em;
     }
 }

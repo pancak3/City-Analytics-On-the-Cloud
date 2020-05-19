@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import Summary from './Summary';
 
 import './main.scss';
 
@@ -12,7 +13,7 @@ class App extends React.Component {
                 <main>
                     <Switch>
                         <Route exact path="/">
-                            <h2>Harvest Summary</h2>
+                            <Summary />
                         </Route>
                     </Switch>
                 </main>
