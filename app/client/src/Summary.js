@@ -110,7 +110,7 @@ function Summary() {
                             {info ? (
                                 <React.Fragment>
                                     <h5 className="text-center mb-3">
-                                        Number of tweets per day of week
+                                        Tweets per day of week
                                     </h5>
                                     <ResponsiveContainer
                                         width="100%"
