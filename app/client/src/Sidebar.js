@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faList } from '@fortawesome/free-solid-svg-icons';
+import { faList, faRunning } from '@fortawesome/free-solid-svg-icons';
 
 class Sidebar extends React.Component {
     render() {
@@ -16,8 +16,9 @@ class Sidebar extends React.Component {
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/s1">
-                            Scenario 1
+                        <NavLink activeClassName="selected" to="/exercise">
+                            <FontAwesomeIcon icon={faRunning} />
+                            Exercise
                         </NavLink>
                     </li>
                     <li>

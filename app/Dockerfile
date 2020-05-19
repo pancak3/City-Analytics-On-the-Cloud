@@ -28,5 +28,7 @@ RUN yarn install --production && yarn cache clean
 RUN adduser -D comp90024
 User comp90024
 
+ENV URL ""
+
 EXPOSE 3000
 CMD [ "node", "app.js" ]
