@@ -89,10 +89,6 @@ app.get('/api/general', async (req, res) => {
         reduce: true,
         group: true,
     });
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const stylised_dayofweek = dayofweek.rows.map((item, index) => {
-        return { name: days[index], value: item.value };
-    });
 
     // hours
     const hours = await status.view('api-global', 'hour', {
@@ -100,7 +96,7 @@ app.get('/api/general', async (req, res) => {
         group: true,
     });
 
-    return res.send({ weekday: stylised_dayofweek, hours: hours.rows });
+    return res.send({ weekday: dayofweek.rows, hours: hours.rows });
 });
 
 // Frontend
