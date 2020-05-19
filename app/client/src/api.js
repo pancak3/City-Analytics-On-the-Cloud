@@ -1,6 +1,8 @@
 import axios from 'axios';
-const BASE_URL = '';
-// const BASE_URL = 'http://localhost:3000';
+const BASE_URL =
+    process.env.REACT_APP_URL === undefined
+        ? 'http://localhost:3000'
+        : process.env.REACT_APP_URL;
 
 export function getStats() {
     return axios.get(`${BASE_URL}/api/stats`).then((response) => {

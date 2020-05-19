@@ -10,7 +10,6 @@ import {
     BarChart,
     CartesianGrid,
     Bar,
-    Legend,
     Tooltip,
     XAxis,
     YAxis,
