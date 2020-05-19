@@ -1,6 +1,8 @@
 # Build client and server
 FROM node:14-alpine as builder
 
+ENV URL ""
+
 COPY ./api /build/api
 RUN cd /build/api \
     && yarn install --production=false && yarn run build \
@@ -27,8 +29,6 @@ ENV NODE_ENV production
 RUN yarn install --production && yarn cache clean
 RUN adduser -D comp90024
 User comp90024
-
-ENV URL ""
 
 EXPOSE 3000
 CMD [ "node", "app.js" ]
