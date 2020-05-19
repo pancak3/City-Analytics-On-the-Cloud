@@ -1,11 +1,10 @@
 # Build client and server
 FROM node:14-alpine as builder
 
-ENV URL ""
-
 COPY ./api /build/api
 RUN cd /build/api \
-    && yarn install --production=false && yarn run build \
+    && yarn install --production=false \
+    && URL="" yarn run build \
     && rm -rf node_modules \
     && yarn cache clean
 
