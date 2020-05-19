@@ -71,6 +71,7 @@ class Config:
             self.print_log_when_saved = harvest_json['print_log_when_saved']
             self.max_ids_single_task = harvest_json['max_ids_single_task']
             self.victoria_areas_path = harvest_json['victoria_areas_path']
+            self.ignore_statuses_out_of_vic = harvest_json['ignore_statuses_out_of_vic']
 
 
 def get_external_ip():

@@ -597,8 +597,9 @@ class Worker:
         # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object
         try:
             status_json = self.retrieve_statuses_areas(status)
-            if status_json['area_code'] in {'0'} and is_stream_code != 1:
-                return False
+            if self.config.ignore_statuses_out_of_vic:
+                if status_json['area_code'] in {'0'} and is_stream_code != 1:
+                    return False
             if status_json['_id'] not in self.client['statuses']:
                 if is_stream_code == 0:
                     status_json['stream_status'] = False

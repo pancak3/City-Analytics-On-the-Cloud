@@ -1,5 +1,5 @@
 {
-  "registry_port": 8672,
+  "registry_port": 8673,
   "token": "ai@5uc.eUo?s",
   "hash_algorithm": "ripemd160",
   "melbourne_bbox": [
@@ -30,5 +30,6 @@
   "max_running_timeline": 5,
   "max_task_runtime": 120,
   "print_log_when_saved": 10,
-  "max_ids_single_task": 1
+  "max_ids_single_task": 1,
+  "ignore_statuses_out_of_vic": true
 }
