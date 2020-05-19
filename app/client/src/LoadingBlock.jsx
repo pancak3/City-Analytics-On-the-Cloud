@@ -15,6 +15,6 @@ class LoadingBlock extends React.Component {
 
 // Define props
 LoadingBlock.propTypes = {
-    children: PropTypes.element.isRequired
+    children: PropTypes.any
 };
 export default LoadingBlock;

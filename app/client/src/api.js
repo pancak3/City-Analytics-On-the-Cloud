@@ -6,3 +6,9 @@ export function getStats() {
         return response.data;
     });
 }
+
+export function getGeneralInfo() {
+    return axios.get(`${BASE_URL}/api/general`).then((response) => {
+        return response.data;
+    });
+}

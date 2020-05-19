@@ -70,15 +70,37 @@ app.get('/api/stats', async (req, res) => {
     const user_view = await users.view('api-global', 'count', {
         include_docs: false,
     });
-    const user_count = user_view['rows'][0]['value']
+    const user_count = user_view['rows'][0]['value'];
 
     const status = nano.db.use('statuses');
     const status_view = await status.view('api-global', 'count', {
-        include_docs: false
+        include_docs: false,
     });
-    const status_count = status_view['rows'][0]['value']
+    const status_count = status_view['rows'][0]['value'];
 
     return res.send({ user: user_count, status: status_count });
+});
+
+app.get('/api/general', async (req, res) => {
+    const status = nano.db.use('statuses');
+
+    // day of week
+    const dayofweek = await status.view('api-global', 'weekday', {
+        reduce: true,
+        group: true,
+    });
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const stylised_dayofweek = dayofweek.rows.map((item, index) => {
+        return { name: days[index], value: item.value };
+    });
+
+    // hours
+    const hours = await status.view('api-global', 'hour', {
+        reduce: true,
+        group: true,
+    });
+
+    return res.send({ weekday: stylised_dayofweek, hours: hours.rows });
 });
 
 // Frontend

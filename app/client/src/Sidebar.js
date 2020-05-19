@@ -11,28 +11,47 @@ class Sidebar extends React.Component {
                 <ul>
                     <li>
                         <NavLink exact activeClassName="selected" to="/">
-                            <FontAwesomeIcon icon={faList} />Summary
+                            <FontAwesomeIcon icon={faList} />
+                            Summary
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/s1">Scenario 1</NavLink>
+                        <NavLink activeClassName="selected" to="/s1">
+                            Scenario 1
+                        </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/s2">Scenario 2</NavLink>
+                        <NavLink activeClassName="selected" to="/s2">
+                            Scenario 2
+                        </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/s3">Scenario 3</NavLink>
+                        <NavLink activeClassName="selected" to="/s3">
+                            Scenario 3
+                        </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/s4">Scenario 4</NavLink>
+                        <NavLink activeClassName="selected" to="/s4">
+                            Scenario 4
+                        </NavLink>
                     </li>
                     <li>
-                        <NavLink activeClassName="selected" to="/s5">Scenario 5</NavLink>
+                        <NavLink activeClassName="selected" to="/s5">
+                            Scenario 5
+                        </NavLink>
                     </li>
                 </ul>
                 <p>
-                    Made by: Team 42<br />
-                    Design inspired by <a target="_blank" rel='noreferrer noopener' href="https://covid-dashboards.web.app">Covid 19 App</a>
+                    Made by: Team 42
+                    <br />
+                    Design inspired by{' '}
+                    <a
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        href="https://covid-dashboards.web.app"
+                    >
+                        Covid 19 App
+                    </a>
                 </p>
             </aside>
         );
