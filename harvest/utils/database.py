@@ -33,6 +33,7 @@ class CouchDB:
                 self.client = Cloudant(self.config.couch.username, self.config.couch.password,
                                        url=self.config.couch.url, connect=True)
                 self.client.connect()
+                self.client.clear()
                 logger.debug("[*] CouchDB connected -> {}".format(self.config.couch.url))
                 return
             except HTTPError as e:

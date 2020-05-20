@@ -34,9 +34,10 @@
   "max_network_err": 6,
   "max_save_tries": 5,
   "max_running_friends": 1,
-  "max_running_timeline": 10,
+  "max_running_timeline": 50,
   "max_task_runtime": 120,
   "print_log_when_saved": 10,
   "max_ids_single_task": 1,
-  "ignore_statuses_out_of_australia": true
+  "ignore_statuses_out_of_australia": true,
+  "max_queue_size": 1000
 }

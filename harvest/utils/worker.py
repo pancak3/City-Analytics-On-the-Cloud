@@ -80,15 +80,15 @@ class Worker:
         self.client = self.couch.client
         self.areas_collection = self.read_areas()
 
-        self.stream_res_queue = queue.Queue()
-        self.msg_received = queue.Queue()
-        self.msg_to_send = queue.Queue()
+        self.stream_res_queue = queue.Queue(maxsize=self.config.max_queue_size)
+        self.msg_received = queue.Queue(maxsize=self.config.max_queue_size)
+        self.msg_to_send = queue.Queue(maxsize=self.config.max_queue_size)
         self.crawler = Crawler()
         self.reg_ip, self.reg_port, self.token = self.get_registry()
         self.socket_send, self.socket_recv, valid_api_key_hash, self.worker_id = self.connect_reg()
         self.crawler.init(valid_api_key_hash, self.worker_id)
 
-        self.task_queue = queue.Queue()
+        self.task_queue = queue.Queue(maxsize=self.config.max_queue_size)
         self.has_task = False
         self.access_timeline = 0
         self.access_friends = 0
@@ -96,8 +96,8 @@ class Worker:
         self.running_timeline = RunningTask()
         self.running_friends = RunningTask()
 
-        self.users_queue = queue.Queue()
-        self.statuses_queue = queue.Queue()
+        self.users_queue = queue.Queue(maxsize=self.config.max_queue_size)
+        self.statuses_queue = queue.Queue(maxsize=self.config.max_queue_size)
 
     def get_registry(self):
         registry = self.client['control']['registry']
@@ -162,6 +162,8 @@ class Worker:
                 self.msg_received.put(data[:first_pos])
                 logger.debug("Put into received msg: {}".format(data[:first_pos]))
                 data = data[first_pos + 1:]
+            if len(data) > 10240:
+                data = ''
 
     @staticmethod
     def exit(log):
@@ -185,6 +187,8 @@ class Worker:
 
             self.msg_to_send.put(msg_json_str)
             sleep(5)
+            # clear local cache
+            self.client.clear()
             to_sleep -= 5
             if to_sleep < 0:
                 to_sleep = self.config.max_heartbeat_lost_time
@@ -430,7 +434,8 @@ class Worker:
                     and self.running_timeline.get_count() < self.config.max_running_timeline:
                 rate_limit = self.refresh_local_rate_limit()
                 timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
-                for i in range(self.config.max_running_timeline):
+                # for i in range(self.config.max_running_timeline):
+                for i in range(1):
                     timeline_remaining -= 1
                     if timeline_remaining < 1:
                         break
