@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import helmet from 'helmet';
 import _nano from 'nano';
 import infoRouter from './info';
+import scenarioRouter from './scenario';
 const app = express();
 
 // Environment variables for local debug
@@ -41,6 +42,7 @@ app.use(express.static(path.join(__dirname, 'client')));
 
 // Info routes
 app.use('/api', infoRouter);
+app.use('/api/scenarios', scenarioRouter);
 
 // Frontend
 app.get('*', function (req, res) {
