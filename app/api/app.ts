@@ -1,8 +1,9 @@
 import path from 'path';
-import express, { Request, Response } from 'express';
+import express from 'express';
 import morgan from 'morgan';
 import helmet from 'helmet';
 import _nano from 'nano';
+import infoRouter from './info';
 const app = express();
 
 // Environment variables for local debug
@@ -38,82 +39,8 @@ if (process.env.NODE_ENV !== 'production') {
 // Serve static files
 app.use(express.static(path.join(__dirname, 'client')));
 
-// Database status
-app.get('/api', async (req: Request, res: Response) => {
-    // @ts-ignore
-    const info = await nano.request({ path: '/' });
-    return res.send(info);
-});
-
-// Gets and returns info about dbs
-app.get('/api/dbs', async (req: Request, res: Response) => {
-    const all_dbs = await nano.db.list();
-    const db_info = [];
-    for (const db of all_dbs) {
-        const db_res = await nano.db.get(db);
-        db_info.push(db_res);
-    }
-    return res.send(
-        db_info.map((info) => {
-            return {
-                name: info.db_name,
-                size: info.sizes.active,
-                count: info.doc_count,
-            };
-        })
-    );
-});
-
-// Gets users count with mapreduce
-app.get('/api/stats', async (req, res) => {
-    const users = nano.db.use('users');
-    const user_view = await users.view('api-global', 'count', {
-        include_docs: false,
-    });
-    const user_count = user_view['rows'][0]['value'];
-
-    const status = nano.db.use('statuses');
-    const status_view = await status.view('api-global', 'count', {
-        include_docs: false,
-    });
-    const status_count = status_view['rows'][0]['value'];
-
-    return res.send({ user: user_count, status: status_count });
-});
-
-// Day ordering
-const day_order: { [day: string]: number } = {
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-    Sun: 7,
-};
-
-app.get('/api/general', async (req, res) => {
-    const status = nano.db.use('statuses');
-
-    // day of week
-    const dayofweek = await status.view('api-global', 'weekday', {
-        reduce: true,
-        group: true,
-    });
-
-    // hours
-    const hours = await status.view('api-global', 'hour', {
-        reduce: true,
-        group: true,
-    });
-
-    return res.send({
-        weekday: dayofweek.rows.sort(
-            (a, b) => day_order[a.key] - day_order[b.key]
-        ),
-        hours: hours.rows,
-    });
-});
+// Info routes
+app.use('/api', infoRouter);
 
 // Frontend
 app.get('*', function (req, res) {
@@ -124,3 +51,5 @@ app.get('*', function (req, res) {
 app.listen(process.env.PORT || 3000, () => {
     console.log(`[-] Listening on ${process.env.PORT || 3000}`);
 });
+
+export default nano;
