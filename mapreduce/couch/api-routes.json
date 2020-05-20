@@ -1,0 +1,22 @@
+{
+  "statuses": {
+    "api": {
+      "count": {
+        "route": "",
+        "description": ""
+      }
+    },
+    "api-global": {
+    }
+  },
+  "users": {
+    "api": {
+      "count": {
+        "route": "",
+        "description": ""
+      }
+    },
+    "api-global": {
+    }
+  }
+}

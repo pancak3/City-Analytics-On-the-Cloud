@@ -1,6 +1,5 @@
 import json
 import logging
-import requests
 from utils.logger import get_logger
 
 logger = get_logger('Config', logging.DEBUG)
@@ -76,12 +75,5 @@ class Config:
             self.ignore_statuses_out_of_australia = harvest_json['ignore_statuses_out_of_australia']
 
 
-def get_external_ip():
-    try:
-        respond = requests.get('http://ip-api.com/json')
-        res_json = json.loads(respond.text)
-        return res_json['query']
-    except IOError as e:
-        logger.warning('[*] Unable to get Hostname and IP: {}'.format(e))
 
 

@@ -6,9 +6,6 @@ import queue
 import traceback
 import os
 
-from abc import abstractmethod
-from os import kill, getpid
-from signal import SIGUSR1
 from cloudant.design_document import DesignDocument, Document
 from time import sleep, time, asctime, localtime
 from secrets import token_urlsafe

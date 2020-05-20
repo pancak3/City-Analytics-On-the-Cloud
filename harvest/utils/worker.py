@@ -430,20 +430,19 @@ class Worker:
         timeline_last_time_sent = int(time())
         friends_last_time_sent = int(time())
         while True:
-            if int(time()) - timeline_last_time_sent > 5 \
+            if int(time()) - timeline_last_time_sent > 10 \
                     and self.running_timeline.get_count() < self.config.max_running_timeline:
                 rate_limit = self.refresh_local_rate_limit()
                 timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
                 # for i in range(self.config.max_running_timeline):
-                for i in range(1):
-                    timeline_remaining -= 1
-                    if timeline_remaining < 1:
-                        break
+                for i in range(1, 10 if 10 < timeline_remaining else timeline_remaining):
                     msg = {'timeline': timeline_remaining,
                            'worker_id': self.worker_id,
                            'token': self.token,
                            'action': 'ask_for_task'}
                     self.msg_to_send.put(json.dumps(msg))
+                    timeline_remaining -= 1
+
                 timeline_last_time_sent = int(time())
             if int(time()) - friends_last_time_sent > 5 \
                     and self.running_friends.get_count() < self.config.max_running_friends:
@@ -553,7 +552,7 @@ class Worker:
             del status_json['id']
         status_json['_id'] = 'australia' + partition_id
         status_json['lga2016_area_code'] = 'australia'
-        status_json['lga2016_area_name'] = 'Australia'
+        status_json['lga2016_area_name'] = 'In Australia But No Specific Location'
         del status
         if status_json['coordinates'] is not None and status_json['coordinates']['type'] == 'Point':
             status_json['_id'] = 'out_of_australia' + partition_id

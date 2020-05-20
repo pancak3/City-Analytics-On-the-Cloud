@@ -1,0 +1,99 @@
+{
+  "store": {
+    "feature_key": "state_code",
+    "feature_name": "state_name",
+    "feature_geom": "wkb_geometry"
+  },
+  "features": [
+    {
+      "feature_code": "8",
+      "feature_name": "Australian Capital Territory",
+      "bbox": [
+        148.762674816,
+        -35.920762215,
+        149.39928432,
+        -35.124517275500004
+      ]
+    },
+    {
+      "feature_code": "1",
+      "feature_name": "New South Wales",
+      "bbox": [
+        140.99927801599998,
+        -37.505059998,
+        159.109219008,
+        -28.157019913999996
+      ]
+    },
+    {
+      "feature_code": "7",
+      "feature_name": "Northern Territory",
+      "bbox": [
+        129.000439712,
+        -25.9994823335,
+        138.001197856,
+        -10.965914264999999
+      ]
+    },
+    {
+      "feature_code": "9",
+      "feature_name": "Other Territories",
+      "bbox": [
+        96.81676569599999,
+        -35.20087199249999,
+        150.772826016,
+        -10.412356006999998
+      ]
+    },
+    {
+      "feature_code": "3",
+      "feature_name": "Queensland",
+      "bbox": [
+        137.99595743999998,
+        -29.177897699499997,
+        153.552171232,
+        -9.142175977
+      ]
+    },
+    {
+      "feature_code": "4",
+      "feature_name": "South Australia",
+      "bbox": [
+        129.001336896,
+        -38.0626029895,
+        141.002955616,
+        -25.996146487500003
+      ]
+    },
+    {
+      "feature_code": "6",
+      "feature_name": "Tasmania",
+      "bbox": [
+        143.81892272,
+        -43.740509603,
+        148.4986736,
+        -39.20366165899999
+      ]
+    },
+    {
+      "feature_code": "2",
+      "feature_name": "Victoria",
+      "bbox": [
+        140.961681984,
+        -39.159189527500004,
+        149.976679008,
+        -33.9806475865
+      ]
+    },
+    {
+      "feature_code": "5",
+      "feature_name": "Western Australia",
+      "bbox": [
+        112.921113952,
+        -35.134846436000004,
+        129.001930016,
+        -13.689492034999999
+      ]
+    }
+  ]
+}

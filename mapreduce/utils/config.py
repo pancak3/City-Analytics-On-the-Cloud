@@ -30,6 +30,4 @@ class Config:
                                      t_json["password"])
             logger.debug(
                 "[*] Loaded CouchDB config -> {}://{}:{}".format(self.couch.protocol, self.couch.host, self.couch.port))
-        with open("models.json") as t:
-            models_json = json.loads(t.read())
-            self.emotion = models_json['emotion']
+
