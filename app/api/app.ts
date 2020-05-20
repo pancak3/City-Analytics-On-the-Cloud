@@ -81,6 +81,17 @@ app.get('/api/stats', async (req, res) => {
     return res.send({ user: user_count, status: status_count });
 });
 
+// Day ordering
+const day_order: { [day: string]: number } = {
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+    Sun: 7,
+};
+
 app.get('/api/general', async (req, res) => {
     const status = nano.db.use('statuses');
 
@@ -96,7 +107,12 @@ app.get('/api/general', async (req, res) => {
         group: true,
     });
 
-    return res.send({ weekday: dayofweek.rows, hours: hours.rows });
+    return res.send({
+        weekday: dayofweek.rows.sort(
+            (a, b) => day_order[a.key] - day_order[b.key]
+        ),
+        hours: hours.rows,
+    });
 });
 
 // Frontend

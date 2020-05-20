@@ -119,7 +119,7 @@ function Summary() {
                                             <CartesianGrid strokeDasharray="1 1" />
                                             <XAxis
                                                 minTickGap={1}
-                                                dataKey="name"
+                                                dataKey="key"
                                             />
                                             <YAxis></YAxis>
                                             <Tooltip />
