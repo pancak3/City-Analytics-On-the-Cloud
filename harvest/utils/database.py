@@ -43,6 +43,9 @@ class CouchDB:
 
 if __name__ == '__main__':
     couch = CouchDB()
+
+    if "areas" in couch.client.all_dbs():
+        couch.client["areas"].delete()
     if "areas" not in couch.client.all_dbs():
         config = Config()
         areas_json = []
@@ -52,13 +55,15 @@ if __name__ == '__main__':
             if os.path.isfile(abs_path):
                 with open(abs_path) as f:
                     areas = json.loads(f.read())['features']
+                    for i in range(len(areas)):
+                        areas[i]['properties']['states'] = filename[:filename.find('.')]
                     f.close()
                     areas_json += areas
 
-        f = open("all.json", "w+")
-        f.write(json.dumps(areas_json))
-        f.close()
-        exit()
+        # f = open("all.json", "w+")
+        # f.write(json.dumps(areas_json))
+        # f.close()
+        # exit()
         couch.client.create_database("areas", partitioned=False)
         no_where = {"_id": "0",
                     "lga2016_area_code": "0",
