@@ -5,13 +5,24 @@ import nano from './app';
 const router = Router();
 
 // count by area (no filter keyword)
-router.get('/count', (req: Request, res: Response) => {
+// sample output: [{"value":14,"area":"63010"}]
+router.get('/count', async (req: Request, res: Response) => {
     const status = nano.db.use('statuses');
 
-    return res.json({});
+    const tweet_count_area = await status.view('api-global', 'count-area', {
+        group: true,
+        reduce: true,
+    });
+
+    return res.json(
+        tweet_count_area.rows.map((r) => {
+            return { value: r.value, area: r.key };
+        })
+    );
 });
 
 // keyword for all areas
+// sample output: [{"area":"14500","value":1}]
 router.get('/keyword/:keyword/all', async (req: Request, res: Response) => {
     const keyword = req.params.keyword;
     const status = nano.db.use('statuses');
@@ -29,17 +40,18 @@ router.get('/keyword/:keyword/all', async (req: Request, res: Response) => {
 });
 
 // keyword by area
-router.get('/keyword/:keyword/:area', (req: Request, res: Response) => {
+// sample output: [text1, text2]
+router.get('/keyword/:keyword/:area', async (req: Request, res: Response) => {
     const status = nano.db.use('statuses');
 
     const keyword = req.params.keyword;
     const area = req.params.area;
 
     // selection of tweets with keyword (e.g. first 10)
-
-    // const tweets = await status.partitionedView(area, )
-
-    return res.json({});
+    const tweets = await status.partitionedView(area, 'api', 'keyword', {
+        key: keyword
+    });
+    return res.json(tweets.rows.map((r) => r.value));
 });
 
 // Takes:
@@ -79,17 +91,17 @@ router.get('/exercise', async (req: Request, res: Response) => {
 
     const pyshell = new PythonShell('analysis/main.py', {
         mode: 'text',
-        args: ['exercise']
+        args: ['exercise'],
     });
 
     pyshell.on('message', (message) => {
         console.log(message);
-    })
+    });
     pyshell.send(JSON.stringify(transformed));
     pyshell.end((err, code) => {
         if (err) throw err;
         console.log(code);
-    })
+    });
 });
 
 export default router;
