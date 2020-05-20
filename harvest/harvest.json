@@ -14,7 +14,14 @@
     149.9767,
     -33.9806
   ],
-  "victoria_areas_path": "data/VictoriaSuburb(ABS-2011)Geojson.json",
+  "australia_bbox": [
+    96.8168,
+    -43.7405,
+    159.1092,
+    -9.1422
+  ],
+  "victoria_areas_path": "data/LocalGovernmentAreas-2016.json",
+  "australia_lga2016_path": "data/LocalGovernmentAreas-2016",
   "timeline_updating_window": 604800,
   "friends_updating_window": 604800,
   "max_tasks_num": 1000,
@@ -31,5 +38,5 @@
   "max_task_runtime": 120,
   "print_log_when_saved": 10,
   "max_ids_single_task": 1,
-  "ignore_statuses_out_of_vic": true
+  "ignore_statuses_out_of_australia": true
 }

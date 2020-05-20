@@ -29,13 +29,13 @@ def get_unprocessed_statuses(limit=None):
     if 'statuses' in couch_db.client.all_dbs():
         if limit is not None:
             result = couch_db.client['statuses'].get_view_result('_design/api-global',
-                                                                 view_name='ml_tasks',
+                                                                 view_name='ml-tasks',
                                                                  limit=limit,
                                                                  reduce=False).all()
         else:
 
             result = couch_db.client['statuses'].get_view_result('_design/api-global',
-                                                                 view_name='ml_tasks',
+                                                                 view_name='ml-tasks',
                                                                  reduce=False).all()
         res = result
 

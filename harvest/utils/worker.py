@@ -78,7 +78,7 @@ class Worker:
         self.pid = None
         self.couch = CouchDB()
         self.client = self.couch.client
-        self.areas = self.read_areas()
+        self.areas_collection = self.read_areas()
 
         self.stream_res_queue = queue.Queue()
         self.msg_received = queue.Queue()
@@ -524,10 +524,21 @@ class Worker:
             return self.save_user(user_json=user_json, err_count=err_count + 1)
 
     def read_areas(self):
-        f = open(self.config.victoria_areas_path)
-        areas_json = json.loads(f.read())['features']
-        f.close()
-        return areas_json
+        areas_collection = []
+        filenames = os.listdir(self.config.australia_lga2016_path)
+        for filename in filenames:
+            abs_path = os.path.join(self.config.australia_lga2016_path, filename)
+            if os.path.isfile(abs_path):
+                with open(abs_path) as f:
+                    areas_f = json.loads(f.read())
+                    areas = areas_f['features']
+                    f.close()
+                    areas_collection.append(areas)
+        # f = open("all.json", "w+")
+        # f.write(json.dumps(areas_collection))
+        # f.close()
+        # exit()
+        return areas_collection
 
     def retrieve_statuses_areas(self, status):
         status_json = status._json
@@ -535,50 +546,51 @@ class Worker:
         # https://developer.twitter.com/en/docs/basics/twitter-ids
         if 'id' in status_json:
             del status_json['id']
-        status_json['_id'] = 'no_where' + partition_id
-        status_json['area_code'] = '0'
-        status_json['area_name'] = 'No Where'
+        status_json['_id'] = 'australia' + partition_id
+        status_json['lga2016_area_code'] = 'australia'
+        status_json['lga2016_area_name'] = 'Australia'
         del status
         if status_json['coordinates'] is not None and status_json['coordinates']['type'] == 'Point':
-            status_json['_id'] = 'out_of_victoria' + partition_id
-            status_json['area_code'] = '1'
-            status_json['area_name'] = 'Out of Victoria'
+            status_json['_id'] = 'out_of_australia' + partition_id
+            status_json['lga2016_area_code'] = 'out_of_australia'
+            status_json['lga2016_area_name'] = 'Out of Australia'
             point_x, point_y = status_json['coordinates']['coordinates']
 
-            for location in self.areas:
-                geometry = location['geometry']
-                if geometry['type'] == "MultiPolygon":
-                    is_inside = False
-                    for polygons in geometry["coordinates"]:
-                        for polygon in polygons:
-                            min_x, max_x = polygon[0][0], polygon[0][0]
-                            min_y, max_y = polygon[0][1], polygon[0][1]
-                            for x, y in polygon[1:]:
-                                if x < min_x:
-                                    min_x = x
-                                elif x > max_x:
-                                    max_x = x
-                                if y < min_y:
-                                    min_y = y
-                                elif y > max_y:
-                                    max_y = y
-                            if point_x < min_x or point_x > max_x \
-                                    or point_y < min_y or point_y > max_y:
-                                continue
-                            j = len(polygon) - 1
-                            for i in range(len(polygon)):
-                                if (polygon[i][1] > point_y) != (polygon[j][1] > point_y) \
-                                        and point_x < \
-                                        (polygon[j][0] - polygon[i][0]) * \
-                                        (point_y - polygon[i][1]) / \
-                                        (polygon[j][1] - polygon[i][1]) \
-                                        + polygon[i][0]:
-                                    is_inside = not is_inside
-                    if is_inside:
-                        status_json['area_code'] = location["properties"]["feature_code"]
-                        status_json['area_name'] = location["properties"]["feature_name"]
-                        status_json['_id'] = status_json['area_code'] + partition_id
-                        return status_json
+            for areas in self.areas_collection:
+                for location in areas:
+                    geometry = location['geometry']
+                    if geometry['type'] == "MultiPolygon":
+                        is_inside = False
+                        for polygons in geometry["coordinates"]:
+                            for polygon in polygons:
+                                min_x, max_x = polygon[0][0], polygon[0][0]
+                                min_y, max_y = polygon[0][1], polygon[0][1]
+                                for x, y in polygon[1:]:
+                                    if x < min_x:
+                                        min_x = x
+                                    elif x > max_x:
+                                        max_x = x
+                                    if y < min_y:
+                                        min_y = y
+                                    elif y > max_y:
+                                        max_y = y
+                                if point_x < min_x or point_x > max_x \
+                                        or point_y < min_y or point_y > max_y:
+                                    continue
+                                j = len(polygon) - 1
+                                for i in range(len(polygon)):
+                                    if (polygon[i][1] > point_y) != (polygon[j][1] > point_y) \
+                                            and point_x < \
+                                            (polygon[j][0] - polygon[i][0]) * \
+                                            (point_y - polygon[i][1]) / \
+                                            (polygon[j][1] - polygon[i][1]) \
+                                            + polygon[i][0]:
+                                        is_inside = not is_inside
+                        if is_inside:
+                            status_json['lga2016_area_code'] = location["properties"]["feature_code"]
+                            status_json['lga2016_area_name'] = location["properties"]["feature_name"]
+                            status_json['_id'] = status_json['lga2016_area_code'] + partition_id
+                            return status_json
             return status_json
 
         else:
@@ -597,8 +609,8 @@ class Worker:
         # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object
         try:
             status_json = self.retrieve_statuses_areas(status)
-            if self.config.ignore_statuses_out_of_vic:
-                if status_json['area_code'] in {'0'} and is_stream_code != 1:
+            if self.config.ignore_statuses_out_of_australia:
+                if status_json['lga2016_area_code'] in {'australia'} and is_stream_code != 1:
                     return False
             if status_json['_id'] not in self.client['statuses']:
                 if is_stream_code == 0:
@@ -612,7 +624,11 @@ class Worker:
                 else:
                     return False
                 status_json['inserted_time'] = int(time())
-                self.client['statuses'].create_document(status_json)
+                if self.config.ignore_statuses_out_of_australia:
+                    if status_json['lga2016_area_code'] not in {'0', '1'}:
+                        self.client['statuses'].create_document(status_json)
+                else:
+                    self.client['statuses'].create_document(status_json)
                 if is_stream_code == 1:
                     user_json = status.author._json
                     user_json['stream_user'] = True

@@ -10,7 +10,7 @@ from abc import abstractmethod
 from os import kill, getpid
 from signal import SIGUSR1
 from cloudant.design_document import DesignDocument, Document
-from time import sleep, time
+from time import sleep, time, asctime, localtime
 from secrets import token_urlsafe
 from collections import defaultdict
 from utils.config import Config
@@ -36,6 +36,7 @@ class WorkerData:
         self.api_key_hash = api_key_hash
         self.msg_queue = queue.Queue()
         self.active = Status()
+        self.threads = queue.Queue()
 
 
 class Status:
@@ -216,7 +217,9 @@ class Registry:
 
     def receiver(self, worker_data):
         buffer_data = ''
-        threading.Thread(target=self.keep_alive, args=(worker_data,)).start()
+        keep_alive_thread = threading.Thread(target=self.keep_alive, args=(worker_data,))
+        worker_data.threads.put(keep_alive_thread)
+        keep_alive_thread.start()
 
         while True:
             try:
@@ -283,7 +286,9 @@ class Registry:
         self.msg_queue_dict[worker_id] = worker_data.msg_queue
         self.lock_msg_queue_dict.release()
 
-        threading.Thread(target=self.receiver, args=(worker_data,)).start()
+        receiver_thread = threading.Thread(target=self.receiver, args=(worker_data,))
+        worker_data.threads.put(receiver_thread)
+        receiver_thread.start()
         self.update_worker_info_in_db(worker_id, valid_api_key_hash, True)
         msg = {'token': self.token, 'res': 'use_api_key',
                'api_key_hash': valid_api_key_hash, 'worker_id': worker_id}
@@ -422,10 +427,12 @@ class Registry:
     def registry_msg_handler(self, conn, addr):
         self.logger.info("registry start msg handler")
         data = ''
+        access_time = int(time())
         while True:
             try:
                 data += conn.recv(1024).decode('utf-8')
                 while data.find('\n') != -1:
+                    access_time = int(time())
                     first_pos = data.find('\n')
                     recv_json = json.loads(data[:first_pos])
                     if 'token' in recv_json and recv_json['token'] == self.token:
@@ -435,6 +442,8 @@ class Registry:
                                 self.handle_action_init_sender(recv_json, conn, addr)
                             elif recv_json['role'] == 'receiver':
                                 self.handle_action_init_receiver(recv_json, conn, addr)
+                                # exit this thread
+                                exit(0)
                     data = data[first_pos:]
             except json.JSONDecodeError:
                 traceback.format_exc()
@@ -446,6 +455,10 @@ class Registry:
                 self.logger.warning(e)
                 traceback.format_exc()
                 break
+            if int(time()) - access_time > 60:
+                break
+            else:
+                sleep(1)
 
     def tasks_generator(self):
         self.logger.info("TaskGenerator started.")
@@ -522,7 +535,7 @@ class Registry:
             'ip': self.ip,
             'port': self.config.registry_port,
             'token': self.token,
-            'updated_at': int(time())
+            'updated_at': asctime(localtime(time()))
 
         }
         self.update_doc(self.client['control'], 'registry', values)
@@ -540,7 +553,7 @@ class Registry:
             '_id': 'worker-' + str(worker_id),
             'api_key_hash': api_key_hash,
             'is_running': is_running,
-            'updated_at': int(time())
+            'updated_at': asctime(localtime(time()))
         }
         self.update_doc(self.client['control'], 'worker-' + str(worker_id), values)
 
