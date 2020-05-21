@@ -1,8 +1,33 @@
-import { Router, Request, Response, json } from 'express';
+import { Router, Request, Response } from 'express';
 import { PythonShell } from 'python-shell';
 import nano from './app';
 
 const router = Router();
+
+// fetches geojson, and caches it
+let _geojson: any;
+const fetch_geojson = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+        if (_geojson) {
+            return resolve(_geojson);
+        }
+
+        // fetch all docs in areas db
+        const area = nano.db.use('areas');
+        area.list({ include_docs: true }).then((body) => {
+            _geojson = body.rows
+                // get documents
+                .map((r) => r.doc)
+                // remove areas 0, 1 (which has no geojson)
+                .filter((r: any) => r['_id'] !== '0' && r['_id'] !== '1');
+            return resolve(_geojson);
+        });
+    });
+};
+
+router.get('/geojson', async (req, res) => {
+    return res.json(await fetch_geojson());
+});
 
 // count by area (no filter keyword)
 // sample output: [{"value":14,"area":"63010"}]
@@ -23,8 +48,8 @@ router.get('/count', async (req: Request, res: Response) => {
 
 // keyword for all areas
 // sample output: [{"area":"14500","value":1}]
-router.get('/keyword/:keyword/all', async (req: Request, res: Response) => {
-    const keyword = req.params.keyword;
+router.get('/keyword/all', async (req: Request, res: Response) => {
+    const keyword = req.query.keyword;
     const status = nano.db.use('statuses');
 
     const keyword_areas = await status.view('api-global', 'keyword', {
@@ -41,15 +66,15 @@ router.get('/keyword/:keyword/all', async (req: Request, res: Response) => {
 
 // keyword by area
 // sample output: [text1, text2]
-router.get('/keyword/:keyword/:area', async (req: Request, res: Response) => {
+router.get('/keyword/:area', async (req: Request, res: Response) => {
     const status = nano.db.use('statuses');
 
-    const keyword = req.params.keyword;
+    const keyword = req.query.keyword;
     const area = req.params.area;
 
     // selection of tweets with keyword (e.g. first 10)
     const tweets = await status.partitionedView(area, 'api', 'keyword', {
-        key: keyword
+        key: keyword,
     });
     return res.json(tweets.rows.map((r) => r.value));
 });
