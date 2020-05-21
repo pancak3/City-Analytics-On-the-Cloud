@@ -1,0 +1,15 @@
+version: '3'
+services:
+  worker:
+    image: registry.gitlab.com/comp90024/project-2:mapreduce
+    environment:
+      TZ: "Australia/Melbourne"
+    networks:
+        - couch_comp90024
+    restart: on-failure
+    volumes:
+      - ./couchdb.json:/app/couchdb.json
+
+networks:
+  couch_comp90024:
+    external: true

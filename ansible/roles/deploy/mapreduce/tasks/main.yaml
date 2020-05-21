@@ -1,0 +1,37 @@
+---
+- name: Create mapreduce directory
+  become: yes
+  file:
+    path: '{{ mapreduce.dir }}'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+    recurse: yes
+    state: directory
+
+- name: Upload mapreduce docker file
+  copy:
+    src: docker-compose.yml
+    dest: '{{ mapreduce.dir }}/docker-compose.yml'
+    owner: ubuntu
+    group: ubuntu
+    mode: 0644
+
+- name: Upload mapreduce couch config
+  template:
+    src: couchdb.json.j2
+    dest: '{{ mapreduce.dir }}/couchdb.json'
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+
+- name: Upload map func and reduce func files
+  copy:
+    src: '{{ playbook_dir }}/../mapreduce/couch'
+    dest: '{{ mapreduce.dir }}/couch'
+
+- name: Run mapreduce on first node
+  docker_compose:
+    project_src: '{{ mapreduce.dir }}'
+    build: yes
+    state: present
+    remove_orphans: yes
+  when: 'groups["COMP90024"][0] == inventory_hostname'

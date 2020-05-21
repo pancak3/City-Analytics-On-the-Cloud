@@ -36,3 +36,6 @@ harvest:
 
 watchtower:
   dir: /data/watchtower
+
+mapreduce:
+  dir: /data/mapreduce

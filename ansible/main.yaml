@@ -59,3 +59,5 @@
     - role: deploy/app
     # Setup harvesters
     - role: deploy/harvest
+    # Setup mapreduce
+    - role: deploy/mapreduce
