@@ -1,6 +1,6 @@
 $b: #bdd5ea;
 $back: lighten($b, 14%);
-$base: darken($b, 45%);
+$base: darken($b, 42%);
 $base-dark: darken($base, 10%);
 
 body {
@@ -214,4 +214,27 @@ main {
 #map {
     width: 100%;
     height: 100%;
+}
+
+#info {
+    width: 24vw;
+    background-color: transparent;
+    height: 100%;
+    position: absolute;
+    right: 0;
+    z-index: 400;
+
+    padding: 1vh 0;
+
+    div {
+        background-color: white;
+        padding: 1em;
+        margin: 1em 2em;
+    }
+}
+
+.leaflet-interactive {
+    &:hover {
+        fill-opacity: .7;
+    }
 }

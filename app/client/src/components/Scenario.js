@@ -23,7 +23,7 @@ const Scenario = (props) => {
         opacity: 1,
         color: 'white',
         dashArray: '3',
-        fillOpacity: 0.7,
+        fillOpacity: 0.5,
     };
 
     return (
@@ -46,7 +46,7 @@ const Scenario = (props) => {
                     steps={steps}
                     mode={props.mode || 'e'}
                     // onEachFeature={(feature, layer) =>
-                    //     layer.bindPopup(feature.properties.label)
+                    //     layer.bindPopup(feature.properties.feature_name)
                     // }
                     style={style}
                 />

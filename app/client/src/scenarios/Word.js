@@ -30,7 +30,13 @@ function Word(props) {
               })
             : null;
 
-    return <Scenario data={geojson} mode={'k'}></Scenario>;
+    return (
+        <Scenario data={geojson} mode={'k'}>
+            <div>
+                <h5>Keyword Search</h5>
+            </div>
+        </Scenario>
+    );
 }
 
 Word.propTypes = {
