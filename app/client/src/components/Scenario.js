@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Map, TileLayer } from 'react-leaflet';
 import Choropleth from 'react-leaflet-choropleth';
-import data from './MelbourneGeojson';
 import PropTypes from 'prop-types';
 import { victoria } from '../helper/latlong';
 
 const Scenario = (props) => {
     const [pos_zoom] = useState(props.position || victoria);
     const position = [pos_zoom.lat, pos_zoom.lng];
+    const scale = props.scale || ['#b3cde0', '#011f4b'];
+    const steps = props.steps || 7;
 
     return (
         <React.Fragment>
@@ -20,11 +21,11 @@ const Scenario = (props) => {
                 <Choropleth
                     data={{
                         type: 'FeatureCollection',
-                        features: data.features,
+                        features: props.data || [],
                     }}
-                    valueProperty={(feature) => 0}
-                    scale={['#b3cde0', '#011f4b']}
-                    steps={7}
+                    valueProperty={(feature) => feature.properties.value || 0}
+                    scale={scale}
+                    steps={steps}
                     mode="e"
                     onEachFeature={(feature, layer) =>
                         layer.bindPopup(feature.properties.label)
@@ -39,6 +40,9 @@ const Scenario = (props) => {
 Scenario.propTypes = {
     children: PropTypes.array,
     position: PropTypes.object.isRequired,
+    data: PropTypes.object,
+    scale: PropTypes.array,
+    steps: PropTypes.number,
 };
 
 export default Scenario;
