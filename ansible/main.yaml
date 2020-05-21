@@ -61,3 +61,4 @@
     - role: deploy/harvest
     # Setup mapreduce
     - role: deploy/mapreduce
+      run_once: yes
