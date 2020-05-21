@@ -37,6 +37,7 @@ const theme = createMuiTheme({
 
 function App() {
     const [geojson, setGeojson] = useState(null);
+    const [areaNameMapping, setANMapping] = useState(null);
     const [geoLoadRequired, setGeoLoadRequired] = useState(true);
 
     useEffect(() => {
@@ -45,6 +46,13 @@ function App() {
         setGeoLoadRequired(false);
         getGeoJSON().then((res) => {
             setGeojson(res);
+
+            const temp = {};
+            for (const feature of res) {
+                temp[feature.properties.feature_code] =
+                    feature.properties.feature_name;
+            }
+            setANMapping(temp);
         });
     }, [geoLoadRequired]);
 
@@ -58,10 +66,16 @@ function App() {
                             <Summary />
                         </Route>
                         <Route path="/scenario/word">
-                            <Word geojson={geojson} />
+                            <Word
+                                geojson={geojson}
+                                areaName={areaNameMapping}
+                            />
                         </Route>
                         <Route path="/scenario/exercise">
-                            <Exercise geojson={geojson} />
+                            <Exercise
+                                geojson={geojson}
+                                areaName={areaNameMapping}
+                            />
                         </Route>
                     </Switch>
                 </main>

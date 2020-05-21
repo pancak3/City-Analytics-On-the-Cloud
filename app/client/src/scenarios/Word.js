@@ -136,7 +136,7 @@ function Word(props) {
                                         {freq.slice(0, 5).map((area_code) => (
                                             <TableRow key={area_code}>
                                                 <TableCell>
-                                                    {area_code}
+                                                    {props.areaName[area_code]}
                                                 </TableCell>
                                                 <TableCell>
                                                     {data[area_code]}
@@ -158,6 +158,7 @@ function Word(props) {
 
 Word.propTypes = {
     geojson: PropTypes.array,
+    areaName: PropTypes.object,
 };
 
 export default Word;
