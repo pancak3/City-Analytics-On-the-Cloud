@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
 import { Map, TileLayer } from 'react-leaflet';
-import Choropleth from 'react-leaflet-choropleth';
+import Choropleth from '../react-leaflet-choropleth/choropleth';
 import PropTypes from 'prop-types';
 import { victoria } from '../helper/latlong';
 
 const Scenario = (props) => {
     const [pos_zoom] = useState(props.position || victoria);
     const position = [pos_zoom.lat, pos_zoom.lng];
-    const scale = props.scale || ['#b3cde0', '#011f4b'];
-    const steps = props.steps || 7;
+    const scale = props.scale || [
+            '#ffffed',
+            '#e0f2d2',
+            '#c0e5b6',
+            '#9dd7b9',
+            '#63978f',
+            '#285664',
+            '#001d31',
+        ] || ['#b3cde0', '#011f4b'];
+    const steps = props.steps || 6;
 
     const style = {
         weight: 2,
@@ -36,7 +44,7 @@ const Scenario = (props) => {
                     }}
                     scale={scale}
                     steps={steps}
-                    mode="e"
+                    mode={props.mode || 'e'}
                     // onEachFeature={(feature, layer) =>
                     //     layer.bindPopup(feature.properties.label)
                     // }
@@ -54,6 +62,7 @@ Scenario.propTypes = {
     data: PropTypes.array,
     scale: PropTypes.array,
     steps: PropTypes.number,
+    mode: PropTypes.string,
 };
 
 export default Scenario;

@@ -30,7 +30,7 @@ function Word(props) {
               })
             : null;
 
-    return <Scenario data={geojson} scale={['#dceaf5', '#011f4b']}></Scenario>;
+    return <Scenario data={geojson} mode={'k'}></Scenario>;
 }
 
 Word.propTypes = {

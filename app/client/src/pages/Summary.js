@@ -41,7 +41,7 @@ function Summary() {
     return (
         <React.Fragment>
             <div id="summary" className="container-fluid">
-                <h2>Summary</h2>
+                <h2 className="mt-2">Summary</h2>
                 <div className="row justify-content-start">
                     <div className="col-3">
                         <Card className="card-disp-num card-green">
@@ -77,9 +77,9 @@ function Summary() {
                         <div>
                             {info ? (
                                 <React.Fragment>
-                                    <h5 className="text-center mb-3">
+                                    <h4 className="text-center mb-3">
                                         Tweets per hour of day
-                                    </h5>
+                                    </h4>
                                     <ResponsiveContainer
                                         width="100%"
                                         aspect={4.0 / 3.0}
@@ -96,7 +96,7 @@ function Summary() {
                                                 type="monotone"
                                                 dataKey="value"
                                                 name="Number of tweets"
-                                                stroke="#66A"
+                                                stroke="#2F6493"
                                             />
                                         </LineChart>
                                     </ResponsiveContainer>
@@ -108,9 +108,9 @@ function Summary() {
                         <div>
                             {info ? (
                                 <React.Fragment>
-                                    <h5 className="text-center mb-3">
+                                    <h4 className="text-center mb-3">
                                         Tweets per day of week
-                                    </h5>
+                                    </h4>
                                     <ResponsiveContainer
                                         width="100%"
                                         aspect={4.0 / 3.0}
@@ -126,7 +126,7 @@ function Summary() {
                                             <Bar
                                                 dataKey="value"
                                                 name="Number of tweets"
-                                                fill="#66A"
+                                                fill="#2F6493"
                                             />
                                         </BarChart>
                                     </ResponsiveContainer>

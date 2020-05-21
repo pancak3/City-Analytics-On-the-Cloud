@@ -1,3 +1,8 @@
+$b: #bdd5ea;
+$back: lighten($b, 14%);
+$base: darken($b, 45%);
+$base-dark: darken($base, 10%);
+
 body {
     font-family: 'Fira Sans', sans-serif;
 }
@@ -10,6 +15,13 @@ html, body, div, ul, li {
 html, body, #root {
     width: 100%;
     min-height: 100vh;
+}
+
+a {
+    color: $base;
+    &:hover {
+        color: $base-dark;
+    }
 }
 
 .container-fluid div {
@@ -92,24 +104,20 @@ html, body, #root {
     }
 }
 .card-blue {
-    border: 2px solid #66A;
+    border: 2px solid #38a1f3;
     svg {
-        color: #66A;
+        color: #38a1f3;
     }
 }
 .card-green {
-    border: 2px solid #6cb9b5;
+    border: 2px solid lighten($base, 15%);
     svg {
-        color: #6cb9b5;
+        color: lighten($base, 15%);
     }
 }
 
 .row {
     margin-bottom: 2em;
-}
-
-a {
-    color: #66A;
 }
 
 #root {
@@ -122,7 +130,7 @@ footer {
 }
 
 aside {
-    padding: 3vh 2.5vw;
+    padding: 4vh 2.5vw;
 
     width: 400px;
     box-shadow: 1px 1px 2px 0px rgba(0,0,0,0.1);
@@ -144,12 +152,12 @@ aside {
 
             :hover {
                 background-color: #f3f3f8;
-                color: #55A;
+                color: $base-dark;
             }
 
             .selected {
                 background-color: #f3f3f8;
-                color: #55A;
+                color: $base;
             }
 
             a {
@@ -160,8 +168,11 @@ aside {
                 text-decoration: none;
                 width: 100%;
                 height: 100%;
-                color: #666;
                 transition-duration: .2s;
+
+                &:hover {
+                    text-decoration: none;
+                }
 
                 svg {
                     margin-right: 1em;
@@ -184,7 +195,7 @@ footer {
 
 main {
     width: 100%;
-    background-color: #f7f7ff;
+    background-color: $back;
     display: flex;
     flex-direction: column;
 
@@ -194,7 +205,7 @@ main {
 
     h2 {
         font-weight: 400;
-        font-size: 2.2em;
+        font-size: 2.4em;
         margin-top: .2em;
         margin-bottom: 1em;
     }
