@@ -19,7 +19,13 @@ const fetch_geojson = (): Promise<any> => {
                 // get documents
                 .map((r) => r.doc)
                 // remove areas 0, 1 (which has no geojson)
-                .filter((r: any) => r['_id'] !== '0' && r['_id'] !== '1');
+                .filter(
+                    (r: any) =>
+                        r['_id'] !== '0' &&
+                        r['_id'] !== '1' &&
+                        r['_id'] != 'australia' &&
+                        r['_id'] != 'out_of_australia'
+                );
             return resolve(_geojson);
         });
     });

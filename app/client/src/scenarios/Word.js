@@ -16,7 +16,6 @@ import {
     TableContainer,
     TableCell,
     TableRow,
-    Paper,
     Table,
 } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
@@ -50,7 +49,7 @@ function Word(props) {
 
     // Put values into geojson
     const geojson =
-        props.geojson && counts
+        props.geojson && data
             ? props.geojson.map((feature) => {
                   return {
                       ...feature,

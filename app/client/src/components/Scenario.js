@@ -57,7 +57,7 @@ const Scenario = (props) => {
 };
 
 Scenario.propTypes = {
-    children: PropTypes.object,
+    children: PropTypes.any,
     position: PropTypes.object,
     data: PropTypes.array,
     scale: PropTypes.array,
