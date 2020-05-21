@@ -1,5 +1,5 @@
 import React from 'react';
-import Scenario from './Scenario';
+import Scenario from '../components/Scenario';
 
 function Exercise() {
     return <Scenario></Scenario>;

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import Card from './Card';
+import Card from '../components/Card';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser } from '@fortawesome/free-solid-svg-icons';
 import { faTwitter } from '@fortawesome/free-brands-svg-icons';
-import LoadingBlock from './LoadingBlock';
-import { getStats, getGeneralInfo } from './api';
+import LoadingBlock from '../components/LoadingBlock';
+import { getStats, getGeneralInfo } from '../helper/api';
 import Moment from 'react-moment';
 import {
     BarChart,

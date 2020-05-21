@@ -4,17 +4,12 @@ import PropTypes from 'prop-types';
 // A loading block
 class LoadingBlock extends React.Component {
     render() {
-        return (
-            <div
-                className={'loading'}>
-                {this.props.children}
-            </div>
-        );
+        return <div className={'loading'}>{this.props.children}</div>;
     }
 }
 
 // Define props
 LoadingBlock.propTypes = {
-    children: PropTypes.any
+    children: PropTypes.any,
 };
 export default LoadingBlock;
