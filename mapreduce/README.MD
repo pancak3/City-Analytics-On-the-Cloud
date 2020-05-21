@@ -24,4 +24,3 @@ cat couchdb.json
 ## Documentations
 
 - [cloudant](https://python-cloudant.readthedocs.io/en/latest/)
-- [Twitter Dev](https://developer.twitter.com/en/docs)
