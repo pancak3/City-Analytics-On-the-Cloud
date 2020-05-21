@@ -5,6 +5,7 @@ import Summary from './pages/Summary';
 
 import './main.scss';
 import Exercise from './scenarios/Exercise';
+import Word from './scenarios/Word';
 import { getGeoJSON } from './helper/api';
 
 function App() {
@@ -27,6 +28,9 @@ function App() {
                 <Switch>
                     <Route exact path="/">
                         <Summary />
+                    </Route>
+                    <Route path="/scenario/word">
+                        <Word geojson={geojson} />
                     </Route>
                     <Route path="/scenario/exercise">
                         <Exercise geojson={geojson} />

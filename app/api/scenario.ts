@@ -25,13 +25,14 @@ const fetch_geojson = (): Promise<any> => {
     });
 };
 
+// get all geojson
 router.get('/geojson', async (req, res) => {
     return res.json(await fetch_geojson());
 });
 
 // count by area (no filter keyword)
-// sample output: [{"value":14,"area":"63010"}]
-router.get('/count', async (req: Request, res: Response) => {
+// sample output: {"area1": count}
+router.get('/counts', async (req: Request, res: Response) => {
     const status = nano.db.use('statuses');
 
     const tweet_count_area = await status.view('api-global', 'count-area', {
@@ -39,15 +40,15 @@ router.get('/count', async (req: Request, res: Response) => {
         reduce: true,
     });
 
-    return res.json(
-        tweet_count_area.rows.map((r) => {
-            return { value: r.value, area: r.key };
-        })
-    );
+    const ret: { [area: string]: any } = {};
+    for (const area of tweet_count_area.rows) {
+        ret[area.key] = area.value;
+    }
+    return res.json(ret);
 });
 
 // keyword for all areas
-// sample output: [{"area":"14500","value":1}]
+// sample output: {"area1": count}
 router.get('/keyword/all', async (req: Request, res: Response) => {
     const keyword = req.query.keyword;
     const status = nano.db.use('statuses');
@@ -58,10 +59,12 @@ router.get('/keyword/all', async (req: Request, res: Response) => {
         group: true,
         reduce: true,
     });
-    const processed = keyword_areas.rows.map((row) => {
-        return { area: row.key[1], value: row.value };
-    });
-    return res.json(processed);
+
+    const ret: { [area: string]: any } = {};
+    for (const row of keyword_areas.rows) {
+        ret[row.key[1]] = row.value;
+    }
+    return res.json(ret);
 });
 
 // keyword by area

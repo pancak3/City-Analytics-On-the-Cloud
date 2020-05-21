@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faList, faRunning } from '@fortawesome/free-solid-svg-icons';
+import { faList, faRunning, faBook } from '@fortawesome/free-solid-svg-icons';
 
 class Sidebar extends React.Component {
     render() {
@@ -16,17 +16,18 @@ class Sidebar extends React.Component {
                         </NavLink>
                     </li>
                     <li>
+                        <NavLink activeClassName="selected" to="/scenario/word">
+                            <FontAwesomeIcon icon={faBook} />
+                            Word Search
+                        </NavLink>
+                    </li>
+                    <li>
                         <NavLink
                             activeClassName="selected"
                             to="/scenario/exercise"
                         >
                             <FontAwesomeIcon icon={faRunning} />
                             Exercise
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink activeClassName="selected" to="/scenario/s2">
-                            Scenario 2
                         </NavLink>
                     </li>
                     <li>
