@@ -17,7 +17,7 @@ import {
     TableCell,
     TableRow,
     Paper,
-    Table
+    Table,
 } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 
@@ -63,7 +63,9 @@ function Word(props) {
             : null;
 
     // Get top 5 frequency
-    const freq = data ? Object.keys(data).sort((a, b) => data[b] - data[a]) : null;
+    const freq = data
+        ? Object.keys(data).sort((a, b) => data[b] - data[a])
+        : null;
 
     // Query for keyword
     function submit_keyword() {
@@ -118,28 +120,36 @@ function Word(props) {
                         <h5>Frequency</h5>
                     </ExpansionPanelSummary>
                     <ExpansionPanelDetails>
-                        { freq ? <TableContainer>
-                            <Table>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell component="th">SA2 Area</TableCell>
-                                        <TableCell component="th">Count</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    { freq.slice(0, 5).map((area_code) => (
-                                        <TableRow key={area_code}>
-                                            <TableCell>
-                                                {area_code}
+                        {freq ? (
+                            <TableContainer>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell component="th">
+                                                SA2 Area
                                             </TableCell>
-                                            <TableCell>
-                                                {data[area_code]}
+                                            <TableCell component="th">
+                                                Count
                                             </TableCell>
                                         </TableRow>
-                                    )) }
-                                </TableBody>
-                            </Table>
-                        </TableContainer> : <p>Loading...</p> }
+                                    </TableHead>
+                                    <TableBody>
+                                        {freq.slice(0, 5).map((area_code) => (
+                                            <TableRow key={area_code}>
+                                                <TableCell>
+                                                    {area_code}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {data[area_code]}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        ) : (
+                            <p>Loading...</p>
+                        )}
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
             </div>

@@ -18,8 +18,8 @@ const theme = createMuiTheme({
     overrides: {
         MuiTableCell: {
             head: {
-                fontWeight: 600
-            }
+                fontWeight: 600,
+            },
         },
         MuiExpansionPanelSummary: {
             root: {
