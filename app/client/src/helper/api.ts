@@ -36,7 +36,7 @@ export function getCounts() {
 
 // keywords page: get by keyword
 export function getKeyword(keyword: string) {
-    return getRequest(`/api/scenarios/keywords/all`, { params: { keyword } });
+    return getRequest(`/api/scenarios/keyword/all`, { params: { keyword } });
 }
 
 // keywords page: get by keyword and area (returns tweets)

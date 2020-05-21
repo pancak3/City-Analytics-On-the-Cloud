@@ -1,6 +1,6 @@
 $b: #bdd5ea;
 $back: lighten($b, 14%);
-$base: darken($b, 42%);
+$base: darken(#4476c0, 5%);
 $base-dark: darken($base, 10%);
 
 body {
@@ -222,14 +222,23 @@ main {
     height: 100%;
     position: absolute;
     right: 0;
-    z-index: 400;
 
     padding: 1vh 0;
+    pointer-events: none;
+    z-index: 400;
 
-    div {
-        background-color: white;
-        padding: 1em;
+    h5 {
+        margin: .2em 0;
+    }
+
+    >div {
+        pointer-events: all;
+        background-color: transparent;
         margin: 1em 2em;
+    }
+
+    button {
+        margin: 0 1em;
     }
 }
 

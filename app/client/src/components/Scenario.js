@@ -23,7 +23,7 @@ const Scenario = (props) => {
         opacity: 1,
         color: 'white',
         dashArray: '3',
-        fillOpacity: 0.5,
+        fillOpacity: 0.8,
     };
 
     return (
@@ -57,7 +57,7 @@ const Scenario = (props) => {
 };
 
 Scenario.propTypes = {
-    children: PropTypes.array,
+    children: PropTypes.object,
     position: PropTypes.object,
     data: PropTypes.array,
     scale: PropTypes.array,
