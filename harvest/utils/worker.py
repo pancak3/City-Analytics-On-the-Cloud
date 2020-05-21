@@ -77,7 +77,7 @@ class Worker:
         self.pid = None
         self.couch = CouchDB()
         self.client = self.couch.client
-        self.areas_collection = self.read_areas()
+        self.areas_collection = self.preprocess_areas()
 
         self.stream_res_queue = queue.Queue(maxsize=self.config.max_queue_size)
         self.msg_received = queue.Queue(maxsize=self.config.max_queue_size)
@@ -409,7 +409,7 @@ class Worker:
 
             del follower_ids_set
             del friend_ids_set
-            
+
         except Exception as e:
             self.active.set(True)
             self.running_friends.dec()
@@ -535,78 +535,158 @@ class Worker:
             sleep(self.config.network_err_reconnect_time)
             return self.save_user(user_json=user_json, err_count=err_count + 1)
 
-    def read_areas(self):
-        areas_collection = []
-        filenames = os.listdir(self.config.australia_lga2016_path)
+    @staticmethod
+    def read_areas(path):
+        areas_collection = {}
+        filenames = os.listdir(path)
         for filename in filenames:
-            abs_path = os.path.join(self.config.australia_lga2016_path, filename)
+            abs_path = os.path.join(path, filename)
             if os.path.isfile(abs_path):
                 with open(abs_path) as f:
                     areas_f = json.loads(f.read())
                     areas = areas_f['features']
                     f.close()
-                    areas_collection.append(areas)
-        # f = open("all.json", "w+")
-        # f.write(json.dumps(areas_collection))
-        # f.close()
-        # exit()
+                    state_name = filename[:filename.find('.')]
+                    areas_collection[state_name] = areas
         return areas_collection
 
+    @staticmethod
+    def calc_bbox_of_polygon(polygon):
+        import numpy as np
+        polygon_arr = np.asarray(polygon)
+
+        min_x = np.min(polygon_arr[:, 0], axis=0)
+        min_y = np.min(polygon_arr[:, 1], axis=0)
+        max_x = np.max(polygon_arr[:, 0], axis=0)
+        max_y = np.max(polygon_arr[:, 1], axis=0)
+        return [min_x, min_y, max_x, max_y]
+
+    @staticmethod
+    def calc_bbox_of_state(areas):
+        import numpy as np
+        bboxes = []
+        for area in areas:
+            for bbox in area['bboxes']:
+                bboxes.append(bbox)
+        bboxes = np.asarray(bboxes)
+
+        min_x = np.min(bboxes[:, 0], axis=0)
+        min_y = np.min(bboxes[:, 1], axis=0)
+        max_x = np.max(bboxes[:, 2], axis=0)
+        max_y = np.max(bboxes[:, 3], axis=0)
+
+        return [min_x, min_y, max_x, max_y]
+
+    def preprocess_areas(self):
+        new_sa2_2016 = self.read_areas(self.config.australia_lga2016_path)
+
+        states = [{"hit": 0, "state_name": None, "bbox": [], "areas": []} for _ in range(len(new_sa2_2016))]
+        # calc bbox for each area and store it in its state
+        count = 0
+        for key, areas in new_sa2_2016.items():
+            states[count]["state_name"] = key
+            area_id = 0
+            for area in areas:
+                if 'geometry' in area:
+                    states[count]["areas"].append({'hit': 0,
+                                                   "feature_code": area['properties']["feature_code"],
+                                                   'feature_name': area['properties']['feature_name'],
+                                                   'coordinates': area['geometry']['coordinates'],
+                                                   'bboxes': []})
+                    for i, polygons in enumerate(area['geometry']['coordinates']):
+                        for j, polygon in enumerate(polygons):
+                            states[count]["areas"][area_id]["bboxes"].append(
+                                self.calc_bbox_of_polygon(polygon))
+                    area_id += 1
+                # use the left value to record its hit times
+            count += 1
+
+        for key, v in enumerate(states):
+            states[key]["bbox"] = self.calc_bbox_of_state(v['areas'])
+
+        return states
+
+    def rank_areas(self, state_idx, area_idx):
+        # manipulate the rank of areas to allow iterator find the location faster
+        self.areas_collection[state_idx]['areas'][area_idx]['hit'] += 1
+        source_idx = area_idx
+        while area_idx and \
+                self.areas_collection[state_idx]['areas'][area_idx - 1]['hit'] < \
+                self.areas_collection[state_idx]['areas'][source_idx]['hit']:
+            area_idx -= 1
+        # switch
+        if source_idx != area_idx:
+            tmp = self.areas_collection[state_idx]['areas'][area_idx]
+            self.areas_collection[state_idx]['areas'][area_idx] = self.areas_collection[state_idx]['areas'][source_idx]
+            self.areas_collection[state_idx]['areas'][source_idx] = tmp
+
+        self.areas_collection[state_idx]['hit'] += 1
+        source_idx = state_idx
+        while state_idx and \
+                self.areas_collection[state_idx - 1]['hit'] < \
+                self.areas_collection[source_idx]['hit']:
+            state_idx -= 1
+        # switch
+        if source_idx != state_idx:
+            tmp = self.areas_collection[state_idx]
+            self.areas_collection[state_idx] = self.areas_collection[source_idx]
+            self.areas_collection[source_idx] = tmp
+
     def retrieve_statuses_areas(self, status):
-        status_json = status._json
-        partition_id = ':{}'.format(status.id_str)
-        # https://developer.twitter.com/en/docs/basics/twitter-ids
-        if 'id' in status_json:
-            del status_json['id']
-        status_json['_id'] = 'australia' + partition_id
-        status_json['lga2016_area_code'] = 'australia'
-        status_json['lga2016_area_name'] = 'In Australia But No Specific Location'
+        # https://stackoverflow.com/questions/217578
+        doc = status._json
         del status
-        if status_json['coordinates'] is not None and status_json['coordinates']['type'] == 'Point':
-            status_json['_id'] = 'out_of_australia' + partition_id
-            status_json['lga2016_area_code'] = 'out_of_australia'
-            status_json['lga2016_area_name'] = 'Out of Australia'
-            point_x, point_y = status_json['coordinates']['coordinates']
+        doc['_id'] = "australia:" + doc["id_str"]
+        doc['sa2_2016_lv12_code'] = 'australia'
+        doc['sa2_2016_lv12_name'] = 'In Australia BBox But No Specific Location'
+        if doc['coordinates'] is not None and doc['coordinates']['type'] == 'Point':
+            doc['_id'] = "out_of_australia:" + doc["id_str"]
+            doc['sa2_2016_lv12_code'] = 'out_of_australia'
+            doc['sa2_2016_lv12_name'] = 'Out of Australia'
+            point_x, point_y = doc['coordinates']['coordinates']
 
-            for areas in self.areas_collection:
-                for location in areas:
-                    geometry = location['geometry']
-                    if geometry['type'] == "MultiPolygon":
-                        is_inside = False
-                        for polygons in geometry["coordinates"]:
-                            for polygon in polygons:
-                                min_x, max_x = polygon[0][0], polygon[0][0]
-                                min_y, max_y = polygon[0][1], polygon[0][1]
-                                for x, y in polygon[1:]:
-                                    if x < min_x:
-                                        min_x = x
-                                    elif x > max_x:
-                                        max_x = x
-                                    if y < min_y:
-                                        min_y = y
-                                    elif y > max_y:
-                                        max_y = y
-                                if point_x < min_x or point_x > max_x \
-                                        or point_y < min_y or point_y > max_y:
-                                    continue
-                                j = len(polygon) - 1
-                                for i in range(len(polygon)):
-                                    if (polygon[i][1] > point_y) != (polygon[j][1] > point_y) \
-                                            and point_x < \
-                                            (polygon[j][0] - polygon[i][0]) * \
-                                            (point_y - polygon[i][1]) / \
-                                            (polygon[j][1] - polygon[i][1]) \
-                                            + polygon[i][0]:
-                                        is_inside = not is_inside
-                        if is_inside:
-                            status_json['lga2016_area_code'] = location["properties"]["feature_code"]
-                            status_json['lga2016_area_name'] = location["properties"]["feature_name"]
-                            status_json['_id'] = status_json['lga2016_area_code'] + partition_id
-                            return status_json
-            return status_json
+            for i in range(len(self.areas_collection)):
+                # state
+                if point_x < self.areas_collection[i]['bbox'][0] \
+                        or point_y < self.areas_collection[i]['bbox'][1] \
+                        or point_x > self.areas_collection[i]['bbox'][2] \
+                        or point_y > self.areas_collection[i]['bbox'][3]:
+                    continue
+                for j in range(len(self.areas_collection[i]['areas'])):
+                    # areas
+                    is_inside = False
+                    for k in range(len(self.areas_collection[i]['areas'][j]["coordinates"])):
+                        # polygons
+                        for m in range(len(self.areas_collection[i]['areas'][j]["coordinates"][k])):
+                            # coordinates of one polygon
+                            min_x, min_y, max_x, max_y = self.areas_collection[i]['areas'][j]["bboxes"][k]
+                            if point_x < min_x or point_y < min_y or point_x > max_x or point_y > max_y:
+                                continue
+                            l = - 1
+                            n = 0
+                            length = len(self.areas_collection[i]['areas'][j]["coordinates"][k][m])
+                            while n < length:
+                                if (self.areas_collection[i]['areas'][j]["coordinates"][k][m][n][1] > point_y) \
+                                        != (self.areas_collection[i]['areas'][j]["coordinates"][k][m][l][1] > point_y) \
+                                        and point_x < \
+                                        (self.areas_collection[i]['areas'][j]["coordinates"][k][m][l][0] -
+                                         self.areas_collection[i]['areas'][j]["coordinates"][k][m][n][0]) * \
+                                        (point_y - self.areas_collection[i]['areas'][j]["coordinates"][k][m][n][1]) / \
+                                        (self.areas_collection[i]['areas'][j]["coordinates"][k][m][l][1] -
+                                         self.areas_collection[i]['areas'][j]["coordinates"][k][m][n][1]) \
+                                        + self.areas_collection[i]['areas'][j]["coordinates"][k][m][n][0]:
+                                    is_inside = not is_inside
+                                n += 1
+                                l += 1
+                    if is_inside:
+                        doc['sa2_2016_lv12_code'] = self.areas_collection[i]['areas'][j]['feature_code']
+                        doc['sa2_2016_lv12_name'] = self.areas_collection[i]['areas'][j]['feature_name']
+                        doc['sa2_2016_lv12_state'] = self.areas_collection[i]['state_name']
+                        doc['_id'] = doc['sa2_2016_lv12_code'] + doc['_id'][doc['_id'].find(':'):]
+                        self.rank_areas(i, j)
+                        return doc
 
-        else:
-            return status_json
+        return doc
 
     def save_status(self, status, is_stream_code, err_count=0):
         if err_count > self.config.max_network_err:
@@ -622,7 +702,7 @@ class Worker:
         try:
             status_json = self.retrieve_statuses_areas(status)
             if self.config.ignore_statuses_out_of_australia:
-                if status_json['lga2016_area_code'] in {'australia'} and is_stream_code != 1:
+                if status_json['sa2_2016_lv12_code'] in {'australia', 'out_of_australia'} and is_stream_code != 1:
                     return False
             if status_json['_id'] not in self.client['statuses']:
                 if is_stream_code == 0:
@@ -637,7 +717,7 @@ class Worker:
                     return False
                 status_json['inserted_time'] = int(time())
                 if self.config.ignore_statuses_out_of_australia:
-                    if status_json['lga2016_area_code'] not in {'0', '1'}:
+                    if status_json['sa2_2016_lv12_code'] not in {'0', '1'}:
                         self.client['statuses'].create_document(status_json)
                 else:
                     self.client['statuses'].create_document(status_json)

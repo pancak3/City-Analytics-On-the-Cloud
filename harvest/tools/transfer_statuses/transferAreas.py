@@ -1,97 +1,195 @@
 import json
+import os
+from tqdm import tqdm
 from database import CouchDB
 
 
-def retrieve_statuses_areas(doc_json, areas_collection):
+def rank_areas(areas_in_states, state_idx, area_idx):
+    areas_in_states[0][state_idx]['areas'][area_idx]['hit'] += 1
+    source_idx = area_idx
+    while area_idx and \
+            areas_in_states[0][state_idx]['areas'][area_idx - 1]['hit'] < \
+            areas_in_states[0][state_idx]['areas'][source_idx]['hit']:
+        area_idx -= 1
+    # switch
+    if source_idx != area_idx:
+        tmp = areas_in_states[0][state_idx]['areas'][area_idx]
+        areas_in_states[0][state_idx]['areas'][area_idx] = areas_in_states[0][state_idx]['areas'][source_idx]
+        areas_in_states[0][state_idx]['areas'][source_idx] = tmp
+
+    areas_in_states[0][state_idx]['hit'] += 1
+    source_idx = state_idx
+    while state_idx and \
+            areas_in_states[0][state_idx - 1]['hit'] < \
+            areas_in_states[0][source_idx]['hit']:
+        state_idx -= 1
+    # switch
+    if source_idx != state_idx:
+        tmp = areas_in_states[0][state_idx]
+        areas_in_states[0][state_idx] = areas_in_states[0][source_idx]
+        areas_in_states[0][source_idx] = tmp
+
+
+def retrieve_statuses_areas(doc_json, areas_in_states):
     doc = json.loads(doc_json)
-    if "area_code" not in doc:
-        return False, None
     del doc_json
     del doc["_rev"]
 
-    doc['abs2011_area_code'] = doc['area_code']
-    doc['abs2011_area_name'] = doc['area_name']
+    if 'lga2016_area_code' in doc:
+        del doc['lga2016_area_code']
 
-    del doc['area_code']
-    del doc['area_name']
-    doc['lga2016_area_code'] = 'australia'
-    doc['lga2016_area_name'] = 'Australia'
-    if doc['coordinates'] is not None and doc['coordinates']['type'] == 'Point':
+    if 'lga2016_area_name' in doc:
+        del doc['lga2016_area_name']
 
-        doc['lga2016_area_code'] = 'out_of_australia'
-        doc['lga2016_area_name'] = 'Out of Australia'
+    if 'abs2016_area_code' in doc:
+        del doc['abs2016_area_code']
+
+    if 'abs2016_area_name' in doc:
+        del doc['abs2016_area_name']
+
+    doc['sa2_2016_lv12_code'] = 'australia'
+    doc['sa2_2016_lv12_name'] = 'Australia'
+    if 'coordinates' in doc and doc['coordinates'] is not None and doc['coordinates']['type'] == 'Point':
+
+        doc['sa2_2016_lv12_code'] = 'out_of_australia'
+        doc['sa2_2016_lv12_name'] = 'Out of Australia'
         point_x, point_y = doc['coordinates']['coordinates']
 
-        for areas in areas_collection:
-            for location in areas:
-                geometry = location['geometry']
-                if geometry['type'] == "MultiPolygon":
-                    is_inside = False
-                    for polygons in geometry["coordinates"]:
-                        for polygon in polygons:
-                            min_x, max_x = polygon[0][0], polygon[0][0]
-                            min_y, max_y = polygon[0][1], polygon[0][1]
-                            for x, y in polygon[1:]:
-                                if x < min_x:
-                                    min_x = x
-                                elif x > max_x:
-                                    max_x = x
-                                if y < min_y:
-                                    min_y = y
-                                elif y > max_y:
-                                    max_y = y
-                            if point_x < min_x or point_x > max_x \
-                                    or point_y < min_y or point_y > max_y:
-                                continue
-                            j = len(polygon) - 1
-                            for i in range(len(polygon)):
-                                if (polygon[i][1] > point_y) != (polygon[j][1] > point_y) \
-                                        and point_x < \
-                                        (polygon[j][0] - polygon[i][0]) * \
-                                        (point_y - polygon[i][1]) / \
-                                        (polygon[j][1] - polygon[i][1]) \
-                                        + polygon[i][0]:
-                                    is_inside = not is_inside
-                    if is_inside:
-                        doc['lga2016_area_code'] = location["properties"]["feature_code"]
-                        doc['lga2016_area_name'] = location["properties"]["feature_name"]
-                        doc['_id'] = doc['lga2016_area_code'] + doc['_id'][doc['_id'].find(':'):]
-                        return True, doc
-        return False, doc
+        for i in range(len(areas_in_states[0])):
+            # state
+            if point_x < areas_in_states[0][i]['bbox'][0] or point_y < areas_in_states[0][i]['bbox'][1] \
+                    or point_x > areas_in_states[0][i]['bbox'][2] or point_y > areas_in_states[0][i]['bbox'][3]:
+                continue
+            for j in range(len(areas_in_states[0][i]['areas'])):
+                # areas
+                is_inside = False
+                for k in range(len(areas_in_states[0][i]['areas'][j]["coordinates"])):
+                    # polygons
+                    for m in range(len(areas_in_states[0][i]['areas'][j]["coordinates"][k])):
+                        # coordinates of one polygon
+                        min_x, min_y, max_x, max_y = areas_in_states[0][i]['areas'][j]["bboxes"][k]
+                        if point_x < min_x or point_y < min_y or point_x > max_x or point_y > max_y:
+                            continue
+                        l = - 1
+                        n = 0
+                        length = len(areas_in_states[0][i]['areas'][j]["coordinates"][k][m])
+                        while n < length:
+                            if (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][n][1] > point_y) \
+                                    != (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][l][1] > point_y) \
+                                    and point_x < \
+                                    (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][l][0] -
+                                     areas_in_states[0][i]['areas'][j]["coordinates"][k][m][n][0]) * \
+                                    (point_y - areas_in_states[0][i]['areas'][j]["coordinates"][k][m][n][1]) / \
+                                    (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][l][1] -
+                                     areas_in_states[0][i]['areas'][j]["coordinates"][k][m][n][1]) \
+                                    + areas_in_states[0][i]['areas'][j]["coordinates"][k][m][n][0]:
+                                is_inside = not is_inside
+                            n += 1
+                            l += 1
 
-    else:
-        return False, doc
+                if is_inside:
+                    doc['sa2_2016_lv12_code'] = areas_in_states[0][i]['areas'][j]['feature_code']
+                    doc['sa2_2016_lv12_name'] = areas_in_states[0][i]['areas'][j]['feature_name']
+                    doc['sa2_2016_lv12_state'] = areas_in_states[0][i]['state_name']
+                    doc['_id'] = doc['sa2_2016_lv12_code'] + doc['_id'][doc['_id'].find(':'):]
+                    rank_areas(areas_in_states, i, j)
+                    return doc
+
+    return doc
 
 
-def transfer_abs2011_to_lga2016():
-    # f = open("data/VictoriaSuburb(ABS-2011)Geojson.json")
-    # abs2011_file_json = json.loads(f.read())
-    # f.close()
-    # abs2011 = abs2011_file_json["features"]
-
-    f = open("all.json")
-    lga2016_file_json = json.loads(f.read())
-    f.close()
-    lga2016 = lga2016_file_json
-
+def transfer_abs2011_to_lga2016(areas_in_states):
     couch = CouchDB()
-    transfer_statues = couch.client["transfer-statues"]
+    transfer_statues = couch.client["transfer-statuses"]
     statuses = couch.client["statuses"]
-    for doc in statuses:
-        if doc['_id'][0] != '_':
-            doc.delete()
-    for doc in transfer_statues:
-        flag, new_doc = retrieve_statuses_areas(json.dumps(doc), lga2016)
-        if flag and new_doc['lga2016_area_code'] not in {"no_where", "australia"}:
+    # try:
+    #     for doc in tqdm(statuses, total=statuses.doc_count(), desc="Deleting old data in statuses"):
+    #         if doc['_id'][0] != '_':
+    #             doc.delete()
+    # except Exception:
+    #     pass
+    for doc in tqdm(transfer_statues, total=transfer_statues.doc_count(), desc="Updating"):
+        new_doc = retrieve_statuses_areas(json.dumps(doc), areas_in_states)
+        if new_doc['sa2_2016_lv12_code'] not in {'australia', 'out_of_australia'}:
             if new_doc['_id'] not in statuses:
                 statuses.create_document(new_doc)
             else:
                 statuses[new_doc['_id']].delete()
                 statuses.create_document(new_doc)
-            print("[*] transferred {}".format(new_doc["_id"]))
-    return
+
+
+def calc_bbox_of_polygon(polygon):
+    import numpy as np
+    polygon_arr = np.asarray(polygon)
+
+    min_x = np.min(polygon_arr[:, 0], axis=0)
+    min_y = np.min(polygon_arr[:, 1], axis=0)
+    max_x = np.max(polygon_arr[:, 0], axis=0)
+    max_y = np.max(polygon_arr[:, 1], axis=0)
+    return [min_x, min_y, max_x, max_y]
+
+
+def calc_bbox_of_state(areas):
+    import numpy as np
+    bboxes = []
+    for area in areas:
+        for bbox in area['bboxes']:
+            bboxes.append(bbox)
+    bboxes = np.asarray(bboxes)
+
+    min_x = np.min(bboxes[:, 0], axis=0)
+    min_y = np.min(bboxes[:, 1], axis=0)
+    max_x = np.max(bboxes[:, 2], axis=0)
+    max_y = np.max(bboxes[:, 3], axis=0)
+
+    return [min_x, min_y, max_x, max_y]
+
+
+def read_areas(path):
+    areas_collection = {}
+    filenames = os.listdir(path)
+    for filename in filenames:
+        abs_path = os.path.join(path, filename)
+        if os.path.isfile(abs_path):
+            with open(abs_path) as f:
+                areas_f = json.loads(f.read())
+                areas = areas_f['features']
+                f.close()
+                state_name = filename[:filename.find('.')]
+                areas_collection[state_name] = areas
+    return areas_collection
+
+
+def preprocess():
+    new_sa2_2016 = read_areas("data")
+
+    states = [{"hit": 0, "state_name": None, "bbox": [], "areas": []} for _ in range(len(new_sa2_2016))]
+    # calc bbox for each area and store it in its state
+    count = 0
+    for key, areas in new_sa2_2016.items():
+        states[count]["state_name"] = key
+        area_id = 0
+        for area in areas:
+            if 'geometry' in area:
+                states[count]["areas"].append({'hit': 0,
+                                               "feature_code": area['properties']["feature_code"],
+                                               'feature_name': area['properties']['feature_name'],
+                                               'coordinates': area['geometry']['coordinates'],
+                                               'bboxes': []})
+                for i, polygons in enumerate(area['geometry']['coordinates']):
+                    for j, polygon in enumerate(polygons):
+                        states[count]["areas"][area_id]["bboxes"].append(
+                            calc_bbox_of_polygon(polygon))
+                area_id += 1
+            # use the left value to record its hit times
+        count += 1
+
+    for key, v in enumerate(states):
+        states[key]["bbox"] = calc_bbox_of_state(v['areas'])
+
+    return states
 
 
 if __name__ == '__main__':
-    transfer_abs2011_to_lga2016()
-    pass
+    areas_in_states = [preprocess()]
+    transfer_abs2011_to_lga2016(areas_in_states)

@@ -1,6 +1,8 @@
 import os
 import json
 import logging
+import traceback
+import sys
 from time import asctime, localtime, time
 from tqdm import tqdm
 from utils.database import CouchDB
@@ -45,21 +47,89 @@ def read_view_from_file(path):
     return View(map_func, reduce_func)
 
 
+def calc_bbox_of_polygon(polygon):
+    import numpy as np
+    polygon_arr = np.asarray(polygon)
+
+    min_x = np.min(polygon_arr[:, 0], axis=0)
+    min_y = np.min(polygon_arr[:, 1], axis=0)
+    max_x = np.max(polygon_arr[:, 0], axis=0)
+    max_y = np.max(polygon_arr[:, 1], axis=0)
+    return [min_x, min_y, max_x, max_y]
+
+
+def calc_bbox_of_state(areas):
+    import numpy as np
+    bboxes = []
+    for area in areas:
+        for bbox in area['bboxes']:
+            bboxes.append(bbox)
+    bboxes = np.asarray(bboxes)
+
+    min_x = np.min(bboxes[:, 0], axis=0)
+    min_y = np.min(bboxes[:, 1], axis=0)
+    max_x = np.max(bboxes[:, 2], axis=0)
+    max_y = np.max(bboxes[:, 3], axis=0)
+
+    return [min_x, min_y, max_x, max_y]
+
+
+def read_areas(path):
+    areas_collection = {}
+    filenames = os.listdir(path)
+    for filename in filenames:
+        abs_path = os.path.join(path, filename)
+        if os.path.isfile(abs_path):
+            with open(abs_path) as f:
+                areas_f = json.loads(f.read())
+                areas = areas_f['features']
+                f.close()
+                state_name = filename[:filename.find('.')]
+                areas_collection[state_name] = areas
+    return areas_collection
+
+
+def preprocess(data_path):
+    new_sa2_2016 = read_areas(data_path)
+
+    states = [{"hit": 0, "state_name": None, "bbox": [], "areas": []} for _ in range(len(new_sa2_2016))]
+    # calc bbox for each area and store it in its state
+    count = 0
+    for key, areas in new_sa2_2016.items():
+        states[count]["state_name"] = key
+        area_id = 0
+        for area in areas:
+            if 'geometry' in area:
+                states[count]["areas"].append({'hit': 0,
+                                               "feature_code": area['properties']["feature_code"],
+                                               'feature_name': area['properties']['feature_name'],
+                                               'coordinates': area['geometry']['coordinates'],
+                                               'bboxes': []})
+                for i, polygons in enumerate(area['geometry']['coordinates']):
+                    for j, polygon in enumerate(polygons):
+                        states[count]["areas"][area_id]["bboxes"].append(
+                            calc_bbox_of_polygon(polygon))
+                area_id += 1
+            # use the left value to record its hit times
+        count += 1
+
+    for key, v in enumerate(states):
+        states[key]["bbox"] = calc_bbox_of_state(v['areas'])
+
+    return states
+
+
 def update_areas():
     areas_json = []
     if "areas" in couch.client.all_dbs():
         couch.client["areas"].delete()
     if "areas" not in couch.client.all_dbs():
-        filenames = os.listdir("data/LocalGovernmentAreas-2016")
-        for filename in filenames:
-            abs_path = os.path.join("data/LocalGovernmentAreas-2016", filename)
-            if os.path.isfile(abs_path):
-                with open(abs_path) as f:
-                    areas = json.loads(f.read())['features']
-                    for i in range(len(areas)):
-                        areas[i]['properties']['states'] = filename[:filename.find('.')]
-                    f.close()
-                    areas_json += areas
+        states = preprocess("data/LocalGovernmentAreas-2016")
+        for state in states:
+            for area in state['areas']:
+                del area['hit']
+                area['state_name'] = state['state_name']
+                areas_json.append(area)
 
         couch.client.create_database("areas", partitioned=False)
         no_where = {"_id": "australia",
@@ -73,9 +143,7 @@ def update_areas():
         couch.client["areas"].create_document(no_where)
         couch.client["areas"].create_document(out_of_vitoria)
         for area in tqdm(areas_json, unit=' areas'):
-            area["_id"] = area['properties']['feature_code']
-            area["lga2016_area_code"] = area['properties']['feature_code']
-            area["lga2016_area_name"] = area['properties']['feature_name']
+            area["_id"] = area['feature_code']
             couch.client["areas"].create_document(area)
     logger.info("Wrote {} areas in to couchdb".format(len(areas_json)))
 
@@ -133,18 +201,24 @@ def check_a_single_view(combined_db_name, combined_ddoc_name, view_name):
     design_doc = couch.client[db_name]['_design/' + ddoc_name]
 
     # backup
-    map_func = "const map = " + design_doc.views[view_name]['map']
-    if design_doc.views[view_name]['reduce'][0] == '_':
-        reduce_func = "const reduce = " + design_doc.views[view_name]['reduce'] + ';\n'
-    else:
-        reduce_func = "const reduce = " + design_doc.views[view_name]['reduce']
-    save_js(os.path.join("views_backup",
-                         date_time, combined_db_name, combined_ddoc_name, view_name, 'map.js'), map_func)
-    save_js(os.path.join("views_backup",
-                         date_time, combined_db_name, combined_ddoc_name, view_name, 'reduce.js'), reduce_func)
+
+    if view_name in design_doc.views and 'reduce' in design_doc.views[view_name]:
+        map_func = "const map = " + design_doc.views[view_name]['map']
+
+        if design_doc.views[view_name]['reduce'][0] == '_':
+            reduce_func = "const reduce = " + design_doc.views[view_name]['reduce'] + ';\n'
+        else:
+            reduce_func = "const reduce = " + design_doc.views[view_name]['reduce']
+        save_js(os.path.join("views_backup",
+                             date_time, combined_db_name, combined_ddoc_name, view_name, 'reduce.js'), reduce_func)
+
+        save_js(os.path.join("views_backup",
+                             date_time, combined_db_name, combined_ddoc_name, view_name, 'map.js'), map_func)
+
     if view_name in design_doc.views:
         if design_doc.views[view_name]['map'] != local_view.map \
-                or design_doc.views[view_name]['reduce'] != local_view.reduce:
+                or ('reduce' in design_doc.views[view_name]
+                    and design_doc.views[view_name]['reduce'] != local_view.reduce):
             design_doc.delete_view(view_name)
             design_doc.save()
             update_view(db_name, ddoc_name, view_name, local_view, partitioned)
@@ -161,9 +235,10 @@ def check_all_dbs():
 
 if __name__ == '__main__':
     try:
-        os.mkdir('views_backup')
+        if not os.path.exists('views_backup'):
+            os.mkdir('views_backup')
         os.mkdir(backup_path)
         update_areas()
         check_all_dbs()
-    except Exception as e:
-        logger.error(e)
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
