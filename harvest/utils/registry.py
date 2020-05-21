@@ -301,7 +301,9 @@ class Registry:
         worker_data = self.worker_data[worker_id]
         self.lock_worker.release()
 
-        threading.Thread(target=self.sender, args=(worker_data,)).start()
+        sender_thread = threading.Thread(target=self.sender, args=(worker_data,))
+        worker_data.threads.put(sender_thread)
+        sender_thread.start()
 
     def handle_action_ask_for_task(self, worker_data, recv_json):
         self.logger.debug("Got ask for task from Worker-{}: {}".format(recv_json['worker_id'], recv_json))
@@ -406,6 +408,7 @@ class Registry:
             worker_data.receiver_conn.close()
 
     def remove_worker(self, worker_data, e):
+        self.terminate_worker_threads(worker_data)
         self.remove_worker_data(worker_data)
         self.remove_msg_queue(worker_data)
         remaining = self.deactivate_worker(worker_data)
@@ -414,6 +417,12 @@ class Registry:
         self.remove_worker_info_from_db(worker_data)
         self.logger.warning("[-] Worker-{} exit: "
                             "{}(remaining active workers:{})".format(worker_data.worker_id, e, remaining))
+
+    @staticmethod
+    def terminate_worker_threads(worker_data):
+        while not worker_data.threads.empty():
+            t = worker_data.threads.get()
+            t.terminate()
 
     def remove_worker_info_from_db(self, worker_data):
         try:
@@ -439,9 +448,7 @@ class Registry:
                                 self.handle_action_init_sender(recv_json, conn, addr)
                             elif recv_json['role'] == 'receiver':
                                 self.handle_action_init_receiver(recv_json, conn, addr)
-                                # exit this thread
-                                exit(0)
-                    data = data[first_pos:]
+                    exit(0)
             except json.JSONDecodeError:
                 traceback.format_exc()
                 break
@@ -452,6 +459,9 @@ class Registry:
                 self.logger.warning(e)
                 traceback.format_exc()
                 break
+            if len(data) > 10240:
+                data = ''
+
             if int(time()) - access_time > 60:
                 break
             else:

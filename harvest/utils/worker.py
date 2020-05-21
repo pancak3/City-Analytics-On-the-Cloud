@@ -6,7 +6,6 @@ import queue
 import traceback
 import os
 
-from os import getpid
 from math import ceil
 from time import sleep, time
 from collections import defaultdict
@@ -142,17 +141,6 @@ class Worker:
         except Exception as e:
             self.exit("[!] Cannot connect to {}:{} using token {}. Exit: {}".format(reg_ip, reg_port, token, e))
 
-    def save_pid(self):
-        # Record PID for daemon
-        self.pid = getpid()
-        try:
-            f = open('worker-{}.pid'.format(self.worker_id), 'w+')
-            f.write(str(self.pid))
-            f.close()
-            logger.info('[{}] Starting with PID: {}'.format(self.worker_id, self.pid))
-        except Exception:
-            logger.error('[!] Exit! \n{}'.format(traceback.format_exc()))
-
     def msg_receiver(self):
         data = ''
         while True:
@@ -178,6 +166,8 @@ class Worker:
             except Exception:
                 self.exit("[*] Registry-{}:{} disconnected.".format(self.reg_ip, self.reg_port))
             logger.debug("[{}] sent: {}".format(self.worker_id, msg))
+
+            del msg
 
     def keep_alive(self):
         msg_json_str = json.dumps({'token': self.token, 'action': 'ping', 'worker_id': self.worker_id})
@@ -222,6 +212,7 @@ class Worker:
                 logger.error("[{}] received invalid json; KeyError: {}\n{}".format(self.worker_id, e, msg))
             except Exception as e:
                 logger.warning(e)
+            del msg
 
     def handle_tasks(self, msg_json):
         logger.debug("[{}] got task: {}".format(self.worker_id, msg_json))
@@ -415,6 +406,10 @@ class Worker:
             self.active.set(True)
             self.running_friends.dec()
             self.crawler.update_rate_limit_status()
+
+            del follower_ids_set
+            del friend_ids_set
+            
         except Exception as e:
             self.active.set(True)
             self.running_friends.dec()
@@ -442,8 +437,13 @@ class Worker:
                            'action': 'ask_for_task'}
                     self.msg_to_send.put(json.dumps(msg))
                     timeline_remaining -= 1
+                    del msg
 
                 timeline_last_time_sent = int(time())
+
+                del rate_limit
+                del timeline_remaining
+
             if int(time()) - friends_last_time_sent > 5 \
                     and self.running_friends.get_count() < self.config.max_running_friends:
                 rate_limit = self.refresh_local_rate_limit()
@@ -461,6 +461,12 @@ class Worker:
                            'action': 'ask_for_task'}
                     self.msg_to_send.put(json.dumps(msg))
                     friends_last_time_sent = int(time())
+                    del msg
+                del rate_limit
+                del running_num
+                del friends_remaining
+                del followers_remaining
+
             sleep(5)
 
     def task_handler(self):
@@ -471,11 +477,13 @@ class Worker:
                     threading.Thread(target=self.timeline, args=(user_id,)).start()
                 elif task.type == 'friends':
                     threading.Thread(target=self.friends, args=(user_id,)).start()
+            del task
 
     def stream_status_handler(self):
         while True:
             status = self.stream_res_queue.get()
             self.statuses_queue.put((status, 1))
+            del status
 
     def save_user(self, user_json, err_count=0):
         if err_count > self.config.max_network_err:
@@ -667,6 +675,7 @@ class Worker:
                 count += 1
                 if count % self.config.print_log_when_saved == 0:
                     logger.info("Saved {} new users in total".format(count))
+            del user_json
 
     def statuses_recorder(self):
         count = 0
@@ -676,6 +685,8 @@ class Worker:
                 count += 1
                 if count % self.config.print_log_when_saved == 0:
                     logger.info("Saved {} new statuses in total".format(count))
+            del status
+            del is_stream_code
 
     def run(self):
         self.check_db()
