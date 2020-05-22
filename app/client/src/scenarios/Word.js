@@ -108,8 +108,8 @@ function Word(props) {
                             <Typography>
                                 Search by keyword (SA2 areas)
                             </Typography>
-                            <Grid>
-                                <Box mt={1}>
+                            <Box mt={1}>
+                                <Grid className="d-flex">
                                     <Input
                                         margin="none"
                                         placeholder="Keyword"
@@ -126,8 +126,8 @@ function Word(props) {
                                     >
                                         Search
                                     </Button>
-                                </Box>
-                            </Grid>
+                                </Grid>
+                            </Box>
                         </Grid>
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
