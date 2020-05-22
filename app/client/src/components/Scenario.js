@@ -20,7 +20,7 @@ const Scenario = (props) => {
     const steps = props.steps || 5;
 
     const style = {
-        weight: 2,
+        weight: 1,
         opacity: 1,
         color: '#444',
         dashArray: '3',
