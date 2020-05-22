@@ -96,7 +96,7 @@ function Summary() {
                                                 type="monotone"
                                                 dataKey="value"
                                                 name="Number of tweets"
-                                                stroke="#2F6493"
+                                                stroke="#38567b"
                                             />
                                         </LineChart>
                                     </ResponsiveContainer>
@@ -126,7 +126,7 @@ function Summary() {
                                             <Bar
                                                 dataKey="value"
                                                 name="Number of tweets"
-                                                fill="#2F6493"
+                                                fill="#38567b"
                                             />
                                         </BarChart>
                                     </ResponsiveContainer>
