@@ -9,15 +9,15 @@ const Scenario = (props) => {
     const position = [pos_zoom.lat, pos_zoom.lng];
     // adapted from https://blog.datawrapper.de
     const scale = props.scale || [
-            '#83d06c',
-            '#64c264',
-            '#50ba76',
-            '#42aa98',
-            '#338398',
-            '#246285',
-            '#225a82',
-        ] || ['#b3cde0', '#011f4b'];
-    const steps = props.steps || 6;
+        '#f3e9cd',
+        '#d2e3c8',
+        '#90d2a2',
+        '#69c595',
+        '#82c4af',
+        '#6b9ba9',
+        '#00326e',
+    ];
+    const steps = props.steps || 5;
 
     const style = {
         weight: 2,
