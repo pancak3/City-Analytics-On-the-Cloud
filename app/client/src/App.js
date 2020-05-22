@@ -47,6 +47,7 @@ function App() {
         getGeoJSON().then((res) => {
             setGeojson(res);
 
+            // Area to code to name mapping
             const temp = {};
             for (const feature of res) {
                 temp[feature.properties.feature_code] =

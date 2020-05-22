@@ -66,7 +66,7 @@ export default class Choropleth extends Component {
   render(){
     const features = Array.isArray(this.props.data) ? this.props.data : this.props.data.features
     const chroms = this.getColors()
-    const { layerContainer, identity, ...options } = this.props //remove 
+    const { layerContainer, identity, featureClick, ...options } = this.props //remove
     return (
       <FeatureGroup map={this.props.map} layerContainer={layerContainer} ref={ (layer) => layer ? this.leafletElement = layer.leafletElement : null } >
         {features.map( (feature, idx) =>
@@ -75,6 +75,7 @@ export default class Choropleth extends Component {
             {...options}
             style={this.getStyle(chroms, feature)}
             {...this.getStyle(chroms, feature)}
+            onClick={(e) => {  if (featureClick) { featureClick(feature); } }}
             data={feature}
             children={this.props.children ? this.cloneChildrenWithFeature(this.props, feature) : this.props.children}
           />)
