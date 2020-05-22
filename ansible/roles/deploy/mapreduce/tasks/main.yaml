@@ -28,4 +28,5 @@
     project_src: '{{ mapreduce.dir }}'
     build: yes
     state: present
+    pull: yes
     remove_orphans: yes

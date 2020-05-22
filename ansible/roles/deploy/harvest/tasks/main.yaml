@@ -45,6 +45,7 @@
     files: ['docker-compose-master.yml', 'docker-compose.yml']
     project_src: '{{ harvest.dir }}'
     build: yes
+    pull: yes
     state: present
     remove_orphans: yes
     recreate: smart
