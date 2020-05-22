@@ -7,21 +7,22 @@ import { victoria } from '../helper/latlong';
 const Scenario = (props) => {
     const [pos_zoom] = useState(props.position || victoria);
     const position = [pos_zoom.lat, pos_zoom.lng];
+    // adapted from https://blog.datawrapper.de
     const scale = props.scale || [
-            '#ffffed',
-            '#e0f2d2',
-            '#c0e5b6',
-            '#9dd7b9',
-            '#63978f',
-            '#285664',
-            '#001d31',
+            '#83d06c',
+            '#64c264',
+            '#50ba76',
+            '#42aa98',
+            '#338398',
+            '#246285',
+            '#225a82',
         ] || ['#b3cde0', '#011f4b'];
     const steps = props.steps || 6;
 
     const style = {
         weight: 2,
         opacity: 1,
-        color: 'white',
+        color: '#444',
         dashArray: '3',
         fillOpacity: 0.8,
     };
