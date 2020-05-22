@@ -7,7 +7,7 @@ def clean_tweet(tweet):
     # remove urls and other non english characters
     return ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t]) |(\w+:\/\/\S+)", " ", tweet).split()) 
 
-def generate_sentiment(twitter_data):
+def generate_sentiment(twitter_data):    
     tweet_text = clean_tweet(twitter_data['doc']['text'])
     sia = SentimentIntensityAnalyzer()
     sent_scores = sia.polarity_scores(tweet_text)
