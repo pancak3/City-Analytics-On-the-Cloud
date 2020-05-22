@@ -1,3 +1,3 @@
 const map = function (doc) {
-  emit([doc.lga2016_area_code, Math.round(Math.random())], 1);
+  emit([doc.sa2_2016_lv12_code, Math.round(Math.random())], 1);
 }

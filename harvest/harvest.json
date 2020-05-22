@@ -39,5 +39,6 @@
   "print_log_when_saved": 10,
   "max_ids_single_task": 1,
   "ignore_statuses_out_of_australia": true,
-  "max_queue_size": 1000
+  "max_queue_size": 1000,
+  "bulk_size": 10
 }

@@ -101,21 +101,16 @@ def retrieve_statuses_areas(doc_json, areas_in_states):
 def transfer_abs2011_to_lga2016(areas_in_states):
     couch = CouchDB()
     transfer_statues = couch.client["transfer-statuses"]
-    statuses = couch.client["statuses"]
-    # try:
-    #     for doc in tqdm(statuses, total=statuses.doc_count(), desc="Deleting old data in statuses"):
-    #         if doc['_id'][0] != '_':
-    #             doc.delete()
-    # except Exception:
-    #     pass
-    for doc in tqdm(transfer_statues, total=transfer_statues.doc_count(), desc="Updating"):
+    statuses = couch.client["temp"]
+    bulk = []
+    for doc in tqdm(transfer_statues, total=transfer_statues.doc_count(), desc="Updating doc"):
         new_doc = retrieve_statuses_areas(json.dumps(doc), areas_in_states)
-        if new_doc['sa2_2016_lv12_code'] not in {'australia', 'out_of_australia'}:
+        if 'sa2_2016_lv12_code' in new_doc and new_doc['sa2_2016_lv12_code'] not in {'australia', 'out_of_australia'}:
             if new_doc['_id'] not in statuses:
-                statuses.create_document(new_doc)
-            else:
-                statuses[new_doc['_id']].delete()
-                statuses.create_document(new_doc)
+                bulk.append(new_doc)
+                if len(bulk) > 500:
+                    statuses.bulk_docs(bulk)
+                    bulk = []
 
 
 def calc_bbox_of_polygon(polygon):

@@ -211,7 +211,7 @@ if __name__ == '__main__':
         if not os.path.exists('views_backup'):
             os.mkdir('views_backup')
         os.mkdir(backup_path)
-        # update_areas()
+        update_areas()
         check_all_dbs()
     except Exception:
         traceback.print_exc(file=sys.stdout)

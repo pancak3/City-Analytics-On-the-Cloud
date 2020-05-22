@@ -98,6 +98,9 @@ class Worker:
         self.users_queue = queue.Queue(maxsize=self.config.max_queue_size)
         self.statuses_queue = queue.Queue(maxsize=self.config.max_queue_size)
 
+        self.statuses_bulk = []
+        self.users_bulk = []
+
     def get_registry(self):
         registry = self.client['control']['registry']
         return registry['ip'], registry['port'], registry['token']
@@ -504,10 +507,13 @@ class Worker:
                 # if user dose not exist in db
                 user_json['timeline_updated_at'] = 0
                 user_json['inserted_time'] = int(time())
-                self.client['users'].create_document(user_json)
-                sleep(0.001)
-                # logger.debug("[{}] saved user: {}".format(self.worker_id, user_json['id_str']))
-                return True
+                self.users_bulk.append(user_json)
+                if len(self.users_bulk) >= self.config.bulk_size:
+                    self.client['users'].bulk_docs(self.users_bulk)
+                    self.users_bulk = []
+                    return 10
+                # logger.debug("[{}] put in to bulk user: {}".format(self.worker_id, user_json['id_str']))
+                return 0
             else:
                 # if user exists in db
                 if user_json['stream_user']:
@@ -523,11 +529,11 @@ class Worker:
                     # logger.debug("[{}] marked user as stream user: {}(stream:{})".format(self.worker_id,
                     #                                                                      user_json['id_str'],
                     #                                                                      user_json['stream_user']))
-                    return True
+                    return 1
                 else:
                     # logger.debug("[{}] saved user: {}(stream:{})".format(self.worker_id, user_json['id_str'],
                     #                                                      user_json['stream_user']))
-                    return False
+                    return 0
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
             # https://stackoverflow.com/questions/4990718/
@@ -716,21 +722,34 @@ class Worker:
                 else:
                     return False
                 status_json['inserted_time'] = int(time())
+                is_committed = False
                 if self.config.ignore_statuses_out_of_australia:
                     if status_json['sa2_2016_lv12_code'] not in {'0', '1'}:
-                        self.client['statuses'].create_document(status_json)
+                        self.statuses_bulk.append(status_json)
+                        if len(self.statuses_bulk) >= self.config.bulk_size:
+                            self.client['statuses'].bulk_docs(self.statuses_bulk)
+                            self.statuses_bulk = []
+                            is_committed = True
                 else:
-                    self.client['statuses'].create_document(status_json)
+                    self.statuses_bulk.append(status_json)
+                    if len(self.statuses_bulk) >= self.config.bulk_size:
+                        self.client['statuses'].bulk_docs(self.statuses_bulk)
+                        self.statuses_bulk = []
+                        is_committed = True
+
                 if is_stream_code == 1:
                     user_json = status.author._json
                     user_json['stream_user'] = True
                     self.users_queue.put(user_json)
-                sleep(0.001)
-                # logger.debug("[{}] saved status: {}(stream:{})".format(self.worker_id, status.id, is_stream_code))
-                return True
+                # logger.debug("[{}] put in to bulk statuses: {}(stream:{})".format( self.worker_id,  status.id, is_stream_code))
+
+                if is_committed:
+                    return self.config.bulk_size
+                else:
+                    return 0
             else:
                 # logger.debug("[{}] ignored status: {}(stream:{})".format(self.worker_id, status.id, is_stream_code))
-                return False
+                return 0
         except Exception as e:
             # prevent proxy err (mainly for Qifan's proxy against GFW)
             # https://stackoverflow.com/questions/4990718/
@@ -749,22 +768,24 @@ class Worker:
 
     def users_recorder(self):
         count = 0
+        prev = 0
         while True:
             user_json = self.users_queue.get()
-            if self.save_user(user_json=user_json):
-                count += 1
-                if count % self.config.print_log_when_saved == 0:
-                    logger.info("Saved {} new users in total".format(count))
+            count += self.save_user(user_json=user_json)
+            if prev != count and count % self.config.print_log_when_saved == 0:
+                logger.info("Saved {} new users in total".format(count))
+                prev = count
             del user_json
 
     def statuses_recorder(self):
         count = 0
+        prev = 0
         while True:
             (status, is_stream_code) = self.statuses_queue.get()
-            if self.save_status(status=status, is_stream_code=is_stream_code):
-                count += 1
-                if count % self.config.print_log_when_saved == 0:
-                    logger.info("Saved {} new statuses in total".format(count))
+            count += self.save_status(status=status, is_stream_code=is_stream_code)
+            if prev != count and count % self.config.print_log_when_saved == 0:
+                logger.info("Saved {} new statuses in total".format(count))
+                prev = count
             del status
             del is_stream_code
 

@@ -73,6 +73,7 @@ class Config:
             self.max_queue_size = harvest_json['max_queue_size']
             self.australia_lga2016_path = harvest_json['australia_lga2016_path']
             self.ignore_statuses_out_of_australia = harvest_json['ignore_statuses_out_of_australia']
+            self.bulk_size = harvest_json['bulk_size']
 
 
 
