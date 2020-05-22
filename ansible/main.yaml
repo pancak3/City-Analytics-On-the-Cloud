@@ -37,8 +37,6 @@
     - role: server-setup/docker-proxy
     # Restart Docker
     - role: server-setup/restart-docker
-    # Login to registry (deprecates clone below)
-    - role: server-setup/registry_login
     # Set up watchtower
     - role: server-setup/watchtower
 
@@ -51,6 +49,8 @@
   vars_files:
     - vars/configure.yaml
   roles:
+    # Login to registry (deprecates clone below)
+    - role: server-setup/registry_login
     # Clone repository
     # - role: deploy/clone
     # Setup couch
