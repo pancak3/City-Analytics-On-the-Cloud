@@ -51,6 +51,7 @@ function Word(props) {
     const [areaCode, setAreaCode] = useState(null);
     const [freqExpanded, setFreqExpanded] = useState(true);
     const [keywordExpanded, setKeywordExpanded] = useState(true);
+    const [indExpanded, setIndExpanded] = useState(true);
 
     // Load counts
     useEffect(() => {
@@ -95,9 +96,13 @@ function Word(props) {
             setKeywordLoaded(true);
             setKeywordData(null);
             setGeoJSON(prepareGeoJSON(plainGeo, counts));
+            setFreqExpanded(true);
+            setIndExpanded(false);
         } else {
             // load keyword data
             setKeywordLoaded(false);
+            setFreqExpanded(true);
+            setIndExpanded(false);
         }
     }
 
@@ -108,6 +113,7 @@ function Word(props) {
             setAreaCode(feature_code);
             setFreqExpanded(false);
             setKeywordExpanded(false);
+            setIndExpanded(true);
         });
     }
 
@@ -120,7 +126,11 @@ function Word(props) {
             }}
         >
             <div>
-                <ExpansionPanel defaultExpanded expanded={keywordExpanded}>
+                <ExpansionPanel
+                    defaultExpanded
+                    expanded={keywordExpanded}
+                    onChange={(e) => setKeywordExpanded(!keywordExpanded)}
+                >
                     <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
                         <h5>Keyword Search</h5>
                     </ExpansionPanelSummary>
@@ -154,7 +164,11 @@ function Word(props) {
                 </ExpansionPanel>
             </div>
             <div>
-                <ExpansionPanel defaultExpanded expanded={freqExpanded}>
+                <ExpansionPanel
+                    defaultExpanded
+                    expanded={freqExpanded}
+                    onChange={(e) => setFreqExpanded(!freqExpanded)}
+                >
                     <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
                         <h5>Frequency</h5>
                     </ExpansionPanelSummary>
@@ -202,11 +216,15 @@ function Word(props) {
             </div>
             {area ? (
                 <div>
-                    <ExpansionPanel defaultExpanded>
+                    <ExpansionPanel
+                        defaultExpanded
+                        expanded={indExpanded}
+                        onChange={(e) => setIndExpanded(!indExpanded)}
+                    >
                         <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
                             <h5>Indicative tweets</h5>
                         </ExpansionPanelSummary>
-                        <ExpansionPanelDetails>
+                        <ExpansionPanelDetails id="indicative">
                             <Grid>
                                 <h6>
                                     {props.areaName[areaCode]} ({areaCode})
