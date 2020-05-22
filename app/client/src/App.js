@@ -37,7 +37,7 @@ const theme = createMuiTheme({
 
 function App() {
     const [geojson, setGeojson] = useState(null);
-    const [areaNameMapping, setANMapping] = useState(null);
+    const [areaNameMapping, setAreaNameMapping] = useState(null);
     const [geoLoadRequired, setGeoLoadRequired] = useState(true);
 
     useEffect(() => {
@@ -53,7 +53,7 @@ function App() {
                 temp[feature.properties.feature_code] =
                     feature.properties.feature_name;
             }
-            setANMapping(temp);
+            setAreaNameMapping(temp);
         });
     }, [geoLoadRequired]);
 
