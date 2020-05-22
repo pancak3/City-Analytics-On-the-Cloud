@@ -41,7 +41,7 @@ function Summary() {
     return (
         <React.Fragment>
             <div id="summary" className="container-fluid">
-                <h2 className="mt-2">Summary</h2>
+                <h2>Summary</h2>
                 <div className="row justify-content-start">
                     <div className="col-3">
                         <Card className="card-disp-num card-green">

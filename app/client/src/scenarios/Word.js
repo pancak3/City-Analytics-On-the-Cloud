@@ -20,57 +20,76 @@ import {
 } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 
+// Adds values to geojson
+const prepareGeoJSON = (geojson, data) => {
+    return geojson && data
+        ? geojson.map((feature) => {
+              return {
+                  ...feature,
+                  properties: {
+                      ...feature.properties,
+                      feature_value: data[feature.properties.feature_code],
+                  },
+              };
+          })
+        : null;
+};
+
 function Word(props) {
+    const plainGeo = props.geojson;
+
     const [counts, setCounts] = useState(null);
     const [loaded, setLoaded] = useState(false);
     const [keyword, setKeyword] = useState(false);
     const [keywordData, setKeywordData] = useState(null);
     const [keywordLoaded, setKeywordLoaded] = useState(true);
+    const [geojson, setGeoJSON] = useState(null);
+    const [freq, setFreq] = useState(null);
 
+    // Load counts
     useEffect(() => {
         if (loaded) return;
-
         setLoaded(true);
         getCounts().then((data) => {
             setCounts(data);
         });
-    }, [loaded]);
+    }, [loaded, plainGeo]);
 
+    // Load keywords
     useEffect(() => {
         if (!keyword || keywordLoaded) return;
         setKeywordLoaded(true);
         getKeyword(keyword).then((data) => {
             setKeywordData(data);
         });
-    }, [keyword, keywordLoaded]);
+    }, [keyword, keywordLoaded, plainGeo]);
 
     // Which data should be used
     const data = keywordData ? keywordData : counts;
 
-    // Put values into geojson
-    const geojson =
-        props.geojson && data
-            ? props.geojson.map((feature) => {
-                  return {
-                      ...feature,
-                      properties: {
-                          ...feature.properties,
-                          feature_value: data[feature.properties.feature_code],
-                      },
-                  };
-              })
-            : null;
+    // When geojson is loaded
+    useEffect(() => {
+        if (plainGeo && data) {
+            setGeoJSON(prepareGeoJSON(plainGeo, data));
+        }
+    }, [plainGeo, data]);
 
-    // Get top 5 frequency
-    const freq = data
-        ? Object.keys(data).sort((a, b) => data[b] - data[a])
-        : null;
+    // When data is changed, get top 5 frequency
+    useEffect(() => {
+        if (!data) return;
+        const freq = data
+            ? Object.keys(data).sort((a, b) => data[b] - data[a])
+            : null;
+        setFreq(freq.slice(0, 5));
+    }, [data]);
 
     // Query for keyword
     function submit_keyword() {
-        if (keyword === '') {
+        if (keyword === '' || !keyword) {
+            console.log('here');
             setKeywordLoaded(true);
             setKeywordData(null);
+            setGeoJSON(prepareGeoJSON(plainGeo, counts));
         } else {
             // load keyword data
             setKeywordLoaded(false);
@@ -120,32 +139,40 @@ function Word(props) {
                     </ExpansionPanelSummary>
                     <ExpansionPanelDetails>
                         {freq ? (
-                            <TableContainer>
-                                <Table>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell component="th">
-                                                SA2 Area
-                                            </TableCell>
-                                            <TableCell component="th">
-                                                Count
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {freq.slice(0, 5).map((area_code) => (
-                                            <TableRow key={area_code}>
-                                                <TableCell>
-                                                    {props.areaName ? props.areaName[area_code] : ''}
+                            freq.length > 0 ? (
+                                <TableContainer>
+                                    <Table>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell component="th">
+                                                    SA2 Area
                                                 </TableCell>
-                                                <TableCell>
-                                                    {data[area_code]}
+                                                <TableCell component="th">
+                                                    Count
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
+                                        </TableHead>
+                                        <TableBody>
+                                            {freq.map((area_code) => (
+                                                <TableRow key={area_code}>
+                                                    <TableCell>
+                                                        {props.areaName
+                                                            ? props.areaName[
+                                                                  area_code
+                                                              ]
+                                                            : ''}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {data[area_code]}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            ) : (
+                                <p>No data found...</p>
+                            )
                         ) : (
                             <p>Loading...</p>
                         )}

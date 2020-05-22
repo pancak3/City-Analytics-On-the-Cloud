@@ -49,6 +49,23 @@ class Sidebar extends React.Component {
                 <p>
                     Made by: Team 42
                     <br />
+                    {'Data from '}
+                    <a
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        href="https://twitter.com/"
+                    >
+                        Twitter
+                    </a>
+                    {' and '}
+                    <a
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        href="https://aurin.org.au/"
+                    >
+                        AURIN
+                    </a>
+                    <br />
                     Design inspired by{' '}
                     <a
                         target="_blank"
