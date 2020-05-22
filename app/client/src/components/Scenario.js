@@ -46,9 +46,10 @@ const Scenario = (props) => {
                     scale={scale}
                     steps={steps}
                     mode={props.mode || 'e'}
-                    // onEachFeature={(feature, layer) =>
-                    //     layer.bindPopup(feature.properties.feature_name)
+                    // onEachFeature={(feature, layer) => {
+                    // layer.bindPopup(feature.properties.feature_name)
                     // }
+                    featureClick={props.featureClick}
                     style={style}
                 />
             </Map>
@@ -64,6 +65,7 @@ Scenario.propTypes = {
     scale: PropTypes.array,
     steps: PropTypes.number,
     mode: PropTypes.string,
+    featureClick: PropTypes.func,
 };
 
 export default Scenario;

@@ -114,28 +114,36 @@ def transfer_abs2011_to_lga2016(areas_in_states):
 
 
 def calc_bbox_of_polygon(polygon):
-    import numpy as np
-    polygon_arr = np.asarray(polygon)
+    min_x, min_y, max_x, max_y = polygon[0][0], polygon[0][1], polygon[0][0], polygon[0][1]
+    for (x, y) in polygon:
+        if x < min_x:
+            min_x = x
+        elif x > max_x:
+            max_x = x
 
-    min_x = np.min(polygon_arr[:, 0], axis=0)
-    min_y = np.min(polygon_arr[:, 1], axis=0)
-    max_x = np.max(polygon_arr[:, 0], axis=0)
-    max_y = np.max(polygon_arr[:, 1], axis=0)
+        if y < min_y:
+            min_y = y
+        elif y > max_y:
+            max_y = y
     return [min_x, min_y, max_x, max_y]
 
 
 def calc_bbox_of_state(areas):
-    import numpy as np
     bboxes = []
     for area in areas:
         for bbox in area['bboxes']:
             bboxes.append(bbox)
-    bboxes = np.asarray(bboxes)
 
-    min_x = np.min(bboxes[:, 0], axis=0)
-    min_y = np.min(bboxes[:, 1], axis=0)
-    max_x = np.max(bboxes[:, 2], axis=0)
-    max_y = np.max(bboxes[:, 3], axis=0)
+    min_x, min_y, max_x, max_y = bboxes[0][0], bboxes[0][1], bboxes[0][2], bboxes[0][3]
+    for (p0, p1, p2, p3) in bboxes:
+        if p0 < min_x:
+            min_x = p0
+        if p2 > max_x:
+            max_x = p2
+        if p1 < min_y:
+            min_y = p1
+        if p3 > max_y:
+            max_y = p3
 
     return [min_x, min_y, max_x, max_y]
 

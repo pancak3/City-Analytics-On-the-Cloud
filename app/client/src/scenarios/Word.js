@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Scenario from '../components/Scenario';
-import { getCounts, getKeyword } from '../helper/api';
+import { getCounts, getKeyword, getKeywordArea } from '../helper/api';
 import PropTypes from 'prop-types';
 import {
     ExpansionPanel,
@@ -19,6 +19,8 @@ import {
     Table,
 } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTwitter } from '@fortawesome/free-brands-svg-icons';
 
 // Adds values to geojson
 const prepareGeoJSON = (geojson, data) => {
@@ -45,6 +47,10 @@ function Word(props) {
     const [keywordLoaded, setKeywordLoaded] = useState(true);
     const [geojson, setGeoJSON] = useState(null);
     const [freq, setFreq] = useState(null);
+    const [area, setArea] = useState(null);
+    const [areaCode, setAreaCode] = useState(null);
+    const [freqExpanded, setFreqExpanded] = useState(true);
+    const [keywordExpanded, setKeywordExpanded] = useState(true);
 
     // Load counts
     useEffect(() => {
@@ -86,7 +92,6 @@ function Word(props) {
     // Query for keyword
     function submit_keyword() {
         if (keyword === '' || !keyword) {
-            console.log('here');
             setKeywordLoaded(true);
             setKeywordData(null);
             setGeoJSON(prepareGeoJSON(plainGeo, counts));
@@ -96,10 +101,26 @@ function Word(props) {
         }
     }
 
+    // Get tweets of area
+    function getArea(feature_code) {
+        getKeywordArea(keyword, feature_code).then((data) => {
+            setArea(data);
+            setAreaCode(feature_code);
+            setFreqExpanded(false);
+            setKeywordExpanded(false);
+        });
+    }
+
     return (
-        <Scenario data={geojson} mode={'k'}>
+        <Scenario
+            data={geojson}
+            mode={'k'}
+            featureClick={(feature) => {
+                getArea(feature.properties.feature_code);
+            }}
+        >
             <div>
-                <ExpansionPanel defaultExpanded>
+                <ExpansionPanel defaultExpanded expanded={keywordExpanded}>
                     <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
                         <h5>Keyword Search</h5>
                     </ExpansionPanelSummary>
@@ -133,7 +154,7 @@ function Word(props) {
                 </ExpansionPanel>
             </div>
             <div>
-                <ExpansionPanel defaultExpanded>
+                <ExpansionPanel defaultExpanded expanded={freqExpanded}>
                     <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
                         <h5>Frequency</h5>
                     </ExpansionPanelSummary>
@@ -179,6 +200,38 @@ function Word(props) {
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
             </div>
+            {area ? (
+                <div>
+                    <ExpansionPanel defaultExpanded>
+                        <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
+                            <h5>Indicative tweets</h5>
+                        </ExpansionPanelSummary>
+                        <ExpansionPanelDetails>
+                            <Grid>
+                                <h6>
+                                    {props.areaName[areaCode]} ({areaCode})
+                                </h6>
+
+                                {area.map((tweet) => (
+                                    <div class="tweet" key={tweet.url}>
+                                        <p>{tweet.text}</p>
+                                        <FontAwesomeIcon icon={faTwitter} />
+                                        <a
+                                            href={tweet.url}
+                                            rel="noopener noreferrer"
+                                            target="_blank"
+                                        >
+                                            {tweet.url}
+                                        </a>
+                                    </div>
+                                ))}
+                            </Grid>
+                        </ExpansionPanelDetails>
+                    </ExpansionPanel>
+                </div>
+            ) : (
+                <React.Fragment />
+            )}
         </Scenario>
     );
 }

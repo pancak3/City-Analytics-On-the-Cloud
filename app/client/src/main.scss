@@ -1,6 +1,6 @@
 $b: #bdd5ea;
 $back: lighten($b, 14%);
-$base: darken(#507baf, 10%);
+$base: darken(#507baf, 15%);
 $base-dark: darken($base, 10%);
 
 body {
@@ -248,10 +248,27 @@ main {
     button {
         margin: 0 1em;
     }
+
+    h6 {
+        font-weight: 600;
+        margin-bottom: 1em;
+        font-size: 1.1em;
+    }
 }
 
 .leaflet-interactive {
     &:hover {
-        fill-opacity: .9;
+        fill-opacity: .5;
+    }
+}
+
+.tweet {
+    p {
+        margin: 0;
+        margin-top: 1em;
+    }
+    svg {
+        margin-right: 8px;
+        color: #38a1f3;
     }
 }

@@ -41,5 +41,5 @@ export function getKeyword(keyword: string) {
 
 // keywords page: get by keyword and area (returns tweets)
 export function getKeywordArea(keyword: string, area: string) {
-    return getRequest(`/api/scenarios/keyword/${area}`, { params: { keyword } })
+    return getRequest(`/api/scenarios/keyword/${area}`, keyword ? { params: { keyword } }: {})
 }

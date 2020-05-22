@@ -82,10 +82,19 @@ router.get('/keyword/:area', async (req: Request, res: Response) => {
     const area = req.params.area;
 
     // selection of tweets with keyword (e.g. first 10)
-    const tweets = await status.partitionedView(area, 'api', 'keyword', {
-        key: keyword,
-    });
-    return res.json(tweets.rows.map((r) => r.value));
+    const tweets: any = keyword
+        ? await status.partitionedView(area, 'api', 'keyword', {
+              include_docs: true,
+              key: keyword,
+              group: false,
+              reduce: false,
+              limit: 5,
+          })
+        : await status.partitionedView(area, 'api', 'doc', {
+              include_docs: true,
+              limit: 5,
+          });
+    return res.json(tweets.rows.map((r: any) => r.value));
 });
 
 // Takes:

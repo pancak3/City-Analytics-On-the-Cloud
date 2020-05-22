@@ -408,7 +408,7 @@ class Registry:
             worker_data.receiver_conn.close()
 
     def remove_worker(self, worker_data, e):
-        self.terminate_worker_threads(worker_data)
+        # self.terminate_worker_threads(worker_data)
         self.remove_worker_data(worker_data)
         self.remove_msg_queue(worker_data)
         remaining = self.deactivate_worker(worker_data)
