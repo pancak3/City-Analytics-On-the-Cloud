@@ -2,6 +2,7 @@ version: "3"
 services:
   watchtower:
     image: containrrr/watchtower
+    restart: always
     environment:
       TZ: "Australia/Melbourne"
     volumes:

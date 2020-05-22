@@ -136,7 +136,7 @@ function Word(props) {
                                         {freq.slice(0, 5).map((area_code) => (
                                             <TableRow key={area_code}>
                                                 <TableCell>
-                                                    {props.areaName[area_code]}
+                                                    {props.areaName ? props.areaName[area_code] : ''}
                                                 </TableCell>
                                                 <TableCell>
                                                     {data[area_code]}
