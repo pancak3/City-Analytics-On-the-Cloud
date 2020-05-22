@@ -48,13 +48,17 @@ def read_view_from_file(path):
 
 
 def calc_bbox_of_polygon(polygon):
-    import numpy as np
-    polygon_arr = np.asarray(polygon)
+    min_x, min_y, max_x, max_y = polygon[0][0], polygon[0][1], polygon[0][0], polygon[0][1]
+    for (x, y) in polygon:
+        if x < min_x:
+            min_x = x
+        elif x > max_x:
+            max_x = x
 
-    min_x = np.min(polygon_arr[:, 0], axis=0)
-    min_y = np.min(polygon_arr[:, 1], axis=0)
-    max_x = np.max(polygon_arr[:, 0], axis=0)
-    max_y = np.max(polygon_arr[:, 1], axis=0)
+        if y < min_y:
+            min_y = y
+        elif y > max_y:
+            max_y = y
     return [min_x, min_y, max_x, max_y]
 
 
