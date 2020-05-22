@@ -251,8 +251,11 @@ main {
 
     h6 {
         font-weight: 600;
-        margin-bottom: 1em;
         font-size: 1.1em;
+    }
+
+    #count {
+        margin-top: 0em;
     }
 }
 
@@ -272,8 +275,8 @@ main {
     }
     a {
         display: inline-block;
-        margin-bottom: 1em;
     }
+    margin-bottom: 1em;
 }
 
 #indicative {

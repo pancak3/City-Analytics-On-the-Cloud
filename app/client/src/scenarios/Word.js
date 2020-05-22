@@ -229,18 +229,30 @@ function Word(props) {
                                 <h6>
                                     {props.areaName[areaCode]} ({areaCode})
                                 </h6>
+                                <p id="count">
+                                    <strong>Count: </strong>
+                                    {data[areaCode]}
+                                </p>
 
                                 {area.map((tweet) => (
-                                    <div class="tweet" key={tweet.url}>
+                                    <div className="tweet" key={tweet.url}>
                                         <p>{tweet.text}</p>
-                                        <FontAwesomeIcon icon={faTwitter} />
-                                        <a
-                                            href={tweet.url}
-                                            rel="noopener noreferrer"
-                                            target="_blank"
-                                        >
-                                            {tweet.url}
-                                        </a>
+                                        {tweet.url ? (
+                                            <React.Fragment>
+                                                <FontAwesomeIcon
+                                                    icon={faTwitter}
+                                                />
+                                                <a
+                                                    href={tweet.url}
+                                                    rel="noopener noreferrer"
+                                                    target="_blank"
+                                                >
+                                                    {tweet.url}
+                                                </a>
+                                            </React.Fragment>
+                                        ) : (
+                                            <React.Fragment />
+                                        )}
                                     </div>
                                 ))}
                             </Grid>
