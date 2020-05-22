@@ -1,10 +1,24 @@
 import React, { useState } from 'react';
-import { Map, TileLayer } from 'react-leaflet';
+import { Map, TileLayer, Marker } from 'react-leaflet';
 import Choropleth from '../react-leaflet-choropleth/choropleth';
 import PropTypes from 'prop-types';
 import { victoria } from '../helper/latlong';
 
+// https://github.com/PaulLeCam/react-leaflet/issues/453
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+delete L.Icon.Default.prototype._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
+    iconUrl: require('leaflet/dist/images/marker-icon.png'),
+    shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+});
+
 const Scenario = (props) => {
+    const { marker } = props;
+
     const [pos_zoom] = useState(props.position || victoria);
     const position = [pos_zoom.lat, pos_zoom.lng];
     // adapted from https://blog.datawrapper.de
@@ -27,6 +41,7 @@ const Scenario = (props) => {
         fillOpacity: 0.8,
     };
 
+    console.log(marker);
     return (
         <React.Fragment>
             <Map id="map" center={position} zoom={pos_zoom.zoom}>
@@ -52,6 +67,8 @@ const Scenario = (props) => {
                     featureClick={props.featureClick}
                     style={style}
                 />
+
+                {marker ? <Marker position={marker} /> : <React.Fragment />}
             </Map>
             <div id="info">{props.children}</div>
         </React.Fragment>
@@ -66,6 +83,7 @@ Scenario.propTypes = {
     steps: PropTypes.number,
     mode: PropTypes.string,
     featureClick: PropTypes.func,
+    marker: PropTypes.array,
 };
 
 export default Scenario;

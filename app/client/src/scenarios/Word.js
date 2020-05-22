@@ -52,6 +52,7 @@ function Word(props) {
     const [freqExpanded, setFreqExpanded] = useState(true);
     const [keywordExpanded, setKeywordExpanded] = useState(true);
     const [indExpanded, setIndExpanded] = useState(true);
+    const [marker, setMarker] = useState(null);
 
     // Load counts
     useEffect(() => {
@@ -114,6 +115,9 @@ function Word(props) {
             setFreqExpanded(false);
             setKeywordExpanded(false);
             setIndExpanded(true);
+            setMarker(
+                props.areaCentroid ? props.areaCentroid[feature_code] : null
+            );
         });
     }
 
@@ -124,6 +128,7 @@ function Word(props) {
             featureClick={(feature) => {
                 getArea(feature.properties.feature_code);
             }}
+            marker={marker}
         >
             <div>
                 <ExpansionPanel
@@ -269,6 +274,7 @@ function Word(props) {
 Word.propTypes = {
     geojson: PropTypes.array,
     areaName: PropTypes.object,
+    areaCentroid: PropTypes.object,
 };
 
 export default Word;
