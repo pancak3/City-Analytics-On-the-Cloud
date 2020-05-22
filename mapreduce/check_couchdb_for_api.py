@@ -58,22 +58,6 @@ def calc_bbox_of_polygon(polygon):
     return [min_x, min_y, max_x, max_y]
 
 
-def calc_bbox_of_state(areas):
-    import numpy as np
-    bboxes = []
-    for area in areas:
-        for bbox in area['bboxes']:
-            bboxes.append(bbox)
-    bboxes = np.asarray(bboxes)
-
-    min_x = np.min(bboxes[:, 0], axis=0)
-    min_y = np.min(bboxes[:, 1], axis=0)
-    max_x = np.max(bboxes[:, 2], axis=0)
-    max_y = np.max(bboxes[:, 3], axis=0)
-
-    return [min_x, min_y, max_x, max_y]
-
-
 def read_areas(path):
     areas_collection = {}
     filenames = os.listdir(path)
@@ -92,7 +76,7 @@ def read_areas(path):
 def preprocess(data_path):
     new_sa2_2016 = read_areas(data_path)
 
-    states = [{"hit": 0, "state_name": None, "bbox": [], "areas": []} for _ in range(len(new_sa2_2016))]
+    states = [{"hit": 0, "state_name": None, "areas": []} for _ in range(len(new_sa2_2016))]
     # calc bbox for each area and store it in its state
     count = 0
     for key, areas in new_sa2_2016.items():
@@ -100,21 +84,10 @@ def preprocess(data_path):
         area_id = 0
         for area in areas:
             if 'geometry' in area:
-                states[count]["areas"].append({'hit': 0,
-                                               "feature_code": area['properties']["feature_code"],
-                                               'feature_name': area['properties']['feature_name'],
-                                               'coordinates': area['geometry']['coordinates'],
-                                               'bboxes': []})
-                for i, polygons in enumerate(area['geometry']['coordinates']):
-                    for j, polygon in enumerate(polygons):
-                        states[count]["areas"][area_id]["bboxes"].append(
-                            calc_bbox_of_polygon(polygon))
+                states[count]["areas"].append(area)
                 area_id += 1
             # use the left value to record its hit times
         count += 1
-
-    for key, v in enumerate(states):
-        states[key]["bbox"] = calc_bbox_of_state(v['areas'])
 
     return states
 
@@ -126,9 +99,9 @@ def update_areas():
     if "areas" not in couch.client.all_dbs():
         states = preprocess("data/LocalGovernmentAreas-2016")
         for state in states:
+            del state['hit']
             for area in state['areas']:
-                del area['hit']
-                area['state_name'] = state['state_name']
+                area['properties']['state_name'] = state['state_name']
                 areas_json.append(area)
 
         couch.client.create_database("areas", partitioned=False)
@@ -143,7 +116,7 @@ def update_areas():
         couch.client["areas"].create_document(no_where)
         couch.client["areas"].create_document(out_of_vitoria)
         for area in tqdm(areas_json, unit=' areas'):
-            area["_id"] = area['feature_code']
+            area["_id"] = area['properties']['feature_code']
             couch.client["areas"].create_document(area)
     logger.info("Wrote {} areas in to couchdb".format(len(areas_json)))
 
@@ -238,7 +211,7 @@ if __name__ == '__main__':
         if not os.path.exists('views_backup'):
             os.mkdir('views_backup')
         os.mkdir(backup_path)
-        update_areas()
+        # update_areas()
         check_all_dbs()
     except Exception:
         traceback.print_exc(file=sys.stdout)
