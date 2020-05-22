@@ -16,13 +16,26 @@ import {
     ResponsiveContainer,
     LineChart,
     Line,
+    Label,
 } from 'recharts';
+import setInterval from './interval';
 
 function Summary() {
     const [loadRequired, setLoadRequired] = useState(true);
     const [stats, setStats] = useState(null);
     const [info, setInfo] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
+
+    setInterval(() => {
+        getStats().then((stats) => {
+            setStats(stats);
+        });
+
+        getGeneralInfo().then((info) => {
+            setInfo(info);
+            setLastUpdated(new Date());
+        });
+    }, 1000 * 10);
 
     useEffect(() => {
         if (!loadRequired) return;
@@ -77,9 +90,7 @@ function Summary() {
                         <div>
                             {info ? (
                                 <React.Fragment>
-                                    <h4 className="text-center mb-3">
-                                        Tweets per hour of day
-                                    </h4>
+                                    <h4>Tweets per hour of day</h4>
                                     <ResponsiveContainer
                                         width="100%"
                                         aspect={4.0 / 3.0}
@@ -90,7 +101,7 @@ function Summary() {
                                                 minTickGap={0}
                                                 dataKey="key"
                                             />
-                                            <YAxis></YAxis>
+                                            <YAxis />
                                             <Tooltip />
                                             <Line
                                                 type="monotone"
@@ -108,9 +119,7 @@ function Summary() {
                         <div>
                             {info ? (
                                 <React.Fragment>
-                                    <h4 className="text-center mb-3">
-                                        Tweets per day of week
-                                    </h4>
+                                    <h4>Tweets per day of week</h4>
                                     <ResponsiveContainer
                                         width="100%"
                                         aspect={4.0 / 3.0}
@@ -121,7 +130,7 @@ function Summary() {
                                                 minTickGap={1}
                                                 dataKey="key"
                                             />
-                                            <YAxis></YAxis>
+                                            <YAxis />
                                             <Tooltip />
                                             <Bar
                                                 dataKey="value"
@@ -142,7 +151,7 @@ function Summary() {
             <footer className="text-right">
                 Last updated:{' '}
                 {lastUpdated ? (
-                    <Moment format="HH:mm">{lastUpdated}</Moment>
+                    <Moment format="hh:mm:ss A">{lastUpdated}</Moment>
                 ) : (
                     'Never'
                 )}

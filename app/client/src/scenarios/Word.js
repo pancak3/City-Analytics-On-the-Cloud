@@ -230,8 +230,8 @@ function Word(props) {
                                     {props.areaName[areaCode]} ({areaCode})
                                 </h6>
                                 <p id="count">
-                                    <strong>Count: </strong>
-                                    {data[areaCode]}
+                                    <strong>Number of tweets: </strong>
+                                    {data[areaCode] ? data[areaCode] : 0}
                                 </p>
 
                                 {area.map((tweet) => (
