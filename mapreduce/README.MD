@@ -21,6 +21,5 @@ cat couchdb.json
 }
 ``` 
 
-## Documentations
-
+## Documentation
 - [cloudant](https://python-cloudant.readthedocs.io/en/latest/)
