@@ -709,7 +709,7 @@ class Worker:
 
                 status_json['inserted_time'] = int(time())
                 if 'id' in status_json:
-                    del status_json[id]
+                    del status_json['id']
                 self.statuses_bulk.append(status_json)
                 if len(self.statuses_bulk) >= self.config.bulk_size:
                     self.client['statuses'].bulk_docs(self.statuses_bulk)
