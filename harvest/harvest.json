@@ -23,7 +23,7 @@
   "aus_sa2_2016_lv12_path": "data/SA2(2016)Level12",
   "timeline_updating_window": 604800,
   "friends_updating_window": 604800,
-  "max_tasks_num": 1000,
+  "max_tasks_num": 5000,
   "task_chunk_size": 20,
   "heartbeat_time": 5,
   "max_heartbeat_lost_time": 300,

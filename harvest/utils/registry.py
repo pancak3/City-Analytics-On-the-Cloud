@@ -330,7 +330,7 @@ class Registry:
     def handle_task_timeline(self, worker_data, count):
         self.logger.debug("[-] Has {} timeline tasks in queue.".format(self.timeline_tasks.qsize()))
         try:
-            self.generate_timeline_task()
+            self.generate_timeline_task(count)
             ids = []
             for _ in range(count):
                 ids.append(self.timeline_tasks.get(timeout=0.01))
@@ -487,11 +487,12 @@ class Registry:
                 self.logger.debug("Generated {} friends tasks".format(count))
             except Exception:
                 traceback.format_exc()
+            self.generating_friends.release()
         else:
             return
 
-    def generate_timeline_task(self):
-        if self.timeline_tasks.empty() and self.generating_timeline.acquire(blocking=False) \
+    def generate_timeline_task(self, count=1):
+        if self.timeline_tasks.qsize() < count and self.generating_timeline.acquire(blocking=False) \
                 and time() - self.generating_timeline_time > 5:
             try:
                 self.client.connect()
@@ -505,6 +506,7 @@ class Registry:
 
             except Exception:
                 traceback.format_exc()
+            self.generating_timeline.release()
 
         else:
             return
