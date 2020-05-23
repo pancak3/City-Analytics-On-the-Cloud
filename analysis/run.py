@@ -17,6 +17,8 @@ def save_to_db(ml_res):
     pass
 
 
+res = result
+
 def get_unprocessed_statuses(limit=None):
     """
     :return: list res: the result of the Machine Learning tasks which means unprocessed by ML
@@ -37,7 +39,6 @@ def get_unprocessed_statuses(limit=None):
             result = couch_db.client['statuses'].get_view_result('_design/api-global',
                                                                  view_name='ml-tasks',
                                                                  reduce=False).all()
-        res = result
 
     logger.info("Got {} statuses".format(len(res)))
     return res
