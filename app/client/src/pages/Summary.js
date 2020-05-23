@@ -16,7 +16,6 @@ import {
     ResponsiveContainer,
     LineChart,
     Line,
-    Label,
 } from 'recharts';
 import setInterval from './interval';
 
