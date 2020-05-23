@@ -6,8 +6,8 @@ from utils.crawlers import Crawler
 from cloudant.client import Cloudant
 
 q = queue.Queue()
-couch = Cloudant('admin', 'password', url='http://127.0.0.1:5984', connect=True)
-fix_db = couch['new_statuses']
+couch = Cloudant('comp90024', 'pojeinaiShoh9Oo', url='http://127.0.0.1:5984', connect=True)
+fix_db = couch['statuses']
 flag = True
 
 
@@ -36,7 +36,7 @@ def fix_full():
         crawler.init(item[0], 0)
         break
 
-    statuses = fix_db.get_view_result('_design/tasks', view_name='full-text', reduce=False).all()
+    statuses = fix_db.get_view_result('_design/task', view_name='full-text', reduce=False).all()
 
     id_str_list = []
     id_map = {}

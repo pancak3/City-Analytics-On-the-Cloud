@@ -5,6 +5,8 @@ import json
 import queue
 import traceback
 import os
+import nltk
+import re
 
 from math import ceil
 from time import sleep, time
@@ -13,6 +15,7 @@ from utils.config import Config
 from utils.database import CouchDB
 from utils.crawlers import Crawler
 from utils.logger import get_logger
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 logger = get_logger('Worker', logging.DEBUG)
 
@@ -671,6 +674,23 @@ class Worker:
 
         return doc
 
+    @staticmethod
+    def clean_tweet(tweet):
+        # remove urls and other non english characters
+        return ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t]) |(\w+:\/\/\S+)", " ", tweet).split())
+
+    def generate_sentiment(self, text):
+        tweet_text = self.clean_tweet(text)
+        sia = SentimentIntensityAnalyzer()
+        sent_scores = sia.polarity_scores(tweet_text)
+        if sent_scores['compound'] > 0:
+            sent_scores['sentiment'] = "positive"
+        elif sent_scores['compound'] < 0:
+            sent_scores['sentiment'] = "negative"
+        else:
+            sent_scores['sentiment'] = "neutral"
+        return sent_scores
+
     def save_status(self, status, is_stream_code, err_count=0):
         if err_count > self.config.max_network_err:
             self.exit("[{}] save status err {} times, exit: {}({})".format(self.worker_id,
@@ -710,6 +730,12 @@ class Worker:
                 status_json['inserted_time'] = int(time())
                 if 'id' in status_json:
                     del status_json['id']
+
+                # sentiment
+
+                sent_scores = self.generate_sentiment(status_json['full_text'])
+                status_json['sentiment'] = sent_scores['sentiment']
+                status_json['sentiment_scores'] = sent_scores
                 self.statuses_bulk.append(status_json)
                 if len(self.statuses_bulk) >= self.config.bulk_size:
                     self.client['statuses'].bulk_docs(self.statuses_bulk)
@@ -749,6 +775,7 @@ class Worker:
             del user_json
 
     def statuses_recorder(self):
+
         count = 0
         prev = 0
         while True:
@@ -761,6 +788,11 @@ class Worker:
             del is_stream_code
 
     def run(self):
+        try:
+            nltk.download('vader_lexicon')
+        except:
+            pass
+
         self.check_db()
         # start a stream listener, statuses will be put in to a res queue
         threading.Thread(target=self.msg_receiver).start()

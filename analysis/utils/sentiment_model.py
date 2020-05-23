@@ -2,8 +2,10 @@ import nltk
 import re
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
-
-# nltk.download('vader_lexicon')
+try:
+    nltk.download('vader_lexicon')
+except:
+    pass
 
 
 def clean_tweet(tweet):
@@ -11,21 +13,17 @@ def clean_tweet(tweet):
     return ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t]) |(\w+:\/\/\S+)", " ", tweet).split())
 
 
-def generate_sentiment(twitter_data):
-    tweet_text = clean_tweet(twitter_data['doc']['full_text'])
+def generate_sentiment(text):
+    tweet_text = clean_tweet(text)
     sia = SentimentIntensityAnalyzer()
     sent_scores = sia.polarity_scores(tweet_text)
-    compound_sent = sent_scores['compound']
-
-    if compound_sent > 0:
-        twitter_data['sentiment'] = "positive"
-
-    elif compound_sent < 0:
-        twitter_data['sentiment'] = "negative"
-
+    if sent_scores['compound'] > 0:
+        sent_scores['sentiment'] = "positive"
+    elif sent_scores['compound'] < 0:
+        sent_scores['sentiment'] = "negative"
     else:
-        twitter_data['sentiment'] = "neutral"
-    print(twitter_data)
+        sent_scores['sentiment'] = "neutral"
+    return sent_scores
 
 
 if __name__ == '__main__':
