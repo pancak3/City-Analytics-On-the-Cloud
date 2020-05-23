@@ -2,6 +2,6 @@
   "protocol": "http",
   "host": "127.0.0.1",
   "port": 5984,
-  "username": "comp90024",
-  "password": "pojeinaiShoh9Oo"
+  "username": "admin",
+  "password": "password"
 }

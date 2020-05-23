@@ -7,3 +7,5 @@ package-lock.json
 .run
 .gitignore
 __pycache__/
+Economic_resource.geojson
+Education_Occupation.geojson
