@@ -125,6 +125,7 @@ router.get(
                   await status.partitionedView(area, 'api', 'doc', {
                       include_docs: true,
                       limit: 5,
+                      stale: 'ok',
                   });
             return res.json(tweets.rows.map((r: any) => r.value));
         } catch (err) {
