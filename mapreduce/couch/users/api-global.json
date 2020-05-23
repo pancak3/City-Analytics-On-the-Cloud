@@ -1,1 +1,1 @@
-{"_id": "_design/api-global", "options": {"partitioned": false}, "language": "javascript", "views": {"count": {"map": "function (doc) {\n    emit(doc._id, 1);\n};\n", "reduce": "_count", "partitioned": false}}, "lists": {}, "indexes": {}, "shows": {}}
+{"_id": "_design/api-global", "options": {"partitioned": false}, "views": {"count": {"map": "function (doc) {\n    emit(doc._id, 1);\n};\n", "reduce": "_count", "partitioned": false}}, "indexes": {}, "shows": {}, "lists": {}}

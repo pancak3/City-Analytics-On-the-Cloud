@@ -190,7 +190,7 @@ class Crawler:
     def lookup_users(self, users_ids):
         # lock this func in case of occurring rate limit err
         self.lock_lookup_users.acquire()
-        self.sleep(int(time()) - self.access_lookup_users, 1)
+        self.sleep(int(time()) - self.access_lookup_users, 2)
         self.access_lookup_users = int(time())
         self.lock_lookup_users.release()
 

@@ -28,7 +28,7 @@
   "heartbeat_time": 5,
   "max_heartbeat_lost_time": 300,
   "user_timeline_max_statues": 200,
-  "friends_max_ids": 300,
+  "friends_max_ids": 1000,
   "network_err_reconnect_time": 5,
   "max_network_err": 6,
   "max_save_tries": 5,
