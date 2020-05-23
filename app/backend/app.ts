@@ -49,6 +49,13 @@ app.get('*', function (req, res) {
     return res.sendFile(path.join(__dirname, 'client/index.html'));
 });
 
+// 404 handler
+app.use((req, res) => {
+    res.status(404);
+    return res.json({ status: 'error', message: 'page not found' });
+});
+
+// Global error handler
 app.use(function (err: Error, req: Request, res: Response, next: NextFunction) {
     res.status(500);
     return res.json({ status: 'error', message: err.message });

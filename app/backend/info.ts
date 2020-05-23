@@ -68,7 +68,7 @@ const day_order: { [day: string]: number } = {
     Sun: 7,
 };
 
-// General status (weekday/hour)
+// General information (weekday/hour counts) about all tweets
 router.get('/general', async (req, res, next) => {
     try {
         const status = nano.db.use('statuses');

@@ -1,15 +1,15 @@
-# Build client and server
+# Build frontend and server
 FROM node:14-alpine as builder
 
-COPY ./api /build/api
-RUN cd /build/api \
+COPY ./backend /build/backend
+RUN cd /build/backend \
     && yarn install --production=false \
     && yarn run build \
     && rm -rf node_modules \
     && yarn cache clean
 
-COPY ./client /build/client
-RUN cd /build/client \
+COPY ./frontend /build/frontend
+RUN cd /build/frontend \
     && yarn install --production \
     && REACT_APP_URL='' yarn run build \
     && rm -rf node_modules \
@@ -20,9 +20,9 @@ FROM node:14-alpine as server
 
 # Copy files
 WORKDIR /app
-COPY --from=builder /build/api/dist /app
-COPY --from=builder /build/api/package.json /app
-COPY --from=builder /build/client/build /app/client
+COPY --from=builder /build/backend/dist /app
+COPY --from=builder /build/backend/package.json /app
+COPY --from=builder /build/frontend/build /app/frontend
 ENV NODE_ENV production
 
 # Install deps
