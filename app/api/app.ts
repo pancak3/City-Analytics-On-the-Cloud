@@ -1,5 +1,5 @@
 import path from 'path';
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import morgan from 'morgan';
 import helmet from 'helmet';
 import _nano from 'nano';
@@ -47,6 +47,11 @@ app.use('/api/scenarios', scenarioRouter);
 // Frontend
 app.get('*', function (req, res) {
     return res.sendFile(path.join(__dirname, 'client/index.html'));
+});
+
+app.use(function (err: Error, req: Request, res: Response, next: NextFunction) {
+    res.status(500);
+    return res.json({ status: 'error', message: err.message });
 });
 
 // Listen
