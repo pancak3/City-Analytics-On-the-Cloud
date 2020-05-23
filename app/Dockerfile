@@ -22,7 +22,7 @@ FROM node:14-alpine as server
 WORKDIR /app
 COPY --from=builder /build/backend/dist /app
 COPY --from=builder /build/backend/package.json /app
-COPY --from=builder /build/frontend/build /app/frontend
+COPY --from=builder /build/frontend/build /app/client
 ENV NODE_ENV production
 
 # Install deps

@@ -353,11 +353,7 @@ class Registry:
             self.remove_worker(worker_data, e)
 
     def send_stream_task(self, worker_data):
-        msg = {"task": "stream",
-               "data": {
-                   "locations": self.config.victoria_bbox},
-               "token": self.token
-               }
+        msg = {"task": "stream", "token": self.token}
         worker_data.sender_conn.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
         self.logger.debug('[*] Sent stream task to Worker-{}.'.format(worker_data.worker_id))
 
@@ -486,7 +482,7 @@ class Registry:
             if 'users' in self.client.all_dbs():
                 count = 0
                 result = self.client['users'].get_view_result('_design/tasks', view_name='friends',
-                                                              limit=self.config.max_tasks_num).all()
+                                                              limit=self.config.max_tasks_num, reduce=False).all()
                 for doc in result:
                     count += 1
                     self.friends_tasks.put(doc['id'])
@@ -509,7 +505,7 @@ class Registry:
             if 'users' in self.client.all_dbs():
                 count = 0
                 result = self.client['users'].get_view_result('_design/tasks', view_name='timeline',
-                                                              limit=self.config.max_tasks_num).all()
+                                                              limit=self.config.max_tasks_num, reduce=False).all()
 
                 for i in range(0, len(result), self.config.max_ids_single_task):
                     timeline_tasks = [[doc['id'], doc['key'][3]] for doc in

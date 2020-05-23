@@ -5,7 +5,14 @@
     "access_token": "1251725779584479232-O1wgUOwdbbumzgm1ruWiPzOqBHjkKZ",
     "access_token_secret": "9oMeErBM6Q7h7fOz4DH2IRGsDkYAessE9ykRGqgKqLeCc",
     "owner": "Steven",
-    "app_id": 0
+    "app_id": 0,
+    "stream_area": "Australia",
+    "stream_bbox": [
+      96.8168,
+      -43.7405,
+      159.1092,
+      -9.1422
+    ]
   },
   {
     "api_key": "YZhm1BCHvarGzACEerDNbGWPd",
@@ -13,7 +20,14 @@
     "access_token": "704158221045379072-7I3yjzbLcmBVPiaJaC2gyLf3bZhStxD",
     "access_token_secret": "Fl9bUuB6LEOLgnudxMFCTVpxBLJ0JV4dDSd0K7GWBoFMk",
     "owner": "Steven",
-    "app_id": 17889193
+    "app_id": 17889193,
+    "stream_area": "Victoria",
+    "stream_bbox": [
+      140.961681984,
+      -39.159189527500004,
+      149.976679008,
+      -33.9806475865
+    ]
   },
   {
     "api_key": "Z2RhgZKnj6vY13K9iPunSIfBT",
@@ -21,7 +35,14 @@
     "access_token": "1251725779584479232-mezJKSbRwOgBb1cvKCN4sIxeRN27TP",
     "access_token_secret": "ZWoD8KaLqREH9AEHrFJHZkr5YePCLieF4UPsjEySToPYj",
     "owner": "Steven",
-    "app_id": 17889240
+    "app_id": 17889240,
+    "stream_area": "New South Wales",
+    "stream_bbox": [
+      140.99927801599998,
+      -37.505059998,
+      159.109219008,
+      -28.157019913999996
+    ]
   },
   {
     "api_key": "KNS2WhAXtXjdrXFVat0Zdv4G7",
@@ -29,7 +50,14 @@
     "access_token": "1251700712733458434-Q5vMrxxY3X7OyGlAuoy7waKDbbU8hW",
     "access_token_secret": "b18Skjos6v14sDltB6wpnNo66NYz54sYbOkiaBP7WQne7",
     "owner": "Mandeep",
-    "app_id": 17788524
+    "app_id": 17788524,
+    "stream_area": "Queensland",
+    "stream_bbox": [
+      137.99595743999998,
+      -29.177897699499997,
+      153.552171232,
+      -9.142175977
+    ]
   },
   {
     "api_key": "6X4dTsdIR3gMuLW4ldnjYUZad",
@@ -37,7 +65,14 @@
     "access_token": "987670826953527298-C4GWt7asUHnbmvHXHtVbxem6KfoUgYZ",
     "access_token_secret": "pamt6qXuUgkL0LVjD8JlnS6gjQFryPpo8WXFurEKCgcoz",
     "owner": "Pan",
-    "app_id": 17757798
+    "app_id": 17757798,
+    "stream_area": "South Australia",
+    "stream_bbox": [
+      129.001336896,
+      -38.0626029895,
+      141.002955616,
+      -25.996146487500003
+    ]
   },
   {
     "api_key": "VHx2TVFFPD71maoI2wO1iM5Qy",
@@ -45,6 +80,28 @@
     "access_token": "704158221045379072-ULT8onJaIzqaFdmdvyYR5cilvPGUWia",
     "access_token_secret": "l0T8PweWvFmCwwHMg6wylBEePpuBmk9GBDK0kjJuhaAdp",
     "owner": "Steven",
-    "app_id": 17917648
+    "app_id": 17917648,
+    "stream_area": "Tasmania",
+    "stream_bbox": [
+      143.81892272,
+      -43.740509603,
+      148.4986736,
+      -39.20366165899999
+    ]
+  },
+  {
+    "api_key": "uHvhjLshNuWtHZt82L0sJWSiK",
+    "api_secret_key": "xMz0YGpsPqwTJ6UUw211MvmksMga607YkBVH74ylwuCFyD0IiG",
+    "access_token": "1251700712733458434-QjzKUojTQ4UDSvF1l2Gz6W0xEZaAfK",
+    "access_token_secret": "k892Tz4CQtQiI6nVgHnNsZm0BKaUPuZdCHUcK8yMyxMYj",
+    "owner": "Mandeep",
+    "app_id": 17980582,
+    "stream_area": "Western Australia",
+    "stream_bbox": [
+      112.921113952,
+      -35.134846436000004,
+      129.001930016,
+      -13.689492034999999
+    ]
   }
 ]

@@ -20,8 +20,7 @@
     159.1092,
     -9.1422
   ],
-  "victoria_areas_path": "data/LocalGovernmentAreas-2016.json",
-  "australia_lga2016_path": "data/LocalGovernmentAreas-2016",
+  "aus_sa2_2016_lv12_path": "data/SA2(2016)Level12",
   "timeline_updating_window": 604800,
   "friends_updating_window": 604800,
   "max_tasks_num": 1000,
@@ -34,7 +33,7 @@
   "max_network_err": 6,
   "max_save_tries": 5,
   "max_running_friends": 1,
-  "max_running_timeline": 50,
+  "max_running_timeline": 20,
   "max_task_runtime": 120,
   "print_log_when_saved": 10,
   "max_ids_single_task": 1,
