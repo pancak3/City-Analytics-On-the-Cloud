@@ -191,7 +191,9 @@ class Worker:
             to_sleep -= 5
             if to_sleep < 0:
                 to_sleep = self.config.max_heartbeat_lost_time
-                if not self.active.is_active():
+                if not self.running_timeline.get_count() \
+                        and not self.running_friends.get_count() \
+                        and not self.active.is_active():
                     self.exit("[!] No running task and Lost heartbeat for {} seconds, exit.".format(
                         self.config.max_heartbeat_lost_time))
                 self.active.set(False)

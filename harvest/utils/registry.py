@@ -104,8 +104,10 @@ class Registry:
         self.friends_tasks = queue.Queue()
         self.timeline_tasks = queue.Queue()
 
-        self.generating_friends = RunningTask()
-        self.generating_timeline = RunningTask()
+        self.generating_friends = threading.Lock()
+        self.generating_friends_time = 0
+        self.generating_timeline = threading.Lock()
+        self.generating_timeline_time = 0
 
     def get_worker_id(self):
         self.lock_worker.acquire()
@@ -278,7 +280,6 @@ class Registry:
         self.api_using.add(valid_api_key_hash)
         self.lock_worker.release()
 
-        # msg queue dict used to broadcast
         self.lock_msg_queue_dict.acquire()
         self.msg_queue_dict[worker_id] = worker_data.msg_queue
         self.lock_msg_queue_dict.release()
@@ -471,38 +472,28 @@ class Registry:
             sleep(120)
 
     def generate_friends_task(self):
-        if not self.friends_tasks.empty():
-            return
-        if self.generating_friends.get_count() == 0:
-            self.generating_friends.inc()
-        else:
-            return
-        try:
-            self.client.connect()
-            if 'users' in self.client.all_dbs():
+        if self.friends_tasks.empty() and self.generating_friends.acquire(blocking=False) \
+                and time() - self.generating_friends_time > 5:
+            try:
+                self.client.connect()
                 count = 0
                 result = self.client['users'].get_view_result('_design/tasks', view_name='friends',
                                                               limit=self.config.max_tasks_num, reduce=False).all()
                 for doc in result:
                     count += 1
                     self.friends_tasks.put(doc['id'])
+                self.generating_friends_time = time()
                 self.logger.debug("Generated {} friends tasks".format(count))
-
-        except Exception:
-            traceback.format_exc()
-
-        self.generating_friends.dec()
-
-    def generate_timeline_task(self):
-        if not self.timeline_tasks.empty():
-            return
-        if self.generating_timeline.get_count() == 0:
-            self.generating_timeline.inc()
+            except Exception:
+                traceback.format_exc()
         else:
             return
-        try:
-            self.client.connect()
-            if 'users' in self.client.all_dbs():
+
+    def generate_timeline_task(self):
+        if self.timeline_tasks.empty() and self.generating_timeline.acquire(blocking=False) \
+                and time() - self.generating_timeline_time > 5:
+            try:
+                self.client.connect()
                 count = 0
                 result = self.client['users'].get_view_result('_design/tasks', view_name='timeline',
                                                               limit=self.config.max_tasks_num, reduce=False).all()
@@ -512,11 +503,14 @@ class Registry:
                                       result[:self.config.max_tasks_num][i:i + self.config.max_ids_single_task]]
                     count += len(timeline_tasks)
                     self.timeline_tasks.put(timeline_tasks)
+                self.generating_timeline_time = time()
                 self.logger.debug("Generated {} friends tasks.".format(count))
 
-        except Exception:
-            traceback.format_exc()
-        self.generating_timeline.dec()
+            except Exception:
+                traceback.format_exc()
+
+        else:
+            return
 
     def update_doc(self, db, key, values):
         try:
