@@ -34,10 +34,7 @@ class Config:
     def __init__(self):
         with open("twitter.json") as t:
             t_json = json.loads(t.read())
-            self.twitter = []
-            for c in t_json:
-                self.twitter.append(
-                    TwitterCredential(c['api_key'], c['api_secret_key'], c['access_token'], c['access_token_secret']))
+            self.twitter = t_json
             logger.debug("[*] Loaded {} credentials from twitter.json".format(len(self.twitter)))
 
         with open("couchdb.json") as t:
@@ -69,12 +66,7 @@ class Config:
             self.max_task_runtime = harvest_json['max_task_runtime']
             self.print_log_when_saved = harvest_json['print_log_when_saved']
             self.max_ids_single_task = harvest_json['max_ids_single_task']
-            self.victoria_areas_path = harvest_json['victoria_areas_path']
             self.max_queue_size = harvest_json['max_queue_size']
-            self.australia_lga2016_path = harvest_json['australia_lga2016_path']
+            self.aus_sa2_2016_lv12_path = harvest_json['aus_sa2_2016_lv12_path']
             self.ignore_statuses_out_of_australia = harvest_json['ignore_statuses_out_of_australia']
             self.bulk_size = harvest_json['bulk_size']
-
-
-
-

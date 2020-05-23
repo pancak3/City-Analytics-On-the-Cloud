@@ -37,13 +37,16 @@ class Crawler:
         # self.active_time_ref = active_time_ref
         self.id = None
         self.api_keys = {}
-        for credential in self.config.twitter:
-            api_key = credential.api_key
-            api_secret_key = credential.api_secrete_key
-            access_token = credential.access_token
-            access_token_secret = credential.access_token_secret
+        for idx, credential in enumerate(self.config.twitter):
+            api_key = credential['api_key']
+            api_secret_key = credential['api_secret_key']
+            access_token = credential['access_token']
+            access_token_secret = credential['access_token_secret']
+            stream_area = credential['stream_area']
+            stream_bbox = credential['stream_bbox']
             api_key_hash = self.hash(api_key)
-            self.api_keys[api_key_hash] = (api_key, api_secret_key, access_token, access_token_secret)
+            self.api_keys[api_key_hash] = (api_key, api_secret_key, access_token, access_token_secret,
+                                           stream_bbox, stream_area)
 
         self.api = None
         self.rate_limits = None
@@ -53,23 +56,27 @@ class Crawler:
         self.access_friends = 0
         self.access_followers = 0
         self.access_lookup_users = 0
+        self.stream_bbox = None
+        self.stream_area = None
 
     def init(self, hash_, id_):
         self.id = id_
-        (api_key, api_secret_key, access_token, access_token_secret) = self.api_keys[hash_]
+        (api_key, api_secret_key, access_token, access_token_secret, stream_bbox, stream_area) = self.api_keys[hash_]
         auth = tweepy.OAuthHandler(api_key, api_secret_key)
         auth.set_access_token(access_token, access_token_secret)
         self.api = tweepy.API(auth)
         self.update_rate_limit_status()
+        self.stream_bbox = stream_bbox
+        self.stream_area = stream_area
         logger.info("Init crawler")
 
-    def stream_filter(self, id_, res_queue, **kwargs):
+    def stream_filter(self, id_, res_queue):
         try:
             stream_listener = StreamListener(id_, res_queue)
             stream_ = tweepy.Stream(auth=self.api.auth, listener=stream_listener)
-            logger.debug("[{}] stream filter locations: {}".format(id_, kwargs.get('locations')))
+            logger.info("[{}] Stream filter {}: {}".format(id_, self.stream_area, self.stream_bbox))
             # blocking method
-            stream_.filter(**kwargs)
+            stream_.filter(languages=['en'], locations=self.stream_bbox)
         except Exception as e:
             logger.warning(e)
 

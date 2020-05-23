@@ -203,7 +203,7 @@ class Worker:
                     task = msg_json['task']
                     if task == 'stream':
                         # continue
-                        self.stream(msg_json['data']['locations'])
+                        self.stream()
                     elif task == 'task':
                         self.handle_tasks(msg_json)
                     elif task == 'pong':
@@ -302,15 +302,12 @@ class Worker:
         rate_limit['timeline'] = remaining
         return rate_limit
 
-    def stream(self, bbox_, count=0):
+    def stream(self, count=0):
         if count > 5:
             self.exit("[{}] stream failed {} times, worker exit.".format(self.worker_id, count))
         else:
             threading.Thread(target=self.crawler.stream_filter,
-                             args=(self.worker_id, self.stream_res_queue,),
-                             kwargs={'languages': ['en'],
-                                     'locations': bbox_}
-                             ).start()
+                             args=(self.worker_id, self.stream_res_queue,)).start()
             # to_sleep = count ** 2
             # logger.warning(
             #     "[{}] stream err, sleep {} seconds:{}".format(self.worker_id, to_sleep, traceback.format_exc()))
@@ -329,7 +326,7 @@ class Worker:
                                                                 self.running_timeline.get_count()))
 
             real_user_id = user_id[user_id.find(':') + 1:]
-            statuses = self.crawler.get_user_timeline(user_id=real_user_id, err_count=0)
+            statuses = self.crawler.get_user_timeline(user_id=real_user_id, err_count=0, tweet_mode="extended")
             for status in statuses:
                 self.statuses_queue.put((status, 2))
             doc = self.client['users'][user_id]
@@ -592,7 +589,7 @@ class Worker:
         return [min_x, min_y, max_x, max_y]
 
     def preprocess_areas(self):
-        new_sa2_2016 = self.read_areas(self.config.australia_lga2016_path)
+        new_sa2_2016 = self.read_areas(self.config.aus_sa2_2016_lv12_path)
 
         states = [{"hit": 0, "state_name": None, "bbox": [], "areas": []} for _ in range(len(new_sa2_2016))]
         # calc bbox for each area and store it in its state
@@ -676,22 +673,22 @@ class Worker:
                             min_x, min_y, max_x, max_y = self.areas_collection[i]['areas'][j]["bboxes"][k]
                             if point_x < min_x or point_y < min_y or point_x > max_x or point_y > max_y:
                                 continue
-                            l = - 1
+                            w = - 1
                             n = 0
                             length = len(self.areas_collection[i]['areas'][j]["coordinates"][k][m])
                             while n < length:
                                 if (self.areas_collection[i]['areas'][j]["coordinates"][k][m][n][1] > point_y) \
-                                        != (self.areas_collection[i]['areas'][j]["coordinates"][k][m][l][1] > point_y) \
+                                        != (self.areas_collection[i]['areas'][j]["coordinates"][k][m][w][1] > point_y) \
                                         and point_x < \
-                                        (self.areas_collection[i]['areas'][j]["coordinates"][k][m][l][0] -
+                                        (self.areas_collection[i]['areas'][j]["coordinates"][k][m][w][0] -
                                          self.areas_collection[i]['areas'][j]["coordinates"][k][m][n][0]) * \
                                         (point_y - self.areas_collection[i]['areas'][j]["coordinates"][k][m][n][1]) / \
-                                        (self.areas_collection[i]['areas'][j]["coordinates"][k][m][l][1] -
+                                        (self.areas_collection[i]['areas'][j]["coordinates"][k][m][w][1] -
                                          self.areas_collection[i]['areas'][j]["coordinates"][k][m][n][1]) \
                                         + self.areas_collection[i]['areas'][j]["coordinates"][k][m][n][0]:
                                     is_inside = not is_inside
                                 n += 1
-                                l += 1
+                                w += 1
                     if is_inside:
                         doc['sa2_2016_lv12_code'] = self.areas_collection[i]['areas'][j]['feature_code']
                         doc['sa2_2016_lv12_name'] = self.areas_collection[i]['areas'][j]['feature_name']
@@ -732,7 +729,7 @@ class Worker:
                 status_json['inserted_time'] = int(time())
                 is_committed = False
                 if self.config.ignore_statuses_out_of_australia:
-                    if status_json['sa2_2016_lv12_code'] not in {'0', '1'}:
+                    if status_json['sa2_2016_lv12_code'] not in {'australia', 'out_of_australia'}:
                         self.statuses_bulk.append(status_json)
                         if len(self.statuses_bulk) >= self.config.bulk_size:
                             self.client['statuses'].bulk_docs(self.statuses_bulk)

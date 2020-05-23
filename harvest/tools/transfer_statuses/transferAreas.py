@@ -1,5 +1,6 @@
 import json
 import os
+from cloudant.client import Cloudant
 from tqdm import tqdm
 from database import CouchDB
 
@@ -70,46 +71,43 @@ def retrieve_statuses_areas(doc_json, areas_in_states):
                         min_x, min_y, max_x, max_y = areas_in_states[0][i]['areas'][j]["bboxes"][k]
                         if point_x < min_x or point_y < min_y or point_x > max_x or point_y > max_y:
                             continue
-                        l = - 1
+                        w = - 1
                         n = 0
                         length = len(areas_in_states[0][i]['areas'][j]["coordinates"][k][m])
                         while n < length:
                             if (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][n][1] > point_y) \
-                                    != (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][l][1] > point_y) \
+                                    != (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][w][1] > point_y) \
                                     and point_x < \
-                                    (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][l][0] -
+                                    (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][w][0] -
                                      areas_in_states[0][i]['areas'][j]["coordinates"][k][m][n][0]) * \
                                     (point_y - areas_in_states[0][i]['areas'][j]["coordinates"][k][m][n][1]) / \
-                                    (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][l][1] -
+                                    (areas_in_states[0][i]['areas'][j]["coordinates"][k][m][w][1] -
                                      areas_in_states[0][i]['areas'][j]["coordinates"][k][m][n][1]) \
                                     + areas_in_states[0][i]['areas'][j]["coordinates"][k][m][n][0]:
                                 is_inside = not is_inside
                             n += 1
-                            l += 1
+                            w += 1
 
                 if is_inside:
                     doc['sa2_2016_lv12_code'] = areas_in_states[0][i]['areas'][j]['feature_code']
                     doc['sa2_2016_lv12_name'] = areas_in_states[0][i]['areas'][j]['feature_name']
                     doc['sa2_2016_lv12_state'] = areas_in_states[0][i]['state_name']
-                    doc['_id'] = doc['sa2_2016_lv12_code'] + doc['_id'][doc['_id'].find(':'):]
+                    doc['_id'] = doc['sa2_2016_lv12_code'] + ':' + doc['id_str']
                     rank_areas(areas_in_states, i, j)
                     return doc
 
     return doc
 
 
-def transfer_abs2011_to_lga2016(areas_in_states):
-    couch = CouchDB()
-    transfer_statues = couch.client["transfer-statuses"]
-    statuses = couch.client["temp"]
+def transfer_abs2011_to_lga2016(areas_in_states, source_db, target_db):
     bulk = []
-    for doc in tqdm(transfer_statues, total=transfer_statues.doc_count(), desc="Updating doc"):
+    for doc in tqdm(source_db, total=source_db.doc_count(), desc="Updating doc"):
         new_doc = retrieve_statuses_areas(json.dumps(doc), areas_in_states)
         if 'sa2_2016_lv12_code' in new_doc and new_doc['sa2_2016_lv12_code'] not in {'australia', 'out_of_australia'}:
-            if new_doc['_id'] not in statuses:
+            if new_doc['_id'] not in target_db:
                 bulk.append(new_doc)
                 if len(bulk) > 500:
-                    statuses.bulk_docs(bulk)
+                    target_db.bulk_docs(bulk)
                     bulk = []
 
 
@@ -195,4 +193,10 @@ def preprocess():
 
 if __name__ == '__main__':
     areas_in_states = [preprocess()]
-    transfer_abs2011_to_lga2016(areas_in_states)
+    source_couch = Cloudant('comp90024', 'pojeinaiShoh9Oo', url='http://172.26.134.15:5984/', connect=True)
+    source_couch.connect()
+
+    target_couch = Cloudant('comp90024', 'pojeinaiShoh9Oo', url='http://172.26.134.15:5984/', connect=True)
+    target_couch.connect()
+
+    transfer_abs2011_to_lga2016(areas_in_states, source_couch['statuses'], target_couch['temp'])

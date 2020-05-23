@@ -353,11 +353,7 @@ class Registry:
             self.remove_worker(worker_data, e)
 
     def send_stream_task(self, worker_data):
-        msg = {"task": "stream",
-               "data": {
-                   "locations": self.config.victoria_bbox},
-               "token": self.token
-               }
+        msg = {"task": "stream", "token": self.token}
         worker_data.sender_conn.send(bytes(json.dumps(msg) + '\n', 'utf-8'))
         self.logger.debug('[*] Sent stream task to Worker-{}.'.format(worker_data.worker_id))
 
