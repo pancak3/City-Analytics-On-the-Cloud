@@ -42,12 +42,14 @@ router.get('/stats', async (req, res, next) => {
         const users = nano.db.use('users');
         const user_view = await users.view('api-global', 'count', {
             include_docs: false,
+            stale: 'ok',
         });
         const user_count = user_view['rows'][0]['value'];
 
         const status = nano.db.use('statuses');
         const status_view = await status.view('api-global', 'count', {
             include_docs: false,
+            stale: 'ok',
         });
         const status_count = status_view['rows'][0]['value'];
 
@@ -77,11 +79,13 @@ router.get('/general', async (req, res, next) => {
         const day_call = status.view('api-global', 'weekday', {
             reduce: true,
             group: true,
+            stale: 'ok',
         });
         // hours
         const hour_call = status.view('api-global', 'hour', {
             reduce: true,
             group: true,
+            stale: 'ok',
         });
 
         // perform call

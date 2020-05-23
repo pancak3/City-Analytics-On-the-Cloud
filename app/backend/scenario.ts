@@ -56,6 +56,7 @@ router.get(
                 {
                     group: true,
                     reduce: true,
+                    stale: 'ok',
                 }
             );
 
@@ -85,6 +86,7 @@ router.get(
                 end_key: [keyword, {}],
                 group: true,
                 reduce: true,
+                stale: 'ok',
             });
 
             const ret: { [area: string]: any } = {};
@@ -117,6 +119,7 @@ router.get(
                       group: false,
                       reduce: false,
                       limit: 5,
+                      stale: 'ok',
                   })
                 : // no keyword
                   await status.partitionedView(area, 'api', 'doc', {
@@ -164,6 +167,7 @@ router.get(
             const exercise = await status.view('api-global', 'exercise', {
                 group: true,
                 reduce: true,
+                stale: 'ok',
             });
             // transform into area
             const transformed = view_bool_process(exercise.rows);
