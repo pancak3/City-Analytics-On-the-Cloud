@@ -5,10 +5,18 @@ if len(sys.argv) < 2:
     sys.exit(1)
 
 # Read input from stdin
-mapreduce_input = ''.join([line for line in sys.stdin])
+stdinput = [line for line in sys.stdin]
+aurin_dataset_name = stdinput[0]
+aurin_dataset = stdinput[1]
+mapreduce_output = stdinput[2]
 
-if sys.argv[1] == 'exercise':
-    print(mapreduce_input)
+f = open('f', 'w')
+f.writelines(stdinput)
+
+if sys.argv[1] == 'sentiment':
+    print(aurin_dataset_name)
+    print(aurin_dataset)
+    print(mapreduce_output)
     pass
 else:
     print('Bad scenario argument', file=sys.stderr)

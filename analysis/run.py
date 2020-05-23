@@ -35,7 +35,6 @@ def get_unprocessed_statuses(limit=None):
         else:
             result = statuses_db.get_view_result('_design/task', view_name='ml', reduce=False).all()
         res = result
-
     logger.info("Got {} statuses".format(len(res)))
     return res
 
