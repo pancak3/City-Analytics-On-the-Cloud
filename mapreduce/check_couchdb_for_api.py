@@ -3,6 +3,7 @@ import json
 import logging
 import traceback
 import sys
+from pprint import pformat, pprint
 from time import asctime, localtime, time
 from tqdm import tqdm
 from utils.database import CouchDB
@@ -14,7 +15,7 @@ logger = get_logger('AreasUpdater', logging.DEBUG)
 couch = CouchDB()
 date_time = asctime(localtime(time()))
 
-backup_path = os.path.join(os.path.join("views_backup", date_time))
+backup_path = os.path.join(os.path.join("ddocs_backup", date_time))
 
 count = 1
 while os.path.exists(backup_path):
@@ -168,97 +169,79 @@ def update_areas():
     logger.info("Wrote {} areas in to couchdb".format(len(areas_json)))
 
 
-def check_db(combined_db_name):
-    os.mkdir(os.path.join("views_backup", date_time, combined_db_name))
-    (db_name, partitioned) = combined_db_name.split('.')
-    partitioned = True if partitioned == "partitioned" else False
-    if db_name not in couch.client.all_dbs():
-        couch.client.create_database(db_name, partitioned=partitioned)
-        logger.info("Created database: {}".format(db_name))
-
-    for ddoc_name in os.listdir(os.path.join("couch", combined_db_name)):
-        if os.path.isdir(os.path.join("couch", combined_db_name, ddoc_name)):
-            check_ddoc_in_db(combined_db_name, ddoc_name)
-
-
-def check_ddoc_in_db(combined_db_name, combined_ddoc_name):
-    os.mkdir(os.path.join("views_backup", date_time, combined_db_name, combined_ddoc_name))
-    db_name = combined_db_name.split('.')[0]
-    (ddoc_name, partitioned) = combined_ddoc_name.split('.')
-    partitioned = True if partitioned == "partitioned" else False
-    design_doc = Document(couch.client[db_name], '_design/' + ddoc_name)
-    if not design_doc.exists():
-        design_doc = DesignDocument(couch.client[db_name], '_design/' + ddoc_name, partitioned=partitioned)
-        design_doc.save()
-        logger.info("Created design document: {}".format(ddoc_name))
-
-    for view_name in os.listdir(os.path.join("couch", combined_db_name, combined_ddoc_name)):
-        if os.path.isdir(os.path.join("couch", combined_db_name, combined_ddoc_name, view_name)):
-            check_a_single_view(combined_db_name, combined_ddoc_name, view_name)
-
-
-def update_view(db_name, ddoc_name, view_name, local_view, partitioned):
-    partitioned = True if partitioned == "partitioned" else False
-    design_doc = couch.client[db_name]['_design/' + ddoc_name]
-    design_doc.add_view(view_name, local_view.map, local_view.reduce, partitioned=partitioned)
-    design_doc.save()
-    logger.info("Updated view: {}/_design/{}/_view/{}".format(db_name, ddoc_name, view_name))
-
-
 def save_js(path, content):
     f = open(path, "w+")
     f.write(content)
     f.close()
 
 
-def check_a_single_view(combined_db_name, combined_ddoc_name, view_name):
-    os.mkdir(os.path.join("views_backup", date_time, combined_db_name, combined_ddoc_name, view_name))
-
-    db_name = combined_db_name.split('.')[0]
-    (ddoc_name, partitioned) = combined_ddoc_name.split('.')
-    partitioned = True if partitioned == "partitioned" else False
-    local_view = read_view_from_file(os.path.join("couch", combined_db_name, combined_ddoc_name, view_name))
-    design_doc = couch.client[db_name]['_design/' + ddoc_name]
-
-    # backup
-
-    if view_name in design_doc.views and 'reduce' in design_doc.views[view_name]:
-        map_func = "const map = " + design_doc.views[view_name]['map']
-
-        if design_doc.views[view_name]['reduce'][0] == '_':
-            reduce_func = "const reduce = " + design_doc.views[view_name]['reduce'] + ';\n'
-        else:
-            reduce_func = "const reduce = " + design_doc.views[view_name]['reduce']
-        save_js(os.path.join("views_backup",
-                             date_time, combined_db_name, combined_ddoc_name, view_name, 'reduce.js'), reduce_func)
-
-        save_js(os.path.join("views_backup",
-                             date_time, combined_db_name, combined_ddoc_name, view_name, 'map.js'), map_func)
-
-    if view_name in design_doc.views:
-        if design_doc.views[view_name]['map'] != local_view.map \
-                or ('reduce' in design_doc.views[view_name]
-                    and design_doc.views[view_name]['reduce'] != local_view.reduce):
-            design_doc.delete_view(view_name)
-            design_doc.save()
-            update_view(db_name, ddoc_name, view_name, local_view, partitioned)
-    else:
-        update_view(db_name, ddoc_name, view_name, local_view, partitioned)
+def backup_design_docs(ddocs_to_backup):
+    try:
+        for db_name, ddoc_names in ddocs_to_backup.items():
+            os.mkdir(os.path.join(backup_path, db_name))
+            for ddoc_name in ddoc_names:
+                ddoc_json_str = json.dumps(couch.client[db_name]['_design/' + ddoc_name])
+                ddoc_json = json.loads(ddoc_json_str)
+                del ddoc_json['_rev']
+                ddoc_json_str = json.dumps(ddoc_json)
+                save_js(os.path.join(backup_path, db_name, ddoc_name + ".json"), ddoc_json_str)
+        logger.info("Backup done :\n{}".format(pformat(ddocs_to_backup, depth=4)))
+    except KeyError as e:
+        logger.warning(str(e) + ' not exist')
 
 
-def check_all_dbs():
-    for db_name in os.listdir("couch"):
-        if os.path.isdir(os.path.join("couch", db_name)):
-            check_db(db_name)
-    logger.info("Views full backup is under {}".format(backup_path))
+def create_ddoc(db_name, local_ddoc_json_str):
+    local_ddoc_json = json.loads(local_ddoc_json_str)
+    couch.client[db_name].create_document(local_ddoc_json)
+    logger.info("Created design doc:\n{}".format(pformat(local_ddoc_json)))
+
+
+def update_ddoc(ddoc, local_ddoc_json_str):
+    local_ddoc_json = json.loads(local_ddoc_json_str)
+    for view_name, view_json_str in local_ddoc_json['views'].items():
+        if view_name not in ddoc.views \
+                or ddoc.views[view_name] != view_json_str:
+            ddoc.views[view_name] = view_json_str
+            ddoc.save()
+            logger.info(
+                "Updated design doc {}/{}:\n{}".format(ddoc.document_url, view_name, pformat(view_json_str)))
+
+
+def check_all_dbs(ddocs_to_check):
+    for db_name, ddoc_names in ddocs_to_backup.items():
+        for ddoc_name, v in ddoc_names.items():
+            f = open(os.path.join("couch", db_name, ddoc_name + '.json'))
+            ddocs_to_check[db_name][ddoc_name] = f.read()
+            f.close()
+            if '_design/' + ddoc_name not in couch.client[db_name]:
+                create_ddoc(db_name, ddocs_to_check[db_name][ddoc_name])
+            else:
+                update_ddoc(couch.client[db_name]['_design/' + ddoc_name],
+                            ddocs_to_check[db_name][ddoc_name])
+    logger.info("Finished design docs check")
 
 
 if __name__ == '__main__':
+    ddocs_to_backup = {
+        'statuses': {
+            'api': '',
+            'task': '',
+            'api-global': ''
+        },
+        'users': {
+            'api-global': '',
+            'tasks': ''
+        }
+    }
+
     try:
-        if not os.path.exists('views_backup'):
-            os.mkdir('views_backup')
+        if not os.path.exists('ddocs_backup'):
+            os.mkdir('ddocs_backup')
         os.mkdir(backup_path)
+
+        backup_design_docs(ddocs_to_backup)
+        check_all_dbs(ddocs_to_backup)
         update_areas()
-        # check_all_dbs()
+
     except Exception:
         traceback.print_exc(file=sys.stdout)
