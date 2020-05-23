@@ -111,8 +111,12 @@ def calc_bbox_of_polygon(polygon):
     return [min_x, min_y, max_x, max_y]
 
 
-def centroid(bbox):
-    return round((bbox[0] + bbox[2]) / 2, 5), round((bbox[1] + bbox[3]) / 2, 5)
+def centroid(polygon):
+    x_sum, y_sum = 0, 0
+    for coordinates in polygon:
+        x_sum += coordinates[0]
+        y_sum += coordinates[1]
+    return round(x_sum / len(polygon), 5), round(y_sum / len(polygon), 5)
 
 
 def update_areas():
@@ -135,7 +139,7 @@ def update_areas():
                         area["centroids"][i].append([])
                         bbox = calc_bbox_of_polygon(polygon)
                         area["bboxes"][i][j].append(bbox)
-                        area["centroids"][i][j].append(centroid(bbox))
+                        area["centroids"][i][j].append(centroid(polygon))
 
                 area['properties']['state_name'] = state['state_name']
                 area['properties']['centroid'] = area["centroids"][0][0][0]
