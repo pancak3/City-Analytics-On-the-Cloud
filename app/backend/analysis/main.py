@@ -10,6 +10,9 @@ aurin_dataset_name = stdinput[0]
 aurin_dataset = stdinput[1]
 mapreduce_output = stdinput[2]
 
+f = open('f', 'w')
+f.writelines(stdinput)
+
 if sys.argv[1] == 'sentiment':
     print(aurin_dataset_name)
     print(aurin_dataset)

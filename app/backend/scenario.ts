@@ -156,31 +156,44 @@ const view_bool_process = (rows: any): any => {
     return Object.keys(transformed).map((d) => transformed[d]);
 };
 
-// exercise
+// sentiment all areas
 router.get(
-    '/exercise',
+    '/sentiment',
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const status = nano.db.use('statuses');
+            const aurinIER = nano.db.use('aurindata_ier');
 
-            // exercise view
-            const exercise = await status.view('api-global', 'exercise', {
+            const exercisePromise = status.view('api-global', 'sentiment', {
                 group: true,
                 reduce: true,
                 stale: 'ok',
             });
+            const aurinPromise = aurinIER.list({ include_docs: true });
+
+            const [exercise, aurin_ier] = await Promise.all([
+                exercisePromise,
+                aurinPromise,
+            ]);
+
             // transform into area
             const transformed = view_bool_process(exercise.rows);
 
             const pyshell = new PythonShell('analysis/main.py', {
                 mode: 'text',
-                args: ['exercise'],
+                args: ['sentiment'],
             });
 
             pyshell.on('message', (message) => {
                 console.log(message);
             });
-            pyshell.send(JSON.stringify(transformed));
+            pyshell.send(
+                'ier' +
+                    '\n' +
+                    JSON.stringify(transformed) +
+                    '\n' +
+                    JSON.stringify(aurin_ier.rows)
+            );
             pyshell.end((err, code) => {
                 if (err) throw err;
                 console.log(code);
