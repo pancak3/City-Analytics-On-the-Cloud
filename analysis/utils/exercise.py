@@ -15,11 +15,6 @@ def clean_tweet(tweet):
 def tag_exercise(twitter_data):
     tweet_words = clean_tweet(twitter_data['doc']['text'])
     exercise_bow = ["exercise","workout","gym","yoga","jogging","aerobics","cardio"]
-    for word in excercise_bow:
-        for token in tweet_words:
-            if word == token:
-                twitter_data['exercise'] = True
-            else:
-                twitter_data['exercise'] = False
-
-
+    check = any(item in tweet_words for item in excercise_bow)
+    twitter_data['exercise'] = check
+    return twitter_data
