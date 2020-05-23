@@ -144,9 +144,8 @@ class Crawler:
                 # https://stackoverflow.com/questions/51700960
                 break
 
-    def get_followers_ids(self, lock, out, **kwargs):
+    def get_followers_ids(self, user_id):
         # lock this func in case of occurring rate limit err
-        lock.acquire()
         self.lock_followers.acquire()
         self.sleep(int(time()) - self.access_followers, 2)
         self.access_followers = int(time())
@@ -155,22 +154,18 @@ class Crawler:
         # up to a maximum of 5,000 per distinct request
         # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-followers-ids
 
-        # user wrapper to use variable reference
-        # https://stackoverflow.com/questions/986006
-        try:
-            out[0] = set(self.api.followers_ids(count=5000, **kwargs))
-            out[1] = 1
-            lock.release()
-        except Exception:
-            self.access_followers = int(time())
-            lock.release()
-            logger.warning(traceback.format_exc())
-            out[1] = -1
-            raise BaseException
+        return set(self.api.followers_ids(count=5000, user_id=user_id))
 
-    def get_friends_ids(self, lock, out, **kwargs):
+    def lookup_statues(self, **kwargs):
+        try:
+            return self.api.statuses_lookup(**kwargs)
+        except Exception:
+            logger.warning(traceback.format_exc())
+            return []
+
+    def get_friends_ids(self, user_id):
         # lock this func in case of occurring rate limit err
-        lock.acquire()
+
         self.lock_friends.acquire()
         self.sleep(int(time()) - self.access_friends, 2)
         self.access_friends = int(time())
@@ -179,20 +174,9 @@ class Crawler:
         # up to a maximum of 5,000 per distinct request
         # https://developer.twitter.com/en/docs/accounts-and-users/follow-search-get-users/api-reference/get-friends-ids
 
-        # user wrapper to use variable reference
-        # https://stackoverflow.com/questions/986006
-        try:
-            out[0] = set(self.api.friends_ids(count=5000, **kwargs))
-            out[1] = 1
-            lock.release()
-        except Exception:
-            logger.warning(traceback.format_exc())
-            self.access_friends = int(time())
-            lock.release()
-            out[1] = -1
-            raise BaseException
+        return set(self.api.friends_ids(count=5000, user_id=user_id))
 
-    def get_user_timeline(self, err_count, **kwargs):
+    def get_user_timeline(self, user_id):
         # lock this func in case of occurring rate limit err
         self.lock_user_timeline.acquire()
         self.sleep(int(time()) - self.access_user_timeline, 2)
@@ -200,8 +184,8 @@ class Crawler:
         self.lock_user_timeline.release()
         # up to a maximum of 200 per distinct request
         # https://developer.twitter.com/en/docs/tweets/timelines/api-reference/get-statuses-user_timeline
-
-        return self.api.user_timeline(count=self.config.user_timeline_max_statues, **kwargs)
+        return self.api.user_timeline(count=self.config.user_timeline_max_statues, user_id=user_id,
+                                      tweet_mode="extended")
 
     def lookup_users(self, users_ids):
         # lock this func in case of occurring rate limit err
@@ -215,13 +199,8 @@ class Crawler:
         # Requests / 15-min window (user auth)	900
         users = []
         for i in range(0, len(users_ids), 100):
-            try:
-                users_res = self.api.lookup_users(user_ids=users_ids[i:i + 100])
-                users += users_res
-            except Exception as e:
-                logger.warning(e)
-                self.access_lookup_users = int(time())
-                raise BaseException
+            users_res = self.api.lookup_users(user_ids=users_ids[i:i + 100])
+            users += users_res
         return users
 
     def hash(self, api_key_):
@@ -270,7 +249,5 @@ if __name__ == '__main__':
     for item in crawler.api_keys.items():
         crawler.init(item[0], 0)
         break
-    # crawler.lookup_users([25042316], 0)
-    res = [None, None]
-    crawler.get_friends_ids(Lock(), res, id=345275528)
+    res = crawler.lookup_statues(id_=['1140944190714630150'], tweet_mode='extended')
     print()

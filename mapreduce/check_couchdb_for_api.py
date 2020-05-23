@@ -96,32 +96,71 @@ def preprocess(data_path):
     return states
 
 
+def calc_bbox_of_polygon(polygon):
+    min_x, min_y, max_x, max_y = polygon[0][0], polygon[0][1], polygon[0][0], polygon[0][1]
+    for (x, y) in polygon:
+        if x < min_x:
+            min_x = x
+        elif x > max_x:
+            max_x = x
+
+        if y < min_y:
+            min_y = y
+        elif y > max_y:
+            max_y = y
+    return [min_x, min_y, max_x, max_y]
+
+
+def centroid(bbox):
+    return round((bbox[0] + bbox[2]) / 2, 5), round((bbox[1] + bbox[3]) / 2, 5)
+
+
 def update_areas():
     areas_json = []
+    bulk = []
     if "areas" in couch.client.all_dbs():
         couch.client["areas"].delete()
     if "areas" not in couch.client.all_dbs():
-        states = preprocess("data/LocalGovernmentAreas-2016")
+        states = preprocess("data/SA2(2016)Level12")
         for state in states:
             del state['hit']
             for area in state['areas']:
+                area["bboxes"] = []
+                area["centroids"] = []
+                for i, polygons in enumerate(area['geometry']['coordinates']):
+                    area["bboxes"].append([])
+                    area["centroids"].append([])
+                    for j, polygon in enumerate(polygons):
+                        area["bboxes"][i].append([])
+                        area["centroids"][i].append([])
+                        bbox = calc_bbox_of_polygon(polygon)
+                        area["bboxes"][i][j].append(bbox)
+                        area["centroids"][i][j].append(centroid(bbox))
+
                 area['properties']['state_name'] = state['state_name']
+                area['properties']['centroid'] = area["centroids"][0][0][0]
                 areas_json.append(area)
 
         couch.client.create_database("areas", partitioned=False)
         no_where = {"_id": "australia",
-                    "lga2016_area_code": "australia",
-                    "lga2016_area_name": "In Australia But No Specific Location"}
+                    "sa2_2016_lv12_code": "australia",
+                    "sa2_2016_lv12_name": "In Australia But No Specific Location"}
 
         out_of_vitoria = {"_id": "out_of_australia",
-                          "lga2016_area_code": "out_of_australia",
-                          "lga2016_area_name": "Out of Australia"}
+                          "sa2_2016_lv12_code": "out_of_australia",
+                          "sa2_2016_lv12_name": "Out of Australia"}
 
         couch.client["areas"].create_document(no_where)
         couch.client["areas"].create_document(out_of_vitoria)
+
         for area in tqdm(areas_json, unit=' areas'):
             area["_id"] = area['properties']['feature_code']
-            couch.client["areas"].create_document(area)
+            bulk.append(area)
+            if len(bulk) > 20:
+                couch.client["areas"].bulk_docs(bulk)
+                bulk = []
+    if len(bulk):
+        couch.client["areas"].bulk_docs(bulk)
     logger.info("Wrote {} areas in to couchdb".format(len(areas_json)))
 
 
@@ -216,6 +255,6 @@ if __name__ == '__main__':
             os.mkdir('views_backup')
         os.mkdir(backup_path)
         update_areas()
-        check_all_dbs()
+        # check_all_dbs()
     except Exception:
         traceback.print_exc(file=sys.stdout)

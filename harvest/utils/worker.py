@@ -87,7 +87,7 @@ class Worker:
         self.socket_send, self.socket_recv, valid_api_key_hash, self.worker_id = self.connect_reg()
         self.crawler.init(valid_api_key_hash, self.worker_id)
 
-        self.task_queue = queue.Queue(maxsize=self.config.max_queue_size)
+        self.tasks_queue = queue.Queue(maxsize=self.config.max_queue_size)
         self.has_task = False
         self.access_timeline = 0
         self.access_friends = 0
@@ -100,6 +100,9 @@ class Worker:
 
         self.statuses_bulk = []
         self.users_bulk = []
+
+        self.timeline_tasks = queue.Queue()
+        self.friends_tasks = queue.Queue()
 
     def get_registry(self):
         registry = self.client['control']['registry']
@@ -221,10 +224,10 @@ class Worker:
         logger.debug("[{}] got task: {}".format(self.worker_id, msg_json))
         if 'friends_ids' in msg_json and len(msg_json['friends_ids']):
             task = Task('friends', msg_json['friends_ids'])
-            self.task_queue.put(task)
+            self.tasks_queue.put(task)
         if 'timeline_ids' in msg_json and len(msg_json['timeline_ids']):
             task = Task('timeline', msg_json['timeline_ids'])
-            self.task_queue.put(task)
+            self.tasks_queue.put(task)
 
     def decrease_rate_limit(self, entry):
         self.lock_rate_limit.acquire()
@@ -315,168 +318,137 @@ class Worker:
             # self.stream(bbox_, count + 1)
             logger.info("Started stream task")
 
-    def timeline(self, timeline_task):
-        self.running_timeline.inc()
-        (user_id, is_stream_user) = timeline_task
-        try:
-            logger.debug("[{}] is getting user timeline:{}(stream:{}), "
-                         "running timeline task num: {}".format(self.worker_id,
-                                                                user_id,
-                                                                is_stream_user,
-                                                                self.running_timeline.get_count()))
-
-            real_user_id = user_id[user_id.find(':') + 1:]
-            statuses = self.crawler.get_user_timeline(user_id=real_user_id, err_count=0, tweet_mode="extended")
-            for status in statuses:
-                self.statuses_queue.put((status, 2))
+    def timeline(self, thread_num):
+        while True:
+            (user_id, is_stream_user) = self.timeline_tasks.get()
+            self.running_timeline.inc()
+            self.active.set(True)
             doc = self.client['users'][user_id]
+            try:
+                logger.debug("[{}-{}] is getting user timeline:{}(stream:{}), "
+                             "running timeline task num: {}".format(self.worker_id,
+                                                                    thread_num,
+                                                                    user_id,
+                                                                    is_stream_user,
+                                                                    self.running_timeline.get_count()))
 
-            doc.update_field(action=doc.field_set, field='timeline_authorized', value=True)
-            doc.update_field(action=doc.field_set, field='timeline_updated_at', value=int(time()))
-            logger.debug("[{}] finished user timeline:{}(stream:{}), "
-                         "running timeline task num: {}".format(self.worker_id,
-                                                                user_id,
-                                                                is_stream_user,
-                                                                self.running_timeline.get_count()))
+                real_user_id = user_id[user_id.find(':') + 1:]
+                statuses = self.crawler.get_user_timeline(real_user_id)
+
+                for status in statuses:
+                    self.statuses_queue.put((status, 2 if is_stream_user else 0))
+
+                doc.update_field(action=doc.field_set, field='timeline_authorized', value=True)
+                doc.update_field(action=doc.field_set, field='timeline_updated_at', value=int(time()))
+                logger.debug("[{}-{}] finished user timeline:{}(stream:{}), "
+                             "running timeline task num: {}".format(self.worker_id,
+                                                                    thread_num,
+                                                                    user_id,
+                                                                    is_stream_user,
+                                                                    self.running_timeline.get_count()))
+                self.running_timeline.dec()
+
+            except Exception as e:
+                self.running_timeline.dec()
+                doc.update_field(action=doc.field_set, field='timeline_authorized', value=False)
+                doc.update_field(action=doc.field_set, field='timeline_updated_at', value=int(time()))
+                logger.warning(e)
+                logger.debug("[{}-{}] Exciption! user timeline:{}(stream:{}), "
+                             "current task : {}".format(self.worker_id, thread_num, user_id, is_stream_user,
+                                                        self.running_timeline.get_count()))
+
+    def friends(self, thread_num):
+        while True:
+            stream_user_id = self.friends_tasks.get()
             self.active.set(True)
-            self.running_timeline.dec()
-            self.crawler.update_rate_limit_status()
-        except Exception as e:
-            self.active.set(True)
-            self.running_timeline.dec()
-            doc = self.client['users'][user_id]
-            doc.update_field(action=doc.field_set, field='timeline_authorized', value=False)
-            doc.update_field(action=doc.field_set, field='timeline_updated_at', value=int(time()))
-            logger.warning(e)
-            logger.debug("[{}] Exciption! user timeline:{}(stream:{}), "
-                         "current task : {}".format(self.worker_id, user_id, is_stream_user,
-                                                    self.running_timeline.get_count()))
+            self.running_friends.inc()
+            try:
+                logger.debug("[{}] getting friends: {}, current task:{}".format(self.worker_id,
+                                                                                stream_user_id,
+                                                                                self.running_friends.get_count()))
 
-    def friends(self, stream_user_id):
-        self.running_friends.inc()
-        try:
-            logger.debug("[{}] getting friends: {}, current task:{}".format(self.worker_id,
-                                                                            stream_user_id,
-                                                                            self.running_friends.get_count()))
+                real_user_id = stream_user_id[stream_user_id.find(':') + 1:]
+                follower_ids_set = self.crawler.get_followers_ids(real_user_id)
+                self.active.set(True)
+                friend_ids_set = self.crawler.get_friends_ids(real_user_id)
+                self.active.set(True)
 
-            lock_follower = threading.Lock()
-            lock_friend = threading.Lock()
+                mutual_follow = list(follower_ids_set.intersection(friend_ids_set))[:self.config.friends_max_ids]
+                users_res = self.crawler.lookup_users(mutual_follow)
 
-            # user wrapper to use variable reference
-            # https://stackoverflow.com/questions/986006
-            follower_ids_set = [set(), 0]
-            friend_ids_set = [set(), 0]
+                for user in users_res:
+                    user_json = user._json
+                    user_json['stream_user'] = False
+                    self.users_queue.put(user_json)
 
-            real_user_id = stream_user_id[stream_user_id.find(':') + 1:]
-            threading.Thread(target=self.crawler.get_followers_ids,
-                             args=(lock_follower, follower_ids_set,),
-                             kwargs={'user_id': real_user_id}).start()
+                doc = self.client['users'][stream_user_id]
+                doc.update_field(action=doc.field_set, field='follower_ids', value=list(follower_ids_set))
+                doc.update_field(action=doc.field_set, field='friend_ids', value=list(friend_ids_set))
+                doc.update_field(action=doc.field_set, field='mutual_follow_ids', value=list(mutual_follow))
+                doc.update_field(action=doc.field_set, field='friends_updated_at', value=int(time()))
+                doc.update_field(action=doc.field_set, field='friends_authorized', value=True)
+                logger.debug(
+                    "[{}-{}] finished friends: {}, current task:{}".format(self.worker_id, thread_num, stream_user_id,
+                                                                           self.running_friends.get_count()))
+                self.running_friends.dec()
 
-            threading.Thread(target=self.crawler.get_friends_ids,
-                             args=(lock_friend, friend_ids_set,),
-                             kwargs={'user_id': real_user_id}).start()
-
-            max_sleep = 5 * 60
-            while max_sleep:
-                lock_follower.acquire()
-                lock_friend.acquire()
-                if follower_ids_set[1] and friend_ids_set[1]:
-                    break
-                else:
-                    sleep(1)
-                    max_sleep -= 1
-                lock_follower.release()
-                lock_friend.release()
-
-            mutual_follow = list(follower_ids_set[0].intersection(friend_ids_set[0]))[:self.config.friends_max_ids]
-            users_res = self.crawler.lookup_users(mutual_follow)
-            for user in users_res:
-                user_json = user._json
-                user_json['stream_user'] = False
-                self.users_queue.put(user_json)
-            doc = self.client['users'][stream_user_id]
-            doc.update_field(action=doc.field_set, field='follower_ids', value=list(follower_ids_set[0]))
-            doc.update_field(action=doc.field_set, field='friend_ids', value=list(friend_ids_set[0]))
-            doc.update_field(action=doc.field_set, field='mutual_follow_ids', value=list(mutual_follow))
-            doc.update_field(action=doc.field_set, field='friends_updated_at', value=int(time()))
-            doc.update_field(action=doc.field_set, field='friends_authorized', value=True)
-            logger.debug(
-                "[{}] finished friends: {}, current task:{}".format(self.worker_id, stream_user_id,
-                                                                    self.running_friends.get_count()))
-            self.active.set(True)
-            self.running_friends.dec()
-            self.crawler.update_rate_limit_status()
-
-            del follower_ids_set
-            del friend_ids_set
-
-        except Exception as e:
-            self.active.set(True)
-            self.running_friends.dec()
-            doc = self.client['users'][stream_user_id]
-            doc.update_field(action=doc.field_set, field='friends_updated_at', value=int(time()))
-            doc.update_field(action=doc.field_set, field='friends_authorized', value=False)
-            logger.warning(e)
-            logger.debug(
-                "[{}] Exception! running friends: {}, current task:{}".format(self.worker_id, stream_user_id,
-                                                                              self.running_friends.get_count()))
+            except Exception as e:
+                self.running_friends.dec()
+                doc = self.client['users'][stream_user_id]
+                doc.update_field(action=doc.field_set, field='friends_updated_at', value=int(time()))
+                doc.update_field(action=doc.field_set, field='friends_authorized', value=False)
+                logger.warning(e)
+                logger.debug(
+                    "[{}-{}] Exception! running friends: {}, current task:{}".format(self.worker_id, thread_num,
+                                                                                     stream_user_id,
+                                                                                     self.running_friends.get_count()))
 
     def task_requester(self):
         timeline_last_time_sent = int(time())
         friends_last_time_sent = int(time())
+        rate_limit = self.refresh_local_rate_limit()
         while True:
             if int(time()) - timeline_last_time_sent > 10 \
                     and self.running_timeline.get_count() < self.config.max_running_timeline:
-                rate_limit = self.refresh_local_rate_limit()
-                timeline_remaining = rate_limit['timeline'] - self.running_timeline.get_count()
-                # for i in range(self.config.max_running_timeline):
-                for i in range(1, 10 if 10 < timeline_remaining else timeline_remaining):
-                    msg = {'timeline': timeline_remaining,
-                           'worker_id': self.worker_id,
-                           'token': self.token,
-                           'action': 'ask_for_task'}
-                    self.msg_to_send.put(json.dumps(msg))
-                    timeline_remaining -= 1
-                    del msg
 
+                if rate_limit['timeline'] > self.config.max_running_timeline:
+                    for i in range(0, self.config.max_running_timeline - self.running_timeline.get_count()):
+                        rate_limit['timeline'] -= 1
+                        msg = {'timeline': rate_limit['timeline'],
+                               'worker_id': self.worker_id,
+                               'token': self.token,
+                               'action': 'ask_for_task'}
+                        self.msg_to_send.put(json.dumps(msg))
+                else:
+                    self.crawler.update_rate_limit_status()
+                    rate_limit = self.refresh_local_rate_limit()
                 timeline_last_time_sent = int(time())
 
-                del rate_limit
-                del timeline_remaining
-
-            if int(time()) - friends_last_time_sent > 5 \
+            if int(time()) - friends_last_time_sent > 10 \
                     and self.running_friends.get_count() < self.config.max_running_friends:
-                rate_limit = self.refresh_local_rate_limit()
-                running_num = self.running_friends.get_count()
-                friends_remaining = rate_limit['friends'] - running_num
-                followers_remaining = rate_limit['followers'] - running_num
-                for i in range(self.config.max_running_friends):
-                    friends_remaining -= 1
-                    if friends_remaining < 1 or followers_remaining < 1:
-                        break
-                    msg = {'friends': friends_remaining,
-                           'followers': followers_remaining,
+
+                if rate_limit['friends'] > self.config.max_running_friends \
+                        and rate_limit['followers'] > self.config.max_running_friends:
+                    msg = {'friends': rate_limit['friends'],
+                           'followers': rate_limit['followers'],
                            'worker_id': self.worker_id,
                            'token': self.token,
                            'action': 'ask_for_task'}
                     self.msg_to_send.put(json.dumps(msg))
-                    friends_last_time_sent = int(time())
-                    del msg
-                del rate_limit
-                del running_num
-                del friends_remaining
-                del followers_remaining
-
+                else:
+                    self.crawler.update_rate_limit_status()
+                    rate_limit = self.refresh_local_rate_limit()
+                friends_last_time_sent = int(time())
             sleep(5)
 
     def task_handler(self):
         while True:
-            task = self.task_queue.get()
-            for user_id in task.user_ids:
+            task = self.tasks_queue.get()
+            for task_content in task.user_ids:
                 if task.type == 'timeline':
-                    threading.Thread(target=self.timeline, args=(user_id,)).start()
+                    self.timeline_tasks.put(task_content)
                 elif task.type == 'friends':
-                    threading.Thread(target=self.friends, args=(user_id,)).start()
+                    self.friends_tasks.put(task_content)
             del task
 
     def stream_status_handler(self):
@@ -711,10 +683,18 @@ class Worker:
         # Implementations should use this rather than the large integer in id
         # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object
         try:
+            if is_stream_code == 1:
+                user_json = status.author._json
+                user_json['stream_user'] = True
+                self.users_queue.put(user_json)
+                return 0
+
             status_json = self.retrieve_statuses_areas(status)
-            if self.config.ignore_statuses_out_of_australia:
-                if status_json['sa2_2016_lv12_code'] in {'australia', 'out_of_australia'} and is_stream_code != 1:
-                    return False
+
+            if self.config.ignore_statuses_out_of_australia \
+                    and status_json['sa2_2016_lv12_code'] in {'australia', 'out_of_australia'}:
+                return 0
+
             if status_json['_id'] not in self.client['statuses']:
                 if is_stream_code == 0:
                     status_json['stream_status'] = False
@@ -725,33 +705,19 @@ class Worker:
                     status_json['stream_status'] = True
                     status_json['direct_stream'] = False
                 else:
-                    return False
-                status_json['inserted_time'] = int(time())
-                is_committed = False
-                if self.config.ignore_statuses_out_of_australia:
-                    if status_json['sa2_2016_lv12_code'] not in {'australia', 'out_of_australia'}:
-                        self.statuses_bulk.append(status_json)
-                        if len(self.statuses_bulk) >= self.config.bulk_size:
-                            self.client['statuses'].bulk_docs(self.statuses_bulk)
-                            self.statuses_bulk = []
-                            is_committed = True
-                else:
-                    self.statuses_bulk.append(status_json)
-                    if len(self.statuses_bulk) >= self.config.bulk_size:
-                        self.client['statuses'].bulk_docs(self.statuses_bulk)
-                        self.statuses_bulk = []
-                        is_committed = True
+                    return 0
 
-                if is_stream_code == 1:
-                    user_json = status.author._json
-                    user_json['stream_user'] = True
-                    self.users_queue.put(user_json)
+                status_json['inserted_time'] = int(time())
+                if 'id' in status_json:
+                    del status_json[id]
+                self.statuses_bulk.append(status_json)
+                if len(self.statuses_bulk) >= self.config.bulk_size:
+                    self.client['statuses'].bulk_docs(self.statuses_bulk)
+                    self.statuses_bulk = []
+                    return self.config.bulk_size
                 # logger.debug("[{}] put in to bulk statuses: {}(stream:{})".format( self.worker_id,  status.id, is_stream_code))
 
-                if is_committed:
-                    return self.config.bulk_size
-                else:
-                    return 0
+                return 0
             else:
                 # logger.debug("[{}] ignored status: {}(stream:{})".format(self.worker_id, status.id, is_stream_code))
                 return 0
@@ -807,3 +773,8 @@ class Worker:
         threading.Thread(target=self.users_recorder).start()
         threading.Thread(target=self.statuses_recorder).start()
         threading.Thread(target=self.keep_alive).start()
+
+        for i in range(self.config.max_running_timeline):
+            threading.Thread(target=self.timeline, args=(i,)).start()
+        for i in range(self.config.max_running_friends):
+            threading.Thread(target=self.friends, args=(i,)).start()

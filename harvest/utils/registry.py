@@ -482,7 +482,7 @@ class Registry:
             if 'users' in self.client.all_dbs():
                 count = 0
                 result = self.client['users'].get_view_result('_design/tasks', view_name='friends',
-                                                              limit=self.config.max_tasks_num).all()
+                                                              limit=self.config.max_tasks_num, reduce=False).all()
                 for doc in result:
                     count += 1
                     self.friends_tasks.put(doc['id'])
@@ -505,7 +505,7 @@ class Registry:
             if 'users' in self.client.all_dbs():
                 count = 0
                 result = self.client['users'].get_view_result('_design/tasks', view_name='timeline',
-                                                              limit=self.config.max_tasks_num).all()
+                                                              limit=self.config.max_tasks_num, reduce=False).all()
 
                 for i in range(0, len(result), self.config.max_ids_single_task):
                     timeline_tasks = [[doc['id'], doc['key'][3]] for doc in

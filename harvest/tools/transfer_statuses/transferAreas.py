@@ -193,10 +193,10 @@ def preprocess():
 
 if __name__ == '__main__':
     areas_in_states = [preprocess()]
-    source_couch = Cloudant('comp90024', 'pojeinaiShoh9Oo', url='http://172.26.134.15:5984/', connect=True)
+    source_couch = Cloudant('admin', 'password', url='http://127.0.0.1:5983/', connect=True)
     source_couch.connect()
 
-    target_couch = Cloudant('comp90024', 'pojeinaiShoh9Oo', url='http://172.26.134.15:5984/', connect=True)
+    target_couch = Cloudant('admin', 'password', url='http://127.0.0.1:5984/', connect=True)
     target_couch.connect()
 
-    transfer_abs2011_to_lga2016(areas_in_states, source_couch['statuses'], target_couch['temp'])
+    transfer_abs2011_to_lga2016(areas_in_states, source_couch['statuses'], target_couch['statuses'])
