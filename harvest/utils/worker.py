@@ -384,7 +384,8 @@ class Worker:
                 for user in users_res:
                     user_json = user._json
                     user_json['stream_user'] = False
-                    self.users_queue.put(user_json)
+                    if user_json["geo_enabled"]:
+                        self.users_queue.put(user_json)
 
                 doc = self.client['users'][stream_user_id]
                 doc.update_field(action=doc.field_set, field='follower_ids', value=list(follower_ids_set))
