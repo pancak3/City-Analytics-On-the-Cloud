@@ -312,7 +312,7 @@ class Registry:
                 and recv_json['friends'] > 0 and recv_json['followers'] > 0:
             self.handle_task_friends(worker_data)
         if 'timeline' in recv_json and recv_json['timeline'] > 0:
-            self.handle_task_timeline(worker_data)
+            self.handle_task_timeline(worker_data, recv_json['timeline'])
 
     def handle_task_friends(self, worker_data):
         self.logger.debug("[-] Has {} friends tasks in queue.".format(self.friends_tasks.qsize()))
@@ -327,13 +327,14 @@ class Registry:
         except queue.Empty:
             pass
 
-    def handle_task_timeline(self, worker_data):
+    def handle_task_timeline(self, worker_data, count):
         self.logger.debug("[-] Has {} timeline tasks in queue.".format(self.timeline_tasks.qsize()))
         try:
             self.generate_timeline_task()
-
-            timeline_tasks = self.timeline_tasks.get(timeout=0.01)
-            msg = {'token': self.token, 'task': 'task', 'timeline_ids': timeline_tasks}
+            ids = []
+            for _ in range(count):
+                ids.append(self.timeline_tasks.get(timeout=0.01))
+            msg = {'token': self.token, 'task': 'task', 'timeline_ids': ids}
             worker_data.msg_queue.put(json.dumps(msg))
             self.logger.debug(
                 "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, msg))
@@ -494,17 +495,13 @@ class Registry:
                 and time() - self.generating_timeline_time > 5:
             try:
                 self.client.connect()
-                count = 0
                 result = self.client['users'].get_view_result('_design/tasks', view_name='timeline',
                                                               limit=self.config.max_tasks_num, reduce=False).all()
 
-                for i in range(0, len(result), self.config.max_ids_single_task):
-                    timeline_tasks = [[doc['id'], doc['key'][3]] for doc in
-                                      result[:self.config.max_tasks_num][i:i + self.config.max_ids_single_task]]
-                    count += len(timeline_tasks)
-                    self.timeline_tasks.put(timeline_tasks)
+                for doc in result:
+                    self.timeline_tasks.put([doc['id'], doc['key'][3]])
                 self.generating_timeline_time = time()
-                self.logger.debug("Generated {} friends tasks.".format(count))
+                self.logger.debug("Generated {} friends tasks.".format(len(result)))
 
             except Exception:
                 traceback.format_exc()

@@ -416,14 +416,14 @@ class Worker:
             if int(time()) - timeline_last_time_sent > 10 \
                     and self.running_timeline.get_count() < self.config.max_running_timeline:
 
+                idle_threads = self.config.max_running_timeline - self.running_timeline.get_count()
                 if rate_limit['timeline'] > self.config.max_running_timeline:
-                    for i in range(0, self.config.max_running_timeline - self.running_timeline.get_count()):
-                        rate_limit['timeline'] -= 1
-                        msg = {'timeline': rate_limit['timeline'],
-                               'worker_id': self.worker_id,
-                               'token': self.token,
-                               'action': 'ask_for_task'}
-                        self.msg_to_send.put(json.dumps(msg))
+                    rate_limit['timeline'] -= 1
+                    msg = {'timeline': idle_threads,
+                           'worker_id': self.worker_id,
+                           'token': self.token,
+                           'action': 'ask_for_task'}
+                    self.msg_to_send.put(json.dumps(msg))
                 else:
                     self.crawler.update_rate_limit_status()
                     rate_limit = self.refresh_local_rate_limit()
