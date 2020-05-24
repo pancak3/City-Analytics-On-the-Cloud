@@ -34,6 +34,16 @@ export function getCounts() {
     return getRequest(`/api/scenarios/counts`);
 }
 
+// keywords page: top 10 hashtags
+export function getHashTags() {
+    return getRequest(`/api/scenarios/hashtags/all`);
+}
+
+// keywords page: top 10 hashtags by area
+export function getHashTagsByArea(area: string) {
+    return getRequest(`/api/scenarios/hashtags/${area}`);
+}
+
 // keywords page: get by keyword
 export function getKeyword(keyword: string) {
     return getRequest(`/api/scenarios/keyword/all`, { params: { keyword } });

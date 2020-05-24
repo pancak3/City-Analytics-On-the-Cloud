@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import Scenario from '../components/Scenario';
-import { getCounts, getKeyword, getKeywordArea } from '../helper/api';
+import {
+    getCounts,
+    getKeyword,
+    getKeywordArea,
+    getHashTags,
+    getHashTagsByArea,
+} from '../helper/api';
 import PropTypes from 'prop-types';
 import {
     ExpansionPanel,
@@ -52,6 +58,11 @@ function Word(props) {
         setLoaded(true);
         getCounts().then((data) => {
             setCounts(data);
+        });
+
+        if (areaCode) return;
+        getHashTags().then((data) => {
+            setHashtag(data);
         });
     }, [loaded, plainGeo]);
 
@@ -112,6 +123,9 @@ function Word(props) {
             setKeywordExpanded(false);
             setIndExpanded(true);
             setMarker(props.areaCentroid ? props.areaCentroid[areaCode] : null);
+        });
+        getHashTagsByArea(areaCode).then((data) => {
+            setHashtag(data);
         });
     }, [areaLoaded, areaCode, keyword, props.areaCentroid]);
 
@@ -175,64 +189,45 @@ function Word(props) {
                     </ExpansionPanelSummary>
                     <ExpansionPanelDetails>
                         <Grid>
-                            <Tabs
-                                value={tabValue}
-                                indicatorColor="primary"
-                                textColor="primary"
-                                onChange={(e, newValue) =>
-                                    setTabValue(newValue)
-                                }
-                            >
-                                <Tab label="Count" />
-                                <Tab label="Hashtags" />
-                            </Tabs>
-
-                            {tabValue === 0 &&
-                                (freq ? (
-                                    freq.length > 0 ? (
-                                        <TableContainer className="mt-2">
-                                            <Table>
-                                                <TableHead>
-                                                    <TableRow>
-                                                        <TableCell component="th">
-                                                            SA2 Area
+                            {freq ? (
+                                freq.length > 0 ? (
+                                    <TableContainer>
+                                        <Table>
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell component="th">
+                                                        SA2 Area
+                                                    </TableCell>
+                                                    <TableCell component="th">
+                                                        Count
+                                                    </TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {freq.map((area_code) => (
+                                                    <TableRow key={area_code}>
+                                                        <TableCell>
+                                                            {props.areaName
+                                                                ? props
+                                                                      .areaName[
+                                                                      area_code
+                                                                  ]
+                                                                : ''}
                                                         </TableCell>
-                                                        <TableCell component="th">
-                                                            Count
+                                                        <TableCell>
+                                                            {data[area_code]}
                                                         </TableCell>
                                                     </TableRow>
-                                                </TableHead>
-                                                <TableBody>
-                                                    {freq.map((area_code) => (
-                                                        <TableRow
-                                                            key={area_code}
-                                                        >
-                                                            <TableCell>
-                                                                {props.areaName
-                                                                    ? props
-                                                                          .areaName[
-                                                                          area_code
-                                                                      ]
-                                                                    : ''}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {
-                                                                    data[
-                                                                        area_code
-                                                                    ]
-                                                                }
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </TableContainer>
-                                    ) : (
-                                        <p className="mt-4">No data found...</p>
-                                    )
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
                                 ) : (
-                                    <p className="mt-4">Loading...</p>
-                                ))}
+                                    <p className="mt-4">No data found...</p>
+                                )
+                            ) : (
+                                <p className="mt-4">Loading...</p>
+                            )}
                         </Grid>
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
@@ -249,7 +244,7 @@ function Word(props) {
                         </ExpansionPanelSummary>
                         <ExpansionPanelDetails id="indicative">
                             <Grid>
-                                <h6>
+                                <h6 className="mb-1">
                                     {props.areaName[areaCode]} ({areaCode})
                                 </h6>
                                 <p id="count">
@@ -257,27 +252,80 @@ function Word(props) {
                                     {data[areaCode] ? data[areaCode] : 0}
                                 </p>
 
-                                {area.map((tweet) => (
-                                    <div className="tweet" key={tweet.url}>
-                                        <p>{tweet.text}</p>
-                                        {tweet.url ? (
-                                            <React.Fragment>
-                                                <FontAwesomeIcon
-                                                    icon={faTwitter}
-                                                />
-                                                <a
-                                                    href={tweet.url}
-                                                    rel="noopener noreferrer"
-                                                    target="_blank"
-                                                >
-                                                    {tweet.url}
-                                                </a>
-                                            </React.Fragment>
-                                        ) : (
-                                            <React.Fragment />
-                                        )}
-                                    </div>
-                                ))}
+                                <Tabs
+                                    value={tabValue}
+                                    indicatorColor="primary"
+                                    textColor="primary"
+                                    onChange={(e, newValue) =>
+                                        setTabValue(newValue)
+                                    }
+                                    className="mb-4"
+                                    disabled={keywordData ? true : false}
+                                >
+                                    <Tab label="Count" />
+                                    <Tab label="Hashtags" />
+                                </Tabs>
+
+                                {tabValue === 0 && (
+                                    <Grid>
+                                        {area.map((tweet) => (
+                                            <div
+                                                className="tweet"
+                                                key={tweet.url}
+                                            >
+                                                <p>{tweet.text}</p>
+                                                {tweet.url ? (
+                                                    <React.Fragment>
+                                                        <FontAwesomeIcon
+                                                            icon={faTwitter}
+                                                        />
+                                                        <a
+                                                            href={tweet.url}
+                                                            rel="noopener noreferrer"
+                                                            target="_blank"
+                                                        >
+                                                            {tweet.url}
+                                                        </a>
+                                                    </React.Fragment>
+                                                ) : (
+                                                    <React.Fragment />
+                                                )}
+                                            </div>
+                                        ))}
+                                    </Grid>
+                                )}
+
+                                {tabValue === 1 &&
+                                    (hashtag !== null ? (
+                                        <TableContainer>
+                                            <Table>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell component="th">
+                                                            Rank
+                                                        </TableCell>
+                                                        <TableCell component="th">
+                                                            Hashtag
+                                                        </TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {hashtag.map((h) => (
+                                                        <TableRow key={h[0]}>
+                                                            <TableCell>
+                                                                {h[0]}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {h[1]}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    ) : (
+                                        <p className="mt-4">No data found...</p>
+                                    ))}
                             </Grid>
                         </ExpansionPanelDetails>
                     </ExpansionPanel>

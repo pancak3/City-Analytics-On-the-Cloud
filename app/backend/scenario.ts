@@ -1,5 +1,5 @@
-import {Router, Request, Response, NextFunction} from 'express';
-import {PythonShell} from 'python-shell';
+import { Router, Request, Response, NextFunction } from 'express';
+import { PythonShell } from 'python-shell';
 import nano from './app';
 
 const router = Router();
@@ -14,7 +14,7 @@ const fetch_geojson = (): Promise<any> => {
 
         // fetch all docs in areas db
         const area = nano.db.use('areas');
-        area.list({include_docs: true})
+        area.list({ include_docs: true })
             .then((body) => {
                 _geojson = body.rows
                     // get documents
@@ -114,19 +114,19 @@ router.get(
             // selection of tweets with keyword (e.g. first 10)
             const tweets: any = keyword
                 ? await status.partitionedView(area, 'api', 'keyword', {
-                    include_docs: true,
-                    key: keyword,
-                    group: false,
-                    reduce: false,
-                    limit: 5,
-                    stale: 'ok',
-                })
+                      include_docs: true,
+                      key: keyword,
+                      group: false,
+                      reduce: false,
+                      limit: 5,
+                      stale: 'ok',
+                  })
                 : // no keyword
-                await status.partitionedView(area, 'api', 'doc', {
-                    include_docs: true,
-                    limit: 5,
-                    stale: 'ok',
-                });
+                  await status.partitionedView(area, 'api', 'doc', {
+                      include_docs: true,
+                      limit: 5,
+                      stale: 'ok',
+                  });
             return res.json(tweets.rows.map((r: any) => r.value));
         } catch (err) {
             return next(err);
@@ -162,10 +162,15 @@ router.get(
             const status = nano.db.use('statuses');
             const area = req.params.area;
 
-            const hashtags = await status.partitionedView(area, 'api', 'hashtags', {
-                reduce: false,
-                stale: 'ok',
-            });
+            const hashtags = await status.partitionedView(
+                area,
+                'api',
+                'hashtags',
+                {
+                    reduce: false,
+                    stale: 'ok',
+                }
+            );
             return res.json(hashtags_freq(hashtags));
         } catch (err) {
             return next(err);
@@ -196,7 +201,7 @@ const hashtags_freq = (hashtags: any): any => {
         return second[1] - first[1];
     });
 
-    return ret.slice(0, 10);
+    return ret.slice(0, 8);
 };
 
 // Takes:
@@ -276,16 +281,16 @@ const fetch_ieo_ier = async () => {
         const area = ier['id'];
         const ier_pop = ier['key'][0];
         const ier_score = ier['key'][1];
-        ieo_ier[area] = {ier_pop, ier_score};
+        ieo_ier[area] = { ier_pop, ier_score };
     }
     for (const ieo of aurin_ieo) {
         const area = ieo['id'];
         const ieo_pop = ieo['key'][0];
         const ieo_score = ieo['key'][1];
         if (!ieo_ier[area]) {
-            ieo_ier[area] = {ieo_pop, ieo_score};
+            ieo_ier[area] = { ieo_pop, ieo_score };
         } else {
-            ieo_ier[area] = {...ieo_ier[area], ieo_pop, ieo_score};
+            ieo_ier[area] = { ...ieo_ier[area], ieo_pop, ieo_score };
         }
     }
 
@@ -345,10 +350,10 @@ router.get(
             const analysis_result: string = await analyse(
                 ['sentiment'],
                 JSON.stringify(aurin_ier) +
-                '\n' +
-                JSON.stringify(aurin_ieo) +
-                '\n' +
-                JSON.stringify(transformed)
+                    '\n' +
+                    JSON.stringify(aurin_ieo) +
+                    '\n' +
+                    JSON.stringify(transformed)
             );
             const analysis_result_cleaned = analysis_result
                 .split(' ')
