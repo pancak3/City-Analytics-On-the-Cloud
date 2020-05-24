@@ -11,6 +11,15 @@
     state: present
   loop: '{{ security_groups }}'
 
+# Create egress ruels
+- name: Create egress rule
+  os_security_group_rule:
+    security_group: 'default'
+    ethertype: 'IPv4'
+    direction: 'egress'
+    remote_ip_prefix: '0.0.0.0/0'
+    state: present
+
 # Create security group rules
 - name: Create security group rules
   os_security_group_rule:
