@@ -35,7 +35,7 @@ def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", "--role", help="specify the role in [reg,]")
     parser.add_argument("-i", "--ip", nargs='?', help="IP address that Registry used to communicate with workers.")
-    parser.add_argument("-l", "--log", nargs='?', default='info',
+    parser.add_argument("-l", "--log", nargs='?', default='debug',
                         help="output log level  [critical, fatal, error, warning, warn ,info, debug, notset]")
     args = parser.parse_args()
     args.log = parse_log_level(args.log)
