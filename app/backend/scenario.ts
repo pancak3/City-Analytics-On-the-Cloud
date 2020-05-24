@@ -366,11 +366,7 @@ router.get(
                     delete sentiment_area.area;
                 }
             }
-<<<<<<< HEAD
-            return res.json({areas, score: analysis_result});
-=======
             return res.json({ areas, correlation: analysis_result_cleaned });
->>>>>>> 1ab9419... app: display correlation
         } catch (err) {
             return next(err);
         }
