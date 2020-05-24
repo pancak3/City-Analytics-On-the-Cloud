@@ -23,8 +23,6 @@ import {
     TableCell,
     TableRow,
     Table,
-    Tabs,
-    Tab,
 } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -45,12 +43,12 @@ function Word(props) {
     const [areaCode, setAreaCode] = useState(null);
     const [freqExpanded, setFreqExpanded] = useState(true);
     const [keywordExpanded, setKeywordExpanded] = useState(true);
+    const [hashtagExpanded, setHashtagExpanded] = useState(true);
     const [indExpanded, setIndExpanded] = useState(true);
     const [marker, setMarker] = useState(null);
     const [areaLoaded, setAreaLoaded] = useState(null);
-    const [hashtag, setHashtag] = useState(null);
-
-    const [tabValue, setTabValue] = useState(0);
+    const [areaHashtag, setAreaHashtag] = useState(null);
+    const [allHashtag, setAllHashtag] = useState(null);
 
     // Load counts
     useEffect(() => {
@@ -60,13 +58,11 @@ function Word(props) {
             setCounts(data);
         });
 
-        if (hashtag) return;
+        if (allHashtag) return;
         getHashTags().then((data) => {
-            if (!hashtag) {
-                setHashtag(data);
-            }
+            setAllHashtag(data);
         });
-    }, [loaded, plainGeo, hashtag]);
+    }, [loaded, plainGeo, allHashtag]);
 
     // Load keywords
     useEffect(() => {
@@ -79,6 +75,8 @@ function Word(props) {
 
     // Which data should be used
     const data = keywordData ? keywordData : counts;
+    // Which hashtag should be used
+    const hashtag = areaCode ? areaHashtag : allHashtag;
 
     // When geojson is loaded
     useEffect(() => {
@@ -127,7 +125,7 @@ function Word(props) {
             setMarker(props.areaCentroid ? props.areaCentroid[areaCode] : null);
         });
         getHashTagsByArea(areaCode).then((data) => {
-            setHashtag(data);
+            setAreaHashtag(data);
         });
     }, [areaLoaded, areaCode, keyword, props.areaCentroid]);
 
@@ -191,69 +189,64 @@ function Word(props) {
                     </ExpansionPanelSummary>
                     <ExpansionPanelDetails>
                         <Grid>
-                            <Tabs
-                                value={tabValue}
-                                indicatorColor="primary"
-                                textColor="primary"
-                                onChange={(e, newValue) =>
-                                    setTabValue(newValue)
-                                }
-                                className="mb-4 mt-0"
-                                disabled={keywordData ? true : false}
-                            >
-                                <Tab label="Tweets" />
-                                <Tab label="Hashtags" />
-                            </Tabs>
-
-                            {tabValue === 0 &&
-                                (freq ? (
-                                    freq.length > 0 ? (
-                                        <TableContainer>
-                                            <Table>
-                                                <TableHead>
-                                                    <TableRow>
-                                                        <TableCell component="th">
-                                                            SA2 Area
+                            {freq ? (
+                                freq.length > 0 ? (
+                                    <TableContainer>
+                                        <Table>
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell component="th">
+                                                        SA2 Area
+                                                    </TableCell>
+                                                    <TableCell component="th">
+                                                        Count
+                                                    </TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {freq.map((area_code) => (
+                                                    <TableRow key={area_code}>
+                                                        <TableCell>
+                                                            {props.areaName
+                                                                ? props
+                                                                      .areaName[
+                                                                      area_code
+                                                                  ]
+                                                                : ''}
                                                         </TableCell>
-                                                        <TableCell component="th">
-                                                            Count
+                                                        <TableCell>
+                                                            {data[area_code]}
                                                         </TableCell>
                                                     </TableRow>
-                                                </TableHead>
-                                                <TableBody>
-                                                    {freq.map((area_code) => (
-                                                        <TableRow
-                                                            key={area_code}
-                                                        >
-                                                            <TableCell>
-                                                                {props.areaName
-                                                                    ? props
-                                                                          .areaName[
-                                                                          area_code
-                                                                      ]
-                                                                    : ''}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {
-                                                                    data[
-                                                                        area_code
-                                                                    ]
-                                                                }
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </TableContainer>
-                                    ) : (
-                                        <p className="mt-4">No data found...</p>
-                                    )
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
                                 ) : (
-                                    <p className="mt-4">Loading...</p>
-                                ))}
+                                    <p className="mt-4">No data found...</p>
+                                )
+                            ) : (
+                                <p className="mt-2">Loading...</p>
+                            )}
+                        </Grid>
+                    </ExpansionPanelDetails>
+                </ExpansionPanel>
+            </div>
 
-                            {tabValue === 1 &&
-                                (hashtag !== null ? (
+            {hashtag && (
+                <div>
+                    <ExpansionPanel
+                        defaultExpanded
+                        expanded={hashtagExpanded}
+                        onChange={(e) => setHashtagExpanded(!hashtagExpanded)}
+                    >
+                        <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
+                            <h5>Top hashtags</h5>
+                        </ExpansionPanelSummary>
+
+                        <ExpansionPanelDetails>
+                            {hashtag !== null ? (
+                                hashtag.length !== 0 ? (
                                     <TableContainer className="mt-n2">
                                         <Table>
                                             <TableHead>
@@ -281,15 +274,20 @@ function Word(props) {
                                         </Table>
                                     </TableContainer>
                                 ) : (
-                                    <p className="mt-4">No data found...</p>
-                                ))}
-                        </Grid>
-                    </ExpansionPanelDetails>
-                </ExpansionPanel>
-            </div>
-            {area ? (
-                <div>
+                                    <p className="mt-2">No hashtags found...</p>
+                                )
+                            ) : (
+                                <p className="mt-2">No data found...</p>
+                            )}
+                        </ExpansionPanelDetails>
+                    </ExpansionPanel>
+                </div>
+            )}
+
+            {area && (
+                <div id="indicative">
                     <ExpansionPanel
+                        key="hashtag"
                         defaultExpanded
                         expanded={indExpanded}
                         onChange={(e) => setIndExpanded(!indExpanded)}
@@ -334,8 +332,6 @@ function Word(props) {
                         </ExpansionPanelDetails>
                     </ExpansionPanel>
                 </div>
-            ) : (
-                <React.Fragment />
             )}
         </Scenario>
     );
