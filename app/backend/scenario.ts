@@ -201,7 +201,7 @@ const hashtags_freq = (hashtags: any): any => {
         return second[1] - first[1];
     });
 
-    return ret.slice(0, 8);
+    return ret.slice(0, 7);
 };
 
 // Takes:
