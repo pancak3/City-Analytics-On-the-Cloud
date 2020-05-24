@@ -14,10 +14,15 @@ def clean_tweet(tweet):
 
 def tag_scenario(twitter_data):
     tweet_words = clean_tweet(twitter_data['doc']['text'])
-    exercise_bow = ["exercise","workout","gym","yoga","jogging","aerobics","cardio"]
-    climate_bow = ["climate", "globalwarming", "climatechange", "sealevel","greenhouse"]
-    check_excercise = any(item in tweet_words for item in excercise_bow)
-    twitter_data['exercise'] = check_excercise
-    check_climate = any(item in tweet_words for item in climate_bow)
-    twitter_data['climate_change'] = check_climate
+    cricket_bow = ["cricket","batsman","bowler","t20","odi","mcg","scg","bbl","bigbash"]
+    tennis_bow = ["tennis","australianopen","nadal","djokovic","federer","kyrgios","barty","atp","williams"]
+    footy_bow = ["afl", "footy","aussierules","collingwoodfc","richmond_fc","sydneyswans"]
+    motorsport_bow = ["ferrari","vettel","Lewis","prix","ricciardo","formula1","f1","ausgp","motogp","motorsport"]
+    soccer_bow =  ["fifa","aleague","soccer","liverpool","messi","ronaldo","epl","mufc","ffa","melcity","melbournevictory"]
+    sports = ["cricket","tennis","footy","motorsport","soccer"]
+    for sport in sport:
+        bow = sport+"_bow"
+        check = any(item in tweet_words for item in bow)
+        twitter_data[sport] = check
     return twitter_data
+    
