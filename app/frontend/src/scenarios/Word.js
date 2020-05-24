@@ -41,6 +41,7 @@ function Word(props) {
     const [keywordExpanded, setKeywordExpanded] = useState(true);
     const [indExpanded, setIndExpanded] = useState(true);
     const [marker, setMarker] = useState(null);
+    const [areaLoaded, setAreaLoaded] = useState(null);
     const [hashtag, setHashtag] = useState(null);
 
     const [tabValue, setTabValue] = useState(0);
@@ -96,34 +97,31 @@ function Word(props) {
             setFreqExpanded(true);
             setIndExpanded(false);
             setArea(null);
+            setAreaLoaded(false);
         }
     }
 
-    useEffect(() => {
-        if (area || !areaCode) return;
-        getArea(areaCode);
-    }, [area, areaCode]);
-
     // Get tweets of area
-    function getArea(feature_code) {
-        getKeywordArea(keyword, feature_code).then((data) => {
+    useEffect(() => {
+        if (!areaCode || areaLoaded) return;
+
+        setAreaLoaded(true);
+        getKeywordArea(keyword, areaCode).then((data) => {
             setArea(data);
-            setAreaCode(feature_code);
             setFreqExpanded(false);
             setKeywordExpanded(false);
             setIndExpanded(true);
-            setMarker(
-                props.areaCentroid ? props.areaCentroid[feature_code] : null
-            );
+            setMarker(props.areaCentroid ? props.areaCentroid[areaCode] : null);
         });
-    }
+    }, [areaLoaded, areaCode, keyword, props.areaCentroid]);
 
     return (
         <Scenario
             data={geojson}
             mode={'k'}
             featureClick={(feature) => {
-                getArea(feature.properties.feature_code);
+                setAreaCode(feature.properties.feature_code);
+                setAreaLoaded(false);
             }}
             marker={marker}
         >
