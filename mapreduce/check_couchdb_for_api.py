@@ -185,7 +185,7 @@ def backup_design_docs(ddocs_to_backup):
                 del ddoc_json['_rev']
                 ddoc_json_str = json.dumps(ddoc_json)
                 save_js(os.path.join(backup_path, db_name, ddoc_name + ".json"), ddoc_json_str)
-        logger.info("Backup done :\n{}".format(pformat(ddocs_to_backup, depth=4)))
+        logger.info("Backup done {}:\n{}".format(backup_path, pformat(ddocs_to_backup, depth=4)))
     except KeyError as e:
         logger.warning(str(e) + ' not exist')
 
@@ -225,12 +225,14 @@ if __name__ == '__main__':
     ddocs_to_backup = {
         'statuses': {
             'api': '',
-            'task': '',
             'api-global': ''
         },
         'users': {
             'api-global': '',
             'tasks': ''
+        },
+        'aurin_homelessness': {
+            'analysis': ''
         },
         'aurin_ier': {
             'analysis': ''
