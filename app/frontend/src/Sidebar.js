@@ -18,7 +18,7 @@ class Sidebar extends React.Component {
                     <li>
                         <NavLink activeClassName="selected" to="/scenario/word">
                             <FontAwesomeIcon icon={faBook} />
-                            Word Search
+                            Keyword Search
                         </NavLink>
                     </li>
                     <li>

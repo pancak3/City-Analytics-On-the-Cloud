@@ -6,16 +6,16 @@ if len(sys.argv) < 2:
 
 # Read input from stdin
 stdinput = [line for line in sys.stdin]
-aurin_dataset_name = stdinput[0]
-aurin_dataset = stdinput[1]
+ieo = stdinput[0]
+ier = stdinput[1]
 mapreduce_output = stdinput[2]
 
-# f = open('f', 'w')
-# f.writelines(stdinput)
+f = open('f', 'w')
+f.writelines(stdinput)
 
 if sys.argv[1] == 'sentiment':
-    print(aurin_dataset_name)
-    print(aurin_dataset)
+    print(ieo)
+    print(ier)
     print(mapreduce_output)
     pass
 else:

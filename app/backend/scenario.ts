@@ -157,28 +157,64 @@ const view_bool_process = (rows: any): any => {
     return Object.keys(transformed).map((d) => transformed[d]);
 };
 
+let _ier: any;
+const fetch_ier = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+        if (_ier) {
+            return resolve(_ier);
+        }
+
+        // fetch all docs in areas db
+        const ier = nano.db.use('aurin_ier');
+        ier.view('analysis', 'general')
+            .then((body) => {
+                console.log(body);
+                _ier = body.rows;
+                return resolve(_ier);
+            })
+            .catch((err) => reject(err));
+    });
+};
+
+let _ieo: any;
+const fetch_ieo = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+        if (_ieo) {
+            return resolve(_ieo);
+        }
+
+        // fetch all docs in areas db
+        const ieo = nano.db.use('aurin_ieo');
+        ieo.view('analysis', 'general')
+            .then((body) => {
+                _ieo = body.rows;
+                return resolve(_ieo);
+            })
+            .catch((err) => reject(err));
+    });
+};
+
 // sentiment all areas
 router.get(
     '/sentiment',
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const status = nano.db.use('statuses');
-            const aurinIER = nano.db.use('aurindata_ier');
 
-            const exercisePromise = status.view('api-global', 'sentiment', {
+            const sentimentPromise = status.view('api-global', 'sentiment', {
                 group: true,
                 reduce: true,
                 stale: 'ok',
             });
-            const aurinPromise = aurinIER.list({ include_docs: true });
 
-            const [exercise, aurin_ier] = await Promise.all([
-                exercisePromise,
-                aurinPromise,
+            const [sentiment, aurin_ieo, aurin_ier] = await Promise.all([
+                sentimentPromise,
+                fetch_ieo(),
+                fetch_ier(),
             ]);
 
             // transform into area
-            const transformed = view_bool_process(exercise.rows);
+            const transformed = view_bool_process(sentiment.rows);
 
             const pyshell = new PythonShell('analysis/main.py', {
                 mode: 'text',
@@ -186,14 +222,14 @@ router.get(
             });
 
             pyshell.on('message', (message) => {
-                console.log(message);
+                // console.log(message);
             });
             pyshell.send(
-                'ier' +
+                JSON.stringify(aurin_ier) +
                     '\n' +
-                    JSON.stringify(transformed) +
+                    JSON.stringify(aurin_ieo) +
                     '\n' +
-                    JSON.stringify(aurin_ier.rows)
+                    JSON.stringify(transformed)
             );
             pyshell.end((err, code) => {
                 if (err) throw err;
