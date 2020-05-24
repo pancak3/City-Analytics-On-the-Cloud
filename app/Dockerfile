@@ -18,6 +18,9 @@ RUN cd /build/frontend \
 # Build server
 FROM node:14-alpine as server
 
+# Install python for analysis
+RUN apk add --no-cache python3
+
 # Copy files
 WORKDIR /app
 COPY --from=builder /build/backend/dist /app
