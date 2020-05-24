@@ -41,7 +41,6 @@ const Scenario = (props) => {
         fillOpacity: 0.8,
     };
 
-    console.log(marker);
     return (
         <React.Fragment>
             <Map id="map" center={position} zoom={pos_zoom.zoom}>
