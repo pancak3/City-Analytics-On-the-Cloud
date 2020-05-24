@@ -6,16 +6,16 @@ if len(sys.argv) < 2:
 
 # Read input from stdin
 stdinput = [line for line in sys.stdin]
-ieo = stdinput[0]
-ier = stdinput[1]
+ier = stdinput[0]
+ieo = stdinput[1]
 mapreduce_output = stdinput[2]
 
 f = open('f', 'w')
 f.writelines(stdinput)
 
 if sys.argv[1] == 'sentiment':
-    print(ieo)
     print(ier)
+    print(ieo)
     print(mapreduce_output)
     pass
 else:
