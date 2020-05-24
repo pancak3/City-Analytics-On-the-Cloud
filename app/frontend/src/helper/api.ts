@@ -43,3 +43,13 @@ export function getKeyword(keyword: string) {
 export function getKeywordArea(keyword: string, area: string) {
     return getRequest(`/api/scenarios/keyword/${area}`, keyword ? { params: { keyword } }: {})
 }
+
+// sentiment
+export function getSentiment() {
+    return getRequest(`/api/scenarios/sentiment`);
+}
+
+// sentiment area
+export function getSentimentArea(area: string) {
+    return getRequest(`/api/scenarios/sentiment/${area}`)
+}

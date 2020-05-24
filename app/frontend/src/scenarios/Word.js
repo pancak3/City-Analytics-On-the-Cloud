@@ -21,21 +21,7 @@ import {
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTwitter } from '@fortawesome/free-brands-svg-icons';
-
-// Adds values to geojson
-const prepareGeoJSON = (geojson, data) => {
-    return geojson && data
-        ? geojson.map((feature) => {
-              return {
-                  ...feature,
-                  properties: {
-                      ...feature.properties,
-                      feature_value: data[feature.properties.feature_code],
-                  },
-              };
-          })
-        : null;
-};
+import { prepareGeoJSON } from './geo';
 
 function Word(props) {
     const plainGeo = props.geojson;

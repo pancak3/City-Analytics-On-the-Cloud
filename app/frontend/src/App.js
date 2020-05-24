@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
-import Sidebar from './Sidebar';
-import Summary from './pages/Summary';
 import { createMuiTheme, ThemeProvider } from '@material-ui/core/styles';
 
 import './main.scss';
-import Exercise from './scenarios/Exercise';
+
+import Sidebar from './Sidebar';
+import Summary from './pages/Summary';
 import Word from './scenarios/Word';
+import Sentiment from './scenarios/Sentiment';
 import { getGeoJSON } from './helper/api';
 
 const theme = createMuiTheme({
@@ -80,8 +81,8 @@ function App() {
                                 areaCentroid={areaCentroidMapping}
                             />
                         </Route>
-                        <Route path="/scenario/exercise">
-                            <Exercise
+                        <Route path="/scenario/sentiment">
+                            <Sentiment
                                 geojson={geojson}
                                 areaName={areaNameMapping}
                                 areaCentroid={areaCentroidMapping}

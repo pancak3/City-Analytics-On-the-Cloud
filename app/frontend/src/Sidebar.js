@@ -30,11 +30,6 @@ class Sidebar extends React.Component {
                             Sentiment
                         </NavLink>
                     </li>
-                    <li>
-                        <NavLink activeClassName="selected" to="/scenario/s3">
-                            Scenario 3
-                        </NavLink>
-                    </li>
                 </ul>
                 <p>
                     Made by: Team 42
