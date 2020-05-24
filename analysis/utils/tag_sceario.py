@@ -15,7 +15,7 @@ def clean_tweet(tweet):
 def tag_scenario(twitter_data):
     tweet_words = clean_tweet(twitter_data['doc']['text'])
     exercise_bow = ["exercise","workout","gym","yoga","jogging","aerobics","cardio"]
-    climate_bow = ["climate", "globalwarming", "climatechange", "sealevel"]
+    climate_bow = ["climate", "globalwarming", "climatechange", "sealevel","greenhouse"]
     check_excercise = any(item in tweet_words for item in excercise_bow)
     twitter_data['exercise'] = check_excercise
     check_climate = any(item in tweet_words for item in climate_bow)
