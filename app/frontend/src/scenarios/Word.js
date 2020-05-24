@@ -17,6 +17,8 @@ import {
     TableCell,
     TableRow,
     Table,
+    Tabs,
+    Tab,
 } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -39,6 +41,9 @@ function Word(props) {
     const [keywordExpanded, setKeywordExpanded] = useState(true);
     const [indExpanded, setIndExpanded] = useState(true);
     const [marker, setMarker] = useState(null);
+    const [hashtag, setHashtag] = useState(null);
+
+    const [tabValue, setTabValue] = useState(0);
 
     // Load counts
     useEffect(() => {
@@ -90,8 +95,14 @@ function Word(props) {
             setKeywordLoaded(false);
             setFreqExpanded(true);
             setIndExpanded(false);
+            setArea(null);
         }
     }
+
+    useEffect(() => {
+        if (area || !areaCode) return;
+        getArea(areaCode);
+    }, [area, areaCode]);
 
     // Get tweets of area
     function getArea(feature_code) {
@@ -162,47 +173,69 @@ function Word(props) {
                     onChange={(e) => setFreqExpanded(!freqExpanded)}
                 >
                     <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
-                        <h5>Frequency</h5>
+                        <h5>Number of Tweets</h5>
                     </ExpansionPanelSummary>
                     <ExpansionPanelDetails>
-                        {freq ? (
-                            freq.length > 0 ? (
-                                <TableContainer>
-                                    <Table>
-                                        <TableHead>
-                                            <TableRow>
-                                                <TableCell component="th">
-                                                    SA2 Area
-                                                </TableCell>
-                                                <TableCell component="th">
-                                                    Count
-                                                </TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {freq.map((area_code) => (
-                                                <TableRow key={area_code}>
-                                                    <TableCell>
-                                                        {props.areaName
-                                                            ? props.areaName[
-                                                                  area_code
-                                                              ]
-                                                            : ''}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {data[area_code]}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                            ) : (
-                                <p>No data found...</p>
-                            )
-                        ) : (
-                            <p>Loading...</p>
-                        )}
+                        <Grid>
+                            <Tabs
+                                value={tabValue}
+                                indicatorColor="primary"
+                                textColor="primary"
+                                onChange={(e, newValue) =>
+                                    setTabValue(newValue)
+                                }
+                            >
+                                <Tab label="Count" />
+                                <Tab label="Hashtags" />
+                            </Tabs>
+
+                            {tabValue === 0 &&
+                                (freq ? (
+                                    freq.length > 0 ? (
+                                        <TableContainer className="mt-2">
+                                            <Table>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell component="th">
+                                                            SA2 Area
+                                                        </TableCell>
+                                                        <TableCell component="th">
+                                                            Count
+                                                        </TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {freq.map((area_code) => (
+                                                        <TableRow
+                                                            key={area_code}
+                                                        >
+                                                            <TableCell>
+                                                                {props.areaName
+                                                                    ? props
+                                                                          .areaName[
+                                                                          area_code
+                                                                      ]
+                                                                    : ''}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {
+                                                                    data[
+                                                                        area_code
+                                                                    ]
+                                                                }
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    ) : (
+                                        <p className="mt-4">No data found...</p>
+                                    )
+                                ) : (
+                                    <p className="mt-4">Loading...</p>
+                                ))}
+                        </Grid>
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
             </div>
