@@ -10,8 +10,8 @@ ier = stdinput[0]
 ieo = stdinput[1]
 mapreduce_output = stdinput[2]
 
-f = open('f', 'w')
-f.writelines(stdinput)
+# f = open('f', 'w')
+# f.writelines(stdinput)
 
 if sys.argv[1] == 'sentiment':
     print(ier)

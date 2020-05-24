@@ -12,7 +12,7 @@
         "axios": "^0.19.2",
         "chroma-js": "^2.1.0",
         "leaflet": "^1.6.0",
-        "moment": "^2.25.3",
+        "moment": "^2.26.0",
         "node-sass": "^4.14.1",
         "prop-types": "^15.7.2",
         "react": "^16.13.1",

@@ -142,6 +142,7 @@ function Word(props) {
                                         }}
                                     ></Input>
                                     <Button
+                                        className="search"
                                         variant="outlined"
                                         color="primary"
                                         onClick={() => submit_keyword()}

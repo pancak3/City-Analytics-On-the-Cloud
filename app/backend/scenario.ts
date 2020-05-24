@@ -157,6 +157,7 @@ const view_bool_process = (rows: any): any => {
     return Object.keys(transformed).map((d) => transformed[d]);
 };
 
+// fetch ier data
 let _ier: any;
 const fetch_ier = (): Promise<any> => {
     return new Promise((resolve, reject) => {
@@ -168,7 +169,6 @@ const fetch_ier = (): Promise<any> => {
         const ier = nano.db.use('aurin_ier');
         ier.view('analysis', 'general')
             .then((body) => {
-                console.log(body);
                 _ier = body.rows;
                 return resolve(_ier);
             })
@@ -176,6 +176,7 @@ const fetch_ier = (): Promise<any> => {
     });
 };
 
+// fetch ieo data
 let _ieo: any;
 const fetch_ieo = (): Promise<any> => {
     return new Promise((resolve, reject) => {
@@ -194,6 +195,61 @@ const fetch_ieo = (): Promise<any> => {
     });
 };
 
+// fetch ieo/ier data
+let _ieo_ier: any;
+const fetch_ieo_ier = async () => {
+    if (_ieo_ier) return _ieo_ier;
+
+    const [aurin_ieo, aurin_ier] = await Promise.all([
+        fetch_ieo(),
+        fetch_ier(),
+    ]);
+
+    // combine ieo/ier from views
+    const ieo_ier: any = {};
+    for (const ier of aurin_ier) {
+        const area = ier['id'];
+        const ier_pop = ier['key'][0];
+        const ier_score = ier['key'][1];
+        ieo_ier[area] = { ier_pop, ier_score };
+    }
+    for (const ieo of aurin_ieo) {
+        const area = ieo['id'];
+        const ieo_pop = ieo['key'][0];
+        const ieo_score = ieo['key'][1];
+        if (!ieo_ier[area]) {
+            ieo_ier[area] = { ieo_pop, ieo_score };
+        } else {
+            ieo_ier[area] = { ...ieo_ier[area], ieo_pop, ieo_score };
+        }
+    }
+
+    // normalise values
+    // todo: merge into above
+    const ier_values = aurin_ier
+        .map((ier: any) => ier['key'][1])
+        .filter((i: number) => i !== 0);
+    const ier_min = Math.min(...ier_values);
+    const ier_max = Math.max(...ier_values);
+
+    const ieo_values = aurin_ieo
+        .map((ieo: any) => ieo['key'][1])
+        .filter((i: number) => i !== 0);
+    const ieo_min = Math.min(...ieo_values);
+    const ieo_max = Math.max(...ieo_values);
+
+    for (const area of Object.keys(ieo_ier)) {
+        ieo_ier[area].ieo_normalised = ieo_ier[area].ieo_score
+            ? (ieo_ier[area].ieo_score - ieo_min) / (ieo_max - ieo_min)
+            : 0;
+        ieo_ier[area].ier_normalised = ieo_ier[area].ier_score
+            ? (ieo_ier[area].ier_score - ier_min) / (ier_max - ier_min)
+            : 0;
+    }
+    _ieo_ier = ieo_ier;
+    return _ieo_ier;
+};
+
 // sentiment all areas
 router.get(
     '/sentiment',
@@ -201,44 +257,67 @@ router.get(
         try {
             const status = nano.db.use('statuses');
 
+            // sentiments counts [+, n, -]
             const sentimentPromise = status.view('api-global', 'sentiment', {
                 group: true,
                 reduce: true,
                 stale: 'ok',
             });
 
-            const [sentiment, aurin_ieo, aurin_ier] = await Promise.all([
+            const [sentiment, areas] = await Promise.all([
                 sentimentPromise,
+                fetch_ieo_ier(),
+            ]);
+
+            // group sentiments by area
+            const transformed: any = view_bool_process(sentiment.rows);
+
+            // correlation analysis
+            const [aurin_ieo, aurin_ier] = await Promise.all([
                 fetch_ieo(),
                 fetch_ier(),
             ]);
-
-            // transform into area
-            const transformed = view_bool_process(sentiment.rows);
-
-            const pyshell = new PythonShell('analysis/main.py', {
-                mode: 'text',
-                args: ['sentiment'],
-            });
-
-            pyshell.on('message', (message) => {
-                // console.log(message);
-            });
-            pyshell.send(
+            const analysis_result = await analyse(
+                ['sentiment'],
                 JSON.stringify(aurin_ier) +
                     '\n' +
                     JSON.stringify(aurin_ieo) +
                     '\n' +
                     JSON.stringify(transformed)
             );
-            pyshell.end((err, code) => {
-                if (err) throw err;
-                console.log(code);
-            });
+
+            // Merge sentiments and aurin scores
+            for (const sentiment_area of transformed) {
+                if (areas[sentiment_area.area]) {
+                    areas[sentiment_area.area] = {
+                        ...areas[sentiment_area.area],
+                        ...sentiment_area,
+                    };
+                    delete sentiment_area.area;
+                }
+            }
+            return res.json({ areas, score: analysis_result });
         } catch (err) {
             return next(err);
         }
     }
 );
+
+const analyse = (args: string[], stdin: string) => {
+    return new Promise((resolve, reject) => {
+        const pyshell = new PythonShell('analysis/main.py', {
+            mode: 'text',
+            args: ['sentiment'],
+        });
+
+        pyshell.on('message', (message) => {
+            return resolve(1);
+        });
+        pyshell.send(stdin);
+        pyshell.end((err, code) => {
+            if (err) return reject(err);
+        });
+    });
+};
 
 export default router;

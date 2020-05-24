@@ -47,7 +47,9 @@ router.get('/stats', async (req, res, next) => {
         const user_count = user_view['rows'][0]['value'];
 
         const status = nano.db.use('statuses');
-        const status_view = await status.view('api-global', 'count', {
+        const status_view = await status.view('api-global', 'count-area', {
+            group: false,
+            reduce: true,
             include_docs: false,
             stale: 'ok',
         });

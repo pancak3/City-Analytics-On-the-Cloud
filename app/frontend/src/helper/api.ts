@@ -48,8 +48,3 @@ export function getKeywordArea(keyword: string, area: string) {
 export function getSentiment() {
     return getRequest(`/api/scenarios/sentiment`);
 }
-
-// sentiment area
-export function getSentimentArea(area: string) {
-    return getRequest(`/api/scenarios/sentiment/${area}`)
-}
