@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import Scenario from '../components/Scenario';
-import { getSentiment, getSentimentArea } from '../helper/api';
+import { getSentiment } from '../helper/api';
 import { prepareGeoJSON } from './geo';
 import {
     ExpansionPanel,
@@ -11,8 +11,12 @@ import {
     Typography,
     Button,
     Grid,
-    Box,
+    Table,
+    TableRow,
+    TableBody,
+    TableCell,
 } from '@material-ui/core';
+import { Tooltip, PieChart, Pie, Cell } from 'recharts';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 
 function Sentiment(props) {
@@ -23,6 +27,7 @@ function Sentiment(props) {
     const [overall, setOverall] = useState(null);
     const [marker, setMarker] = useState(null);
     const [settingsExpanded, setSettingsExpanded] = useState(true);
+    const [areaInfoExpanded, setAreaInfoExpanded] = useState(true);
 
     const [datasetChosen, setDatasetChosen] = useState('ieo');
     const [areaChosen, setAreaChosen] = useState(null);
@@ -57,10 +62,19 @@ function Sentiment(props) {
     // Get information about area
     function getArea(feature_code) {
         setAreaChosen(feature_code);
-        setMarker(
-            props.areaCentroid ? props.areaCentroid[feature_code] : null
-        );
+        setMarker(props.areaCentroid ? props.areaCentroid[feature_code] : null);
+        setAreaInfoExpanded(true);
     }
+
+    // Sentiment tweet info for area
+    const barInfo = areaChosen
+        ? [
+              { name: 'Positive', value: overall.areas[areaChosen].positive },
+              { name: 'Negative', value: overall.areas[areaChosen].negative },
+              { name: 'Neutral', value: overall.areas[areaChosen].neutral },
+          ]
+        : [];
+    const COLORS = ['#44b889', '#b84444', '#d1d1d1'];
 
     return (
         <Scenario
@@ -129,6 +143,100 @@ function Sentiment(props) {
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
             </div>
+            {areaChosen ? (
+                <div>
+                    <ExpansionPanel
+                        defaultExpanded
+                        expanded={areaInfoExpanded}
+                        onChange={(e) => setAreaInfoExpanded(!areaInfoExpanded)}
+                    >
+                        <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
+                            <h5>Area information</h5>
+                        </ExpansionPanelSummary>
+                        <ExpansionPanelDetails>
+                            <Grid>
+                                <h6>
+                                    {props.areaName
+                                        ? props.areaName[areaChosen]
+                                        : ''}{' '}
+                                    ({areaChosen})
+                                </h6>
+
+                                <Table>
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell component="th">
+                                                Population
+                                            </TableCell>
+                                            <TableCell>
+                                                {datasetChosen === 'ieo'
+                                                    ? overall.areas[areaChosen]
+                                                          .ieo_pop
+                                                    : overall.areas[areaChosen]
+                                                          .ier_pop}
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell component="th">
+                                                {datasetChosen === 'ieo'
+                                                    ? 'IEO score'
+                                                    : 'IER score'}
+                                            </TableCell>
+                                            <TableCell>
+                                                {datasetChosen === 'ieo'
+                                                    ? overall.areas[areaChosen]
+                                                          .ieo_score
+                                                    : overall.areas[areaChosen]
+                                                          .ier_score}
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+
+                                <PieChart
+                                    className="pie"
+                                    width={200}
+                                    height={200}
+                                >
+                                    <Pie
+                                        isAnimationActive={true}
+                                        data={barInfo}
+                                        outerRadius={80}
+                                        label
+                                        dataKey="value"
+                                    >
+                                        {barInfo.map((entry, index) => (
+                                            <Cell
+                                                key={`cell-${index}`}
+                                                fill={
+                                                    COLORS[
+                                                        index % COLORS.length
+                                                    ]
+                                                }
+                                            />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                </PieChart>
+
+                                <div id="label-container">
+                                    <p id="pos">
+                                        <span></span>Positive
+                                    </p>
+                                    <p id="neg">
+                                        <span></span>Negative
+                                    </p>
+                                    <p id="neu">
+                                        <span></span>Neutral
+                                    </p>
+                                </div>
+                            </Grid>
+                        </ExpansionPanelDetails>
+                    </ExpansionPanel>
+                </div>
+            ) : (
+                <React.Fragment />
+            )}
         </Scenario>
     );
 }

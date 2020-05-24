@@ -57,6 +57,10 @@ a {
     margin-top: .7em;
 }
 
+th {
+    font-weight: 600 !important;
+}
+
 #summary {
     padding: 3.8vh 3vw;
 }
@@ -292,4 +296,34 @@ main {
     box-sizing: border-box;
     max-height: 60vh;
     overflow-y: auto;
+}
+
+#label-container {
+    text-align: center;
+}
+#pos, #neg, #neu {
+    z-index: 100;
+    margin: 0;
+    span {
+        display: inline-block;
+        width: .8em;
+        height: .8em;
+        margin-right: .6em;
+    }
+    display: inline-block;
+    margin-right: 1em;
+}
+#pos span {
+    background-color: #44b889;
+}
+#neg span {
+    background-color: #b84444;
+}
+#neu span {
+    background-color: #d1d1d1;
+}
+
+.pie {
+    display: block;
+    margin: 0 auto;
 }
