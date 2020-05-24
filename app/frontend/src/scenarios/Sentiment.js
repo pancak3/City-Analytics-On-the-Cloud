@@ -18,6 +18,7 @@ import {
 } from '@material-ui/core';
 import { Tooltip, PieChart, Pie, Cell } from 'recharts';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import LoadingBlock from '../components/LoadingBlock';
 
 function Sentiment(props) {
     const plainGeo = props.geojson;
@@ -69,9 +70,9 @@ function Sentiment(props) {
     // Sentiment tweet info for area
     const barInfo = areaChosen
         ? [
-              { name: 'Positive', value: overall.areas[areaChosen].positive },
-              { name: 'Negative', value: overall.areas[areaChosen].negative },
-              { name: 'Neutral', value: overall.areas[areaChosen].neutral },
+              { name: 'Positive', value: overall.areas[areaChosen].positive || 0 },
+              { name: 'Negative', value: overall.areas[areaChosen].negative || 0 },
+              { name: 'Neutral', value: overall.areas[areaChosen].neutral || 0 },
           ]
         : [];
     const COLORS = ['#44b889', '#b84444', '#d1d1d1'];
@@ -113,19 +114,67 @@ function Sentiment(props) {
                             </ButtonGroup>
 
                             {datasetChosen === 'ieo' ? (
-                                <Typography className="mt-4">
-                                    <strong>IEO correlation: </strong> 0
-                                </Typography>
+                                <React.Fragment>
+                                    <Typography className={'mt-4'}>
+                                        <strong>
+                                            IEO Pearson correlation coefficient:{' '}
+                                        </strong>{' '}
+                                        {overall ? (
+                                            overall.correlation[0].substring(
+                                                0,
+                                                8
+                                            )
+                                        ) : (
+                                            <LoadingBlock>
+                                                <span>0.123456</span>
+                                            </LoadingBlock>
+                                        )}
+                                    </Typography>
+                                    <Typography>
+                                        <strong>p-value: </strong>
+                                        {overall ? (
+                                            overall.correlation[1].substring(
+                                                0,
+                                                8
+                                            )
+                                        ) : (
+                                            <LoadingBlock>
+                                                <span>0.123456</span>
+                                            </LoadingBlock>
+                                        )}
+                                    </Typography>
+                                </React.Fragment>
                             ) : (
-                                <Typography className="mt-4">
-                                    <strong>IER correlation: </strong> 0
-                                </Typography>
-                            )}
-
-                            {datasetChosen === 'ieo' ? (
-                                <Typography>Description about IEO</Typography>
-                            ) : (
-                                <Typography>Description about IER</Typography>
+                                <React.Fragment>
+                                    <Typography className={'mt-4'}>
+                                        <strong>
+                                            IEO Pearson correlation coefficient:{' '}
+                                        </strong>{' '}
+                                        {overall ? (
+                                            overall.correlation[2].substring(
+                                                0,
+                                                8
+                                            )
+                                        ) : (
+                                            <LoadingBlock>
+                                                <span>0.123456</span>
+                                            </LoadingBlock>
+                                        )}
+                                    </Typography>
+                                    <Typography>
+                                        <strong>p-value: </strong>
+                                        {overall ? (
+                                            overall.correlation[3].substring(
+                                                0,
+                                                8
+                                            )
+                                        ) : (
+                                            <LoadingBlock>
+                                                <span>0.123456</span>
+                                            </LoadingBlock>
+                                        )}
+                                    </Typography>
+                                </React.Fragment>
                             )}
                         </Grid>
 

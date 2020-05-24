@@ -342,7 +342,7 @@ router.get(
                 fetch_ieo(),
                 fetch_ier(),
             ]);
-            const analysis_result = await analyse(
+            const analysis_result: string = await analyse(
                 ['sentiment'],
                 JSON.stringify(aurin_ier) +
                 '\n' +
@@ -350,6 +350,11 @@ router.get(
                 '\n' +
                 JSON.stringify(transformed)
             );
+            const analysis_result_cleaned = analysis_result
+                .split(' ')
+                .map((value) =>
+                    value.replace(',', '').replace('(', '').replace(')', '')
+                );
 
             // Merge sentiments and aurin scores
             for (const sentiment_area of transformed) {
@@ -361,14 +366,18 @@ router.get(
                     delete sentiment_area.area;
                 }
             }
+<<<<<<< HEAD
             return res.json({areas, score: analysis_result});
+=======
+            return res.json({ areas, correlation: analysis_result_cleaned });
+>>>>>>> 1ab9419... app: display correlation
         } catch (err) {
             return next(err);
         }
     }
 );
 
-const analyse = (args: string[], stdin: string) => {
+const analyse = (args: string[], stdin: string): Promise<string> => {
     return new Promise((resolve, reject) => {
         const pyshell = new PythonShell('analysis/main.py', {
             mode: 'text',
@@ -376,7 +385,7 @@ const analyse = (args: string[], stdin: string) => {
         });
 
         pyshell.on('message', (message) => {
-            return resolve(1);
+            return resolve(message);
         });
         pyshell.send(stdin);
         pyshell.end((err, code) => {

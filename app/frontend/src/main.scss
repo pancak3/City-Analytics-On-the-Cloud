@@ -73,7 +73,7 @@ th {
     background-color: #CDCDCD;
     display: inline-block;
     * {
-        visibility: hidden;
+        visibility: hidden !important;
     }
 }
 @keyframes pulse {
