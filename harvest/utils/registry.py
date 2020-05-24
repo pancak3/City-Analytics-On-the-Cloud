@@ -80,14 +80,14 @@ class RunningTask:
 
 
 class Registry:
-    def __init__(self, ip):
-        self.logger = get_logger('Registry', level_name=logging.DEBUG)
+    def __init__(self, ip, log_level):
+        self.logger = get_logger('Registry', level_name=log_level)
 
-        self.config = Config()
+        self.config = Config(log_level)
         self.pid = None
         self.token = token_urlsafe(13)
         self.ip = ip
-        self.couch = CouchDB()
+        self.couch = CouchDB(log_level)
         self.client = self.couch.client
 
         self.conn_queue = queue.Queue()
@@ -189,7 +189,7 @@ class Registry:
             # docker container inner ip is always 0.0.0.0
             s.bind(('0.0.0.0', self.config.registry_port))
             s.listen(1)
-            self.logger.debug('TCP server started at {}:{}'.format(self.ip, self.config.registry_port))
+            self.logger.info('TCP server started at {}:{}'.format(self.ip, self.config.registry_port))
             lock.release()
             while True:
                 conn, addr = s.accept()
@@ -239,7 +239,7 @@ class Registry:
             while buffer_data.find('\n') != -1:
                 first_pos = buffer_data.find('\n')
                 recv_json = json.loads(buffer_data[:first_pos])
-                self.logger.info("Received: {}".format(recv_json))
+                self.logger.debug("Received: {}".format(recv_json))
                 if 'token' in recv_json and recv_json['token'] == self.token:
                     worker_data.active.set(True)
                     del recv_json['token']
@@ -251,7 +251,7 @@ class Registry:
                 buffer_data += worker_data.receiver_conn.recv(1024).decode('utf-8')
             return buffer_data
         except Exception as e:
-            self.logger.warning(e)
+            self.logger.warning("[{}]".format(worker_data.worker_id, str(e)))
 
     def handle_action_ping(self, worker_data):
         msg = {'token': self.token, 'task': 'pong'}
@@ -323,7 +323,7 @@ class Registry:
             msg = {'token': self.token, 'task': 'task', 'friends_ids': [user_id]}
             worker_data.msg_queue.put(json.dumps(msg))
             del msg['token']
-            self.logger.debug("[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, msg))
+            self.logger.info("[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, msg))
         except queue.Empty:
             pass
 
@@ -336,13 +336,14 @@ class Registry:
                 ids.append(self.timeline_tasks.get(timeout=0.01))
             msg = {'token': self.token, 'task': 'task', 'timeline_ids': ids}
             worker_data.msg_queue.put(json.dumps(msg))
-            self.logger.debug(
+            del msg['token']
+            self.logger.info(
                 "[*] Sent task to Worker-{}: {} ".format(worker_data.worker_id, msg))
         except queue.Empty:
             pass
 
     def sender(self, worker_data):
-        self.logger.debug('[-] Worker-{} connected.'.format(worker_data.worker_id))
+        self.logger.info('[-] Worker-{} connected.'.format(worker_data.worker_id))
         try:
             self.send_stream_task(worker_data)
             while True:
@@ -429,7 +430,7 @@ class Registry:
             traceback.format_exc()
 
     def registry_msg_handler(self, conn, addr):
-        self.logger.info("registry start msg handler")
+        self.logger.debug("registry start msg handler")
         data = ''
         access_time = int(time())
         while True:
@@ -493,7 +494,7 @@ class Registry:
 
     def generate_timeline_task(self, count=1):
         if self.timeline_tasks.qsize() < count and self.generating_timeline.acquire(blocking=False) \
-                and time() - self.generating_timeline_time > 5:
+                and time() - self.generating_timeline_time > 2:
             try:
                 self.client.connect()
                 result = self.client['users'].get_view_result('_design/tasks', view_name='timeline',
@@ -501,11 +502,11 @@ class Registry:
 
                 for doc in result:
                     self.timeline_tasks.put([doc['id'], doc['key'][3]])
-                self.generating_timeline_time = time()
                 self.logger.debug("Generated {} friends tasks.".format(len(result)))
 
             except Exception:
                 traceback.format_exc()
+            self.generating_timeline_time = time()
             self.generating_timeline.release()
 
         else:

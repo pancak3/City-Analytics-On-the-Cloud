@@ -16,8 +16,6 @@ from time import sleep, time
 from utils.config import Config
 from utils.logger import get_logger
 
-logger = get_logger('Crawler', logging.DEBUG)
-
 
 class APIStatus:
     def __init__(self):
@@ -26,8 +24,9 @@ class APIStatus:
 
 class Crawler:
 
-    def __init__(self):
-        self.config = Config()
+    def __init__(self, log_level):
+        self.logger = get_logger('Crawler', log_level)
+        self.config = Config(log_level)
         self.lock_friends = Lock()
         self.lock_user_timeline = Lock()
         self.lock_rate_limits = Lock()
@@ -68,21 +67,21 @@ class Crawler:
         self.update_rate_limit_status()
         self.stream_bbox = stream_bbox
         self.stream_area = stream_area
-        logger.info("Init crawler")
+        self.logger.info("Init crawler")
 
-    def stream_filter(self, id_, res_queue):
+    def stream_filter(self, id_, res_queue, log_level):
         try:
-            stream_listener = StreamListener(id_, res_queue)
+            stream_listener = StreamListener(id_, res_queue, log_level)
             stream_ = tweepy.Stream(auth=self.api.auth, listener=stream_listener)
-            logger.info("[{}] Stream filter {}: {}".format(id_, self.stream_area, self.stream_bbox))
+            self.logger.info("[{}] Stream filter {}: {}".format(id_, self.stream_area, self.stream_bbox))
             # blocking method
             stream_.filter(languages=['en'], locations=self.stream_bbox)
         except Exception as e:
-            logger.warning(e)
+            self.logger.warning(e)
 
     def update_rate_limit_status(self, err_count=0):
         if err_count > self.config.max_network_err:
-            logger.debug("[*] Err {} times, exit".format(self.config.max_network_err))
+            self.logger.debug("[*] Err {} times, exit".format(self.config.max_network_err))
             kill(getpid(), SIGUSR1)
 
         self.lock_rate_limits.acquire()
@@ -91,10 +90,10 @@ class Crawler:
         self.lock_rate_limits.release()
         try:
             self.rate_limits = self.api.rate_limit_status()
-            logger.debug("[{}] Updated rate limit status.".format(self.id))
+            self.logger.debug("[{}] Updated rate limit status.".format(self.id))
         except tweepy.TweepError:
             if self.rate_limits is None:
-                logger.warning("Get rate limit occurs rate limit error, sleep 15 minutes and try again.")
+                self.logger.warning("Get rate limit occurs rate limit error, sleep 15 minutes and try again.")
                 sleep(15 * 60)
             else:
                 reset = self.rate_limits['resources']['application']['/application/rate_limit_status']['reset']
@@ -102,7 +101,7 @@ class Crawler:
                 to_sleep = abs(ceil((now_timestamp - reset) / 900) * 900)
                 if to_sleep <= 10:
                     to_sleep = 10
-                logger.warning("TweepError, sleep {} seconds and try again.".format(to_sleep))
+                self.logger.warning("TweepError, sleep {} seconds and try again.".format(to_sleep))
                 sleep(to_sleep)
 
             self.rate_limits_updated_at = int(time())
@@ -116,7 +115,7 @@ class Crawler:
             except tweepy.TweepError:
                 # Inherits from TweepError, so except TweepError will catch a RateLimitError too.
                 if self.rate_limits is None:
-                    logger.warning("Handle cursor occurs rate limit error, sleep 15 minutes and try again.")
+                    self.logger.warning("Handle cursor occurs rate limit error, sleep 15 minutes and try again.")
                     sleep(15 * 60)
                 else:
                     # Need to update reset time frequently, otherwise this part won't work
@@ -136,7 +135,7 @@ class Crawler:
                             time())
                     if remaining:
                         break
-                    logger.warning(
+                    self.logger.warning(
                         "Handle {} cursor occurs TweepError, sleep {} seconds and try again.".format(cursor_type,
                                                                                                      abs(to_sleep)))
                     sleep(abs(to_sleep))
@@ -156,11 +155,11 @@ class Crawler:
 
         return set(self.api.followers_ids(count=5000, user_id=user_id))
 
-    def lookup_statues(self, **kwargs):
+    def lookup_statuses(self, **kwargs):
         try:
             return self.api.statuses_lookup(**kwargs)
         except Exception:
-            logger.warning(traceback.format_exc())
+            self.logger.warning(traceback.format_exc())
             return []
 
     def get_friends_ids(self, user_id):
@@ -216,7 +215,8 @@ class Crawler:
 
 
 class StreamListener(tweepy.StreamListener):
-    def __init__(self, id_, res_queue, **kw):
+    def __init__(self, id_, res_queue, log_level, **kw):
+        self.logger = get_logger('StreamListener', log_level)
         self.id = id_
         self.res_queue = res_queue
         self.err_count = 0
@@ -224,30 +224,30 @@ class StreamListener(tweepy.StreamListener):
 
     def on_status(self, status):
         self.res_queue.put(status)
-        logger.debug("[{}] got stream status: {}".format(self.id, status._json['id_str']))
+        self.logger.info("[{}] Got stream status: {}".format(self.id, status._json['id_str']))
 
     def on_error(self, status_code):
         self.err_count += 1
         wait_for = self.err_count ** 5
         if wait_for < 120:
-            logger.warning(
+            self.logger.warning(
                 "[{}] error: {}. Sleep {} seconds".format(self.id, status_code, wait_for))
             sleep(wait_for)
             raise Exception
         else:
-            logger.warning(
+            self.logger.warning(
                 "[{}] error: {}. {} errs happened, exit.".format(self.id, status_code, self.err_count))
             raise Exception
 
     def on_connect(self):
-        logger.debug("[{}] is listening stream.".format(self.id))
+        self.logger.debug("[{}] is listening stream.".format(self.id))
 
 
 if __name__ == '__main__':
 
-    crawler = Crawler()
+    crawler = Crawler(logging.DEBUG)
     for item in crawler.api_keys.items():
         crawler.init(item[0], 0)
         break
-    res = crawler.lookup_statues(id_=['1140944190714630150'], tweet_mode='extended')
+    res = crawler.lookup_statuses(id_=['1140944190714630150'], tweet_mode='extended')
     print()

@@ -4,7 +4,7 @@ services:
     image: registry.gitlab.com/comp90024/project-2:harvest
     environment:
       TZ: "Australia/Melbourne"
-    command: "reg {{ inventory_hostname }}"
+    command: "-r reg -i {{ inventory_hostname }}"
     ports:
       - 8673:8673
     networks:

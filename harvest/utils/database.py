@@ -8,12 +8,11 @@ from requests.exceptions import HTTPError
 from utils.config import Config
 from utils.logger import get_logger
 
-logger = get_logger('Database', logging.DEBUG)
-
 
 class CouchDB:
-    def __init__(self):
-        self.config = Config()
+    def __init__(self, log_level):
+        self.logger = get_logger('Database', log_level)
+        self.config = Config(log_level)
         self.client = None
         self.session = None
         self.connect()
@@ -28,16 +27,16 @@ class CouchDB:
     def connect(self):
         count = 5
         while count:
-            logger.debug("[*] Connecting to CouchDB -> {}".format(self.config.couch.url))
+            self.logger.debug("[*] Connecting to CouchDB -> {}".format(self.config.couch.url))
             try:
                 self.client = Cloudant(self.config.couch.username, self.config.couch.password,
                                        url=self.config.couch.url, connect=True)
                 self.client.connect()
                 self.client.clear()
-                logger.debug("[*] CouchDB connected -> {}".format(self.config.couch.url))
+                self.logger.debug("[*] CouchDB connected -> {}".format(self.config.couch.url))
                 return
             except HTTPError as e:
-                logger.error("[*] CouchDB connecting failed:\n\t{}".format(e))
+                self.logger.error("[*] CouchDB connecting failed:\n\t{}".format(e))
                 sleep(1)
         os._exit(1)
 

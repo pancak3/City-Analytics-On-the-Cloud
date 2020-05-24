@@ -1,5 +1,6 @@
 import queue
 import threading
+import logging
 from tqdm import tqdm
 from time import sleep, time
 from utils.crawlers import Crawler
@@ -31,7 +32,7 @@ def worker():
 
 def fix_full():
     global q, fix_db, flag
-    crawler = Crawler()
+    crawler = Crawler(logging.DEBUG)
     for item in crawler.api_keys.items():
         crawler.init(item[0], 0)
         break
@@ -49,7 +50,7 @@ def fix_full():
             if now_time - access_time < 1:
                 sleep(now_time - access_time)
             access_time = now_time
-            res = crawler.lookup_statues(id_=id_str_list, tweet_mode='extended')
+            res = crawler.lookup_statuses(id_=id_str_list, tweet_mode='extended')
             res_id_set = set()
             for new_status in res:
                 doc = fix_db[id_map[new_status.id_str]]
@@ -66,7 +67,7 @@ def fix_full():
         now_time = time()
         if now_time - access_time < 1:
             sleep(now_time - access_time)
-        res = crawler.lookup_statues(id_=id_str_list, tweet_mode='extended')
+        res = crawler.lookup_statuses(id_=id_str_list, tweet_mode='extended')
         res_id_set = set()
         for new_status in res:
             doc = fix_db[id_map[new_status.id_str]]

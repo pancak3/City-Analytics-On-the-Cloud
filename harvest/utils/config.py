@@ -2,8 +2,6 @@ import json
 import logging
 from utils.logger import get_logger
 
-logger = get_logger('Config', logging.DEBUG)
-
 
 class TwitterCredential:
     def __init__(self, api_key, api_secrete_key, access_token, access_token_secret):
@@ -31,17 +29,18 @@ class CouchConfig:
 
 
 class Config:
-    def __init__(self):
+    def __init__(self, log_level):
+        self.logger = get_logger('Config', log_level)
         with open("twitter.json") as t:
             t_json = json.loads(t.read())
             self.twitter = t_json
-            logger.debug("[*] Loaded {} credentials from twitter.json".format(len(self.twitter)))
+            self.logger.debug("[*] Loaded {} credentials from twitter.json".format(len(self.twitter)))
 
         with open("couchdb.json") as t:
             t_json = json.loads(t.read())
             self.couch = CouchConfig(t_json["protocol"], t_json["host"], t_json["port"], t_json["username"],
                                      t_json["password"])
-            logger.debug(
+            self.logger.debug(
                 "[*] Loaded CouchDB config -> {}://{}:{}".format(self.couch.protocol, self.couch.host, self.couch.port))
         with open("harvest.json") as t:
             harvest_json = json.loads(t.read())

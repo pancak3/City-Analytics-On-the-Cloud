@@ -4,7 +4,7 @@ services:
     image: registry.gitlab.com/comp90024/project-2:harvest
     environment:
       TZ: "Australia/Melbourne"
-    command: "worker"
+    command: "-r worker"
     networks:
         - couch_comp90024
     restart: on-failure
