@@ -231,6 +231,12 @@ if __name__ == '__main__':
         'users': {
             'api-global': '',
             'tasks': ''
+        },
+        'aurin_ier': {
+            'analysis': ''
+        },
+        'aurin_ieo': {
+            'analysis': ''
         }
     }
 

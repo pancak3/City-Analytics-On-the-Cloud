@@ -1,0 +1,1 @@
+{"_id": "_design/analysis", "views": {"general": {"map": "function (doc) {\n  if(doc.properties.usual_res_pop&&doc.properties.ier_score){\n    emit([doc.properties.usual_res_pop, doc.properties.ier_score], 1);\n  }\n}"}}, "language": "javascript", "lists": {}, "indexes": {}, "shows": {}}
