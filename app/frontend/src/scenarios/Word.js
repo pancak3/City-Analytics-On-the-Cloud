@@ -114,8 +114,10 @@ function Word(props) {
             setGeoJSON(prepareGeoJSON(plainGeo, counts));
             setFreqExpanded(true);
             setIndExpanded(false);
+            setHashtagExpanded(true);
         } else {
             // load keyword data
+            setHashtagExpanded(false);
             setKeywordLoaded(false);
             setFreqExpanded(true);
             setIndExpanded(false);
