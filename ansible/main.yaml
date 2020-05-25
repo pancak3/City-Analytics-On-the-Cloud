@@ -40,7 +40,7 @@
     # Set up watchtower
     - role: server-setup/watchtower
 
-- name: Setup couch
+- name: Configure
   hosts: COMP90024
   gather_facts: yes
   order: sorted
