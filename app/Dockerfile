@@ -21,7 +21,6 @@ FROM node:14-alpine as server
 # Install python for analysis
 RUN apk add --no-cache python3
 RUN apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community py3-scipy
-RUN apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing py3-pandas
 
 # Copy files
 WORKDIR /app
