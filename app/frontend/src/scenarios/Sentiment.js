@@ -81,22 +81,23 @@ function Sentiment(props) {
     }
 
     // Sentiment tweet info for area
-    const barInfo = areaChosen
-        ? [
-              {
-                  name: 'Positive',
-                  value: overall.areas[areaChosen].positive || 0,
-              },
-              {
-                  name: 'Negative',
-                  value: overall.areas[areaChosen].negative || 0,
-              },
-              {
-                  name: 'Neutral',
-                  value: overall.areas[areaChosen].neutral || 0,
-              },
-          ]
-        : [];
+    const barInfo =
+        areaChosen && overall
+            ? [
+                  {
+                      name: 'Positive',
+                      value: overall.areas[areaChosen].positive || 0,
+                  },
+                  {
+                      name: 'Negative',
+                      value: overall.areas[areaChosen].negative || 0,
+                  },
+                  {
+                      name: 'Neutral',
+                      value: overall.areas[areaChosen].neutral || 0,
+                  },
+              ]
+            : [];
     const COLORS = ['#44b889', '#b84444', '#d1d1d1'];
 
     return (

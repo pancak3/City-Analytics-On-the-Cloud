@@ -116,11 +116,21 @@ function Sports(props) {
     const [indExpanded, setIndExpanded] = useState(true);
     const [areaInfoExpanded, setAreaInfoExpanded] = useState(true);
 
+    // Prevent updates after dismount
+    // https://stackoverflow.com/questions/56450975
+    const mounted = useRef(true);
+    useEffect(() => {
+        return () => {
+            mounted.current = false;
+        };
+    }, []);
+
     // Load counts
     useEffect(() => {
         if (loaded) return;
         setLoaded(true);
         getSportsExerciseFreq().then((data) => {
+            if (!mounted.current) return;
             setExerciseSports(data);
         });
     }, [loaded, plainGeo]);
@@ -144,6 +154,7 @@ function Sports(props) {
             }
         }
 
+        if (!mounted.current) return;
         setData(data_sum);
         setGeoJSON(prepareGeoJSON(plainGeo, data_sum));
     }, [overallData, sport, plainGeo]);
@@ -163,6 +174,7 @@ function Sports(props) {
 
         setAreaLoaded(true);
         getSportsExerciseFreqArea(areaCode, sport).then((data) => {
+            if (!mounted.current) return;
             setTweets(data.tweets);
             setAreaCount(data.count);
             setMarker(props.areaCentroid ? props.areaCentroid[areaCode] : null);
