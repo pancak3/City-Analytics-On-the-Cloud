@@ -3,6 +3,11 @@ from cloudant.client import Cloudant
 
 
 def fix_err():
+    """
+    Fix the wrong id in couch db caused by :
+    https://developer.twitter.com/en/docs/basics/twitter-ids
+    :return:
+    """
     couch = Cloudant('admin', 'password', url='http://127.0.0.1:5984', connect=True)
     old_statuses = couch['statuses']
     bulk = []

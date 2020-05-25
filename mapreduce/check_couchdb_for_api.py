@@ -225,7 +225,9 @@ if __name__ == '__main__':
     ddocs_to_backup = {
         'statuses': {
             'api': '',
-            'api-global': ''
+            'api-global': '',
+            'more': '',
+            'more-global': ''
         },
         'users': {
             'api-global': '',
@@ -248,8 +250,8 @@ if __name__ == '__main__':
         os.mkdir(backup_path)
 
         backup_design_docs(ddocs_to_backup)
-        check_all_dbs(ddocs_to_backup)
-        update_areas()
+        # check_all_dbs(ddocs_to_backup)
+        # update_areas()
 
     except Exception:
         traceback.print_exc(file=sys.stdout)

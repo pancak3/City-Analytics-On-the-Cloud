@@ -13,6 +13,10 @@ flag = True
 
 
 def worker():
+    """
+    save fixed data to couch db
+    :return:
+    """
     global q, fix_db, flag
     bulk = []
     while flag or not q.empty():
@@ -31,6 +35,10 @@ def worker():
 
 
 def fix_full():
+    """
+    fix the old data which does not have full text of tweets
+    :return:
+    """
     global q, fix_db, flag
     crawler = Crawler(logging.DEBUG)
     for item in crawler.api_keys.items():

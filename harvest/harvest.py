@@ -8,16 +8,32 @@ logger = get_logger('Harvest', logging.DEBUG)
 
 
 def reg(ip, log_level):
+    """
+    create a registry(master) and run it
+    :param ip:
+    :param log_level: log level to filter logs
+    :return:
+    """
     registry = Registry(ip, log_level)
     registry.run()
 
 
 def worker(log_level):
+    """
+    create a worker and run it
+    :param log_level: log level to filter logs
+    :return:
+    """
     worker = Worker(log_level)
     worker.run()
 
 
 def parse_log_level(log_level):
+    """
+    parse log level to logging level names
+    :param log_level:
+    :return:
+    """
     options_map = {
         'critical': logging.CRITICAL,
         'fatal': logging.FATAL,
@@ -32,6 +48,10 @@ def parse_log_level(log_level):
 
 
 def parse():
+    """
+    Parse the input args and run as the specific role
+    :return:
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", "--role", help="specify the role in [reg,]")
     parser.add_argument("-i", "--ip", nargs='?', help="IP address that Registry used to communicate with workers.")
