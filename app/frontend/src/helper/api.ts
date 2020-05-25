@@ -67,5 +67,5 @@ export function getSportsExerciseFreq() {
 
 // get sports and exercise by area
 export function getSportsExerciseFreqArea(areaCode: string, sport: string) {
-    return getRequest(`/api/scenarios/sports-exercise/${areaCode}?sport=${sport}`);
+    return getRequest(`/api/scenarios/sports-exercise/${areaCode}?sport=${sport.toLowerCase()}`);
 }

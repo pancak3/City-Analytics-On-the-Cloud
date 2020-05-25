@@ -34,7 +34,7 @@ function Sports(props) {
         'Cricket',
         'Tennis',
         'Footy',
-        'Motorsports',
+        'Motorsport',
         'Soccer',
         'Exercise',
     ];
@@ -112,6 +112,10 @@ function Sports(props) {
             setMarker(props.areaCentroid ? props.areaCentroid[areaCode] : null);
         });
     }, [areaLoaded, areaCode, sport, props.areaCentroid]);
+
+    useEffect(() => {
+        setAreaLoaded(false);
+    }, [sport]);
 
     return (
         <Scenario
@@ -262,17 +266,24 @@ function Sports(props) {
                                     {tweets.map((tweet) => (
                                         <div className="tweet" key={tweet.url}>
                                             <p>{tweet.doc.full_text}</p>
-                                            {tweet.doc.entities.urls.length > 0 ? (
+                                            {tweet.doc.entities.urls.length >
+                                            0 ? (
                                                 <React.Fragment>
                                                     <FontAwesomeIcon
                                                         icon={faTwitter}
                                                     />
                                                     <a
-                                                        href={tweet.doc.entities.urls[0].url}
+                                                        href={
+                                                            tweet.doc.entities
+                                                                .urls[0].url
+                                                        }
                                                         rel="noopener noreferrer"
                                                         target="_blank"
                                                     >
-                                                        {tweet.url}
+                                                        {
+                                                            tweet.doc.entities
+                                                                .urls[0].url
+                                                        }
                                                     </a>
                                                 </React.Fragment>
                                             ) : (

@@ -469,7 +469,7 @@ router.get(
                 'more',
                 'sports-exercise',
                 {
-                    key: sport === 'All' ? undefined : sport,
+                    key: sport === 'all' ? undefined : sport,
                     reduce: false,
                     include_docs: true,
                     stale: 'ok',
