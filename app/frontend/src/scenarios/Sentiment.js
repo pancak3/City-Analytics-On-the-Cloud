@@ -169,6 +169,22 @@ function Sentiment(props) {
                                             </LoadingBlock>
                                         )}
                                     </Typography>
+
+                                    <Typography className="mt-3">
+                                        The Index of Education and Occupation
+                                        2016 (IEO2016) is provided by the
+                                        Australian Bureau of Statistics. It is
+                                        designed to reflect the educational and
+                                        occupational level of areas. A higher
+                                        IEO score indicates relatively higher
+                                        education and occupation status of
+                                        people in the area in general. For
+                                        example, an area may have a higher IEO
+                                        score if many people in that area have
+                                        higher education qualifications or many
+                                        people are in highly skilled
+                                        occupations.
+                                    </Typography>
                                 </React.Fragment>
                             ) : (
                                 <React.Fragment>
@@ -193,6 +209,19 @@ function Sentiment(props) {
                                                 <span>0.123456</span>
                                             </LoadingBlock>
                                         )}
+                                    </Typography>
+
+                                    <Typography className="mt-3">
+                                        The Index of Economic Resources 2016
+                                        (IER2016) is provided by the Australian
+                                        Bureau of Statistics. It summarises
+                                        variables related to income and wealth
+                                        of each area. A higher score indicates
+                                        relatively greater access to economic
+                                        resources in general. For example, an
+                                        area may have a higher IER score if many
+                                        households in the area have a high
+                                        income or own many homes.
                                     </Typography>
                                 </React.Fragment>
                             )}
