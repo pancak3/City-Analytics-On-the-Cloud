@@ -5,7 +5,8 @@ import scipy.stats as stats
 
 def solve(a_in, b_in):
     """
-    output to stdout of two num lists, indexed by the same location id
+    input two num lists, indexed by the same location id,
+    print and return pearson correlation results
     :param a_in: list in json str, [1, 3, 53, 1, 7]
     :param b_in: list in json str, [4, 3, 2, 9, 6]
     :return: print pearson correlation, (corr, p-value)
