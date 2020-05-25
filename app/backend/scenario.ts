@@ -377,19 +377,20 @@ router.get(
                     // Delete area code
                     delete sentiment_area.area;
 
-                    const positive: number = areas[area].positive || 0;
-                    const sum: number =
-                        positive + areas[area].negative ||
-                        0 + areas[area].neutral ||
-                        0;
-                    const pos_ratio: number = positive / sum;
-                    if (areas[area].ieo_score && sum > 0) {
-                        positive_ratio_ieo.push(pos_ratio);
-                        ieo.push(areas[area].ieo_score);
-                    }
-                    if (areas[area].ier_score && sum > 0) {
-                        positive_ratio_ier.push(pos_ratio);
-                        ier.push(areas[area].ier_score);
+                    const pos = Number(areas[area].positive);
+                    const neg = Number(areas[area].negative);
+                    const neu = Number(areas[area].neutral);
+                    if (pos && neg && neu) {
+                        const sum: number = pos + neg + neu;
+                        const pos_ratio: number = pos / sum;
+                        if (areas[area].ieo_score) {
+                            positive_ratio_ieo.push(pos_ratio);
+                            ieo.push(areas[area].ieo_score);
+                        }
+                        if (areas[area].ier_score) {
+                            positive_ratio_ier.push(pos_ratio);
+                            ier.push(areas[area].ier_score);
+                        }
                     }
                 }
             }
