@@ -8,6 +8,7 @@ import Sidebar from './Sidebar';
 import Summary from './pages/Summary';
 import Word from './scenarios/Word';
 import Sentiment from './scenarios/Sentiment';
+import Sports from './scenarios/Sports';
 import { getGeoJSON } from './helper/api';
 
 const theme = createMuiTheme({
@@ -86,6 +87,13 @@ function App() {
                         </Route>
                         <Route path="/scenario/sentiment">
                             <Sentiment
+                                geojson={geojson}
+                                areaName={areaNameMapping}
+                                areaCentroid={areaCentroidMapping}
+                            />
+                        </Route>
+                        <Route path="/scenario/sports-exercise">
+                            <Sports
                                 geojson={geojson}
                                 areaName={areaNameMapping}
                                 areaCentroid={areaCentroidMapping}

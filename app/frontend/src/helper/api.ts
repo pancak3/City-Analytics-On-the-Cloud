@@ -1,4 +1,5 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios, {AxiosRequestConfig} from 'axios';
+
 const BASE_URL =
     process.env.REACT_APP_URL === undefined
         ? 'http://localhost:3000'
@@ -46,15 +47,25 @@ export function getHashTagsByArea(area: string) {
 
 // keywords page: get by keyword
 export function getKeyword(keyword: string) {
-    return getRequest(`/api/scenarios/keyword/all`, { params: { keyword } });
+    return getRequest(`/api/scenarios/keyword/all`, {params: {keyword}});
 }
 
 // keywords page: get by keyword and area (returns tweets)
 export function getKeywordArea(keyword: string, area: string) {
-    return getRequest(`/api/scenarios/keyword/${area}`, keyword ? { params: { keyword } }: {})
+    return getRequest(`/api/scenarios/keyword/${area}`, keyword ? {params: {keyword}} : {})
 }
 
 // sentiment
 export function getSentiment() {
     return getRequest(`/api/scenarios/sentiment`);
+}
+
+// get sports and exercise
+export function getSportsExerciseFreq() {
+    return getRequest(`/api/scenarios/sports-exercise/`);
+}
+
+// get sports and exercise by area
+export function getSportsExerciseFreqArea(areaCode: string) {
+    return getRequest(`/api/scenarios/partitioned/sports-exercise/?area=${areaCode}`);
 }
