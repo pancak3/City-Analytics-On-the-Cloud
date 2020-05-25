@@ -464,7 +464,7 @@ router.get(
             const status = nano.db.use('statuses');
             const sport = req.query.sport;
 
-            const sportsExerciseVectors = await status.partitionedView(
+            const sportsTweetsPromise = status.partitionedView(
                 area,
                 'more',
                 'sports-exercise',
@@ -476,7 +476,25 @@ router.get(
                     limit: 5,
                 }
             );
-            return res.json(sportsExerciseVectors.rows);
+            const totalTweetsPromise = status.partitionedView(
+                area,
+                'more',
+                'count',
+                {
+                    group: false,
+                    reduce: true,
+                    stale: 'ok',
+                }
+            );
+
+            const [tweets, count] = await Promise.all([
+                sportsTweetsPromise,
+                totalTweetsPromise,
+            ]);
+            return res.json({
+                tweets: tweets.rows,
+                count: count.rows[0].value,
+            });
         } catch (err) {
             return next(err);
         }

@@ -9,11 +9,8 @@ import {
     ExpansionPanel,
     ExpansionPanelSummary,
     ExpansionPanelDetails,
-    Input,
-    Typography,
     Button,
     Grid,
-    Box,
     TableHead,
     TableBody,
     TableContainer,
@@ -55,9 +52,11 @@ function Sports(props) {
     const [marker, setMarker] = useState(null);
     const [tweets, setTweets] = useState(null);
     const [areaLoaded, setAreaLoaded] = useState(null);
+    const [areaCount, setAreaCount] = useState(null);
 
     const [freqExpanded, setFreqExpanded] = useState(true);
     const [indExpanded, setIndExpanded] = useState(true);
+    const [areaInfoExpanded, setAreaInfoExpanded] = useState(true);
 
     // Load counts
     useEffect(() => {
@@ -106,9 +105,8 @@ function Sports(props) {
 
         setAreaLoaded(true);
         getSportsExerciseFreqArea(areaCode, sport).then((data) => {
-            setTweets(data);
-            setFreqExpanded(false);
-            setIndExpanded(true);
+            setTweets(data.tweets);
+            setAreaCount(data.count);
             setMarker(props.areaCentroid ? props.areaCentroid[areaCode] : null);
         });
     }, [areaLoaded, areaCode, sport, props.areaCentroid]);
@@ -124,6 +122,9 @@ function Sports(props) {
             featureClick={(feature) => {
                 setAreaCode(feature.properties.feature_code);
                 setAreaLoaded(false);
+                setFreqExpanded(false);
+                setIndExpanded(true);
+                setAreaInfoExpanded(true);
             }}
             marker={marker}
         >
@@ -240,6 +241,40 @@ function Sports(props) {
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
             </div>
+
+            {areaCode && areaCount && (
+                <div>
+                    <ExpansionPanel
+                        defaultExpanded
+                        expanded={areaInfoExpanded}
+                        onChange={(e) => setAreaInfoExpanded(!areaInfoExpanded)}
+                        key="area"
+                    >
+                        <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
+                            <h5>Area Information</h5>
+                        </ExpansionPanelSummary>
+                        <ExpansionPanelDetails>
+                            <Grid>
+                                <p>
+                                    <strong>
+                                        Propertion of{' '}
+                                        {sport === 'All'
+                                            ? ' sport/exercise '
+                                            : ` ${sport.toLowerCase()} `}{' '}
+                                        related tweets:
+                                    </strong>
+                                    <br />
+                                    {((data[areaCode] / areaCount) * 100)
+                                        .toString()
+                                        .slice(0, 4) + '%'}
+                                    {/* <br />
+                                    {data[areaCode] + ' ' + areaCount} */}
+                                </p>
+                            </Grid>
+                        </ExpansionPanelDetails>
+                    </ExpansionPanel>
+                </div>
+            )}
 
             {tweets && (
                 <div id="indicative">
