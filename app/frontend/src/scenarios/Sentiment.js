@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import PropTypes from 'prop-types';
 import Scenario from '../components/Scenario';
 import { getSentiment } from '../helper/api';
@@ -33,10 +33,21 @@ function Sentiment(props) {
     const [datasetChosen, setDatasetChosen] = useState('ieo');
     const [areaChosen, setAreaChosen] = useState(null);
 
+    // Prevent updates after dismount
+    // https://stackoverflow.com/questions/56450975
+    const mounted = useRef(true);
+    useEffect(() => {
+        return () => {
+            mounted.current = false;
+        };
+    }, []);
+
     useEffect(() => {
         if (overallLoaded) return;
         setOverallLoaded(true);
+
         getSentiment().then((data) => {
+            if (!mounted.current) return;
             setOverall(data);
         });
     }, [overallLoaded]);
@@ -50,11 +61,13 @@ function Sentiment(props) {
                 for (const area of Object.keys(data_copy)) {
                     data_copy[area] = data_copy[area].ieo_normalised;
                 }
+                if (!mounted.current) return;
                 setGeoJSON(prepareGeoJSON(plainGeo, data_copy));
             } else if (datasetChosen === 'ier') {
                 for (const area of Object.keys(data_copy)) {
                     data_copy[area] = data_copy[area].ier_normalised;
                 }
+                if (!mounted.current) return;
                 setGeoJSON(prepareGeoJSON(plainGeo, data_copy));
             }
         }

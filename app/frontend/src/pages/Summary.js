@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Card from '../components/Card';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser } from '@fortawesome/free-solid-svg-icons';
@@ -25,12 +25,23 @@ function Summary() {
     const [info, setInfo] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
 
+    // Prevent updates after dismount
+    // https://stackoverflow.com/questions/56450975
+    const mounted = useRef(true);
+    useEffect(() => {
+        return () => {
+            mounted.current = false;
+        };
+    }, []);
+
     setInterval(() => {
         getStats().then((stats) => {
+            if (!mounted.current) return;
             setStats(stats);
         });
 
         getGeneralInfo().then((info) => {
+            if (!mounted.current) return;
             setInfo(info);
             setLastUpdated(new Date());
         });
@@ -41,10 +52,12 @@ function Summary() {
         setLoadRequired(false);
 
         getStats().then((stats) => {
+            if (!mounted.current) return;
             setStats(stats);
         });
 
         getGeneralInfo().then((info) => {
+            if (!mounted.current) return;
             setInfo(info);
             setLastUpdated(new Date());
         });
@@ -52,7 +65,7 @@ function Summary() {
 
     return (
         <React.Fragment>
-            <div id="summary" className="container-fluid">
+            <div id="summary">
                 <h2>Summary</h2>
                 <div className="row justify-content-start">
                     <div className="col-3">

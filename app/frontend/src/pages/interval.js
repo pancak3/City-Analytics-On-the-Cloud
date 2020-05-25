@@ -20,5 +20,9 @@ export default (callback, delay) => {
             let id = setInterval(tick, delay);
             return () => clearInterval(id);
         }
+
+        return function cleanup() {
+            clearInterval(savedCallback.current);
+        };
     }, [delay]);
 };

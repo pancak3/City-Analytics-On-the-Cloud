@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Scenario from '../components/Scenario';
 import {
     getCounts,
@@ -50,16 +50,27 @@ function Word(props) {
     const [areaHashtag, setAreaHashtag] = useState(null);
     const [allHashtag, setAllHashtag] = useState(null);
 
+    // Prevent updates after dismount
+    // https://stackoverflow.com/questions/56450975
+    const mounted = useRef(true);
+    useEffect(() => {
+        return () => {
+            mounted.current = false;
+        };
+    }, []);
+
     // Load counts
     useEffect(() => {
         if (loaded) return;
         setLoaded(true);
         getCounts().then((data) => {
+            if (!mounted.current) return;
             setCounts(data);
         });
 
         if (allHashtag) return;
         getHashTags().then((data) => {
+            if (!mounted.current) return;
             setAllHashtag(data);
         });
     }, [loaded, plainGeo, allHashtag]);
@@ -69,6 +80,7 @@ function Word(props) {
         if (!keyword || keywordLoaded) return;
         setKeywordLoaded(true);
         getKeyword(keyword).then((data) => {
+            if (!mounted.current) return;
             setKeywordData(data);
         });
     }, [keyword, keywordLoaded, plainGeo]);
@@ -118,6 +130,7 @@ function Word(props) {
 
         setAreaLoaded(true);
         getKeywordArea(keyword, areaCode).then((data) => {
+            if (!mounted.current) return;
             setArea(data);
             setFreqExpanded(false);
             setKeywordExpanded(false);
@@ -125,6 +138,7 @@ function Word(props) {
             setMarker(props.areaCentroid ? props.areaCentroid[areaCode] : null);
         });
         getHashTagsByArea(areaCode).then((data) => {
+            if (!mounted.current) return;
             setAreaHashtag(data);
         });
     }, [areaLoaded, areaCode, keyword, props.areaCentroid]);
