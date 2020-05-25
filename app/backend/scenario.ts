@@ -1,5 +1,5 @@
-import {Router, Request, Response, NextFunction} from 'express';
-import {PythonShell} from 'python-shell';
+import { Router, Request, Response, NextFunction } from 'express';
+import { PythonShell } from 'python-shell';
 import nano from './app';
 
 const router = Router();
@@ -14,7 +14,7 @@ const fetch_geojson = (): Promise<any> => {
 
         // fetch all docs in areas db
         const area = nano.db.use('areas');
-        area.list({include_docs: true})
+        area.list({ include_docs: true })
             .then((body) => {
                 _geojson = body.rows
                     // get documents
@@ -114,19 +114,19 @@ router.get(
             // selection of tweets with keyword (e.g. first 10)
             const tweets: any = keyword
                 ? await status.partitionedView(area, 'api', 'keyword', {
-                    include_docs: true,
-                    key: keyword,
-                    group: false,
-                    reduce: false,
-                    limit: 5,
-                    stale: 'ok',
-                })
+                      include_docs: true,
+                      key: keyword,
+                      group: false,
+                      reduce: false,
+                      limit: 5,
+                      stale: 'ok',
+                  })
                 : // no keyword
-                await status.partitionedView(area, 'api', 'doc', {
-                    include_docs: true,
-                    limit: 5,
-                    stale: 'ok',
-                });
+                  await status.partitionedView(area, 'api', 'doc', {
+                      include_docs: true,
+                      limit: 5,
+                      stale: 'ok',
+                  });
             return res.json(tweets.rows.map((r: any) => r.value));
         } catch (err) {
             return next(err);
@@ -290,16 +290,16 @@ const fetch_ieo_ier = async () => {
         const area = ier['id'];
         const ier_pop = ier['key'][0];
         const ier_score = ier['key'][1];
-        ieo_ier[area] = {ier_pop, ier_score};
+        ieo_ier[area] = { ier_pop, ier_score };
     }
     for (const ieo of aurin_ieo) {
         const area = ieo['id'];
         const ieo_pop = ieo['key'][0];
         const ieo_score = ieo['key'][1];
         if (!ieo_ier[area]) {
-            ieo_ier[area] = {ieo_pop, ieo_score};
+            ieo_ier[area] = { ieo_pop, ieo_score };
         } else {
-            ieo_ier[area] = {...ieo_ier[area], ieo_pop, ieo_score};
+            ieo_ier[area] = { ...ieo_ier[area], ieo_pop, ieo_score };
         }
     }
 
@@ -434,76 +434,88 @@ const analyse = (args: string[], stdin: string): Promise<string> => {
 
 // sentiment all areas
 router.get(
-    '/sports-exercise/:which',
+    '/sports-exercise',
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const status = nano.db.use('statuses');
 
-            const sportsExerciseVectors = await status.view('more-global', 'sports-exercise', {
-                group_level: 1,
-                reduce: true,
-                stale: 'ok',
-            });
-            return res.json(convert_sports_res(sportsExerciseVectors));
-        } catch (err) {
-            return next(err);
-        }
-    }
-);
-
-// sentiment partitioned areas
-router.get(
-    '/partitioned/sports-exercise/',
-    async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const status = nano.db.use('statuses');
-            const area = req.query.area.toString();
-            const doc = req.query.doc.toString() === 'true';
-            // eslint-disable-next-line no-constant-condition
-
-            if (!doc) {
-                const sportsExerciseVectors = await status.partitionedView(area, 'more', 'sports-exercise', {
+            const sportsExerciseVectors = await status.view(
+                'more-global',
+                'sports-exercise',
+                {
                     group_level: 1,
                     reduce: true,
-                    stale: 'ok'
-                });
-                return res.json(convert_sports_res(sportsExerciseVectors));
-
-            } else {
-                const sportsExerciseVectors = await status.partitionedView(area, 'more', 'sports-exercise', {
-                    reduce: false,
-                    include_docs: doc,
                     stale: 'ok',
-                    limit: 5
-                });
-                return res.json(sportsExerciseVectors);
-            }
+                }
+            );
+            return res.json(
+                sportsExerciseVectors.rows
+            );
         } catch (err) {
             return next(err);
         }
     }
 );
 
-const convert_sports_res = (sportsExerciseVectors: any): any => {
-    const sportsExerciseFreqDict: { [area: string]: any } = {};
-    for (const row of sportsExerciseVectors.rows) {
-        if (sportsExerciseFreqDict[row.key]) {
-            // @ts-ignore
-            sportsExerciseFreqDict[row.key] = sportsExerciseFreqDict[row.key] + row.value[which];
-        } else {
-            // @ts-ignore
-            sportsExerciseFreqDict[row.key] = row.value[which];
-        }
-    }
-    return sportsExerciseFreqDict
+// // sentiment partitioned areas
+// router.get(
+//     '/partitioned/sports-exercise/',
+//     async (req: Request, res: Response, next: NextFunction) => {
+//         try {
+//             const status = nano.db.use('statuses');
+//             const area = req.query.area.toString();
+//             const doc = req.query.doc.toString() === 'true';
+//             // eslint-disable-next-line no-constant-condition
 
-};
+//             if (!doc) {
+//                 const sportsExerciseVectors = await status.partitionedView(
+//                     area,
+//                     'more',
+//                     'sports-exercise',
+//                     {
+//                         group_level: 1,
+//                         reduce: true,
+//                         stale: 'ok',
+//                     }
+//                 );
+//                 return res.json(convert_sports_res(sportsExerciseVectors));
+//             } else {
+//                 const sportsExerciseVectors = await status.partitionedView(
+//                     area,
+//                     'more',
+//                     'sports-exercise',
+//                     {
+//                         reduce: false,
+//                         include_docs: doc,
+//                         stale: 'ok',
+//                         limit: 5,
+//                     }
+//                 );
+//                 return res.json(sportsExerciseVectors);
+//             }
+//         } catch (err) {
+//             return next(err);
+//         }
+//     }
+// );
 
+// const convert_sports_res = (sportsExerciseVectors: any): any => {
+//     const sportsExerciseFreqDict: { [area: string]: any } = {};
+//     for (const row of sportsExerciseVectors.rows) {
+//         if (sportsExerciseFreqDict[row.key]) {
+//             // @ts-ignore
+//             sportsExerciseFreqDict[row.key] =
+//                 sportsExerciseFreqDict[row.key] + row.value[which];
+//         } else {
+//             // @ts-ignore
+//             sportsExerciseFreqDict[row.key] = row.value[which];
+//         }
+//     }
+//     return sportsExerciseFreqDict;
+// };
 
-const list_sum = (list_a: any, list_b: any): any => {
-    for(let i=0;i<list_a.length;){
-
-    }
-};
+// const list_sum = (list_a: any, list_b: any): any => {
+//     for (let i = 0; i < list_a.length; ) {}
+// };
 
 export default router;

@@ -62,7 +62,7 @@ export function getSentiment() {
 
 // get sports and exercise
 export function getSportsExerciseFreq() {
-    return getRequest(`/api/scenarios/sports-exercise/`);
+    return getRequest(`/api/scenarios/sports-exercise`);
 }
 
 // get sports and exercise by area

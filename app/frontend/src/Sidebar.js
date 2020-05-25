@@ -1,7 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faList, faBook, faSmile ,faRunning} from '@fortawesome/free-solid-svg-icons';
+import {
+    faList,
+    faBook,
+    faSmile,
+    faRunning,
+} from '@fortawesome/free-solid-svg-icons';
 
 class Sidebar extends React.Component {
     render() {
@@ -26,7 +31,10 @@ class Sidebar extends React.Component {
                             activeClassName="selected"
                             to="/scenario/sports-exercise"
                         >
-                            <FontAwesomeIcon className="running" icon={faRunning} />
+                            <FontAwesomeIcon
+                                className="running"
+                                icon={faRunning}
+                            />
                             Sports and Exercise
                         </NavLink>
                     </li>
@@ -39,7 +47,6 @@ class Sidebar extends React.Component {
                             Sentiment
                         </NavLink>
                     </li>
-
                 </ul>
                 <p>
                     Made by: Team 42
