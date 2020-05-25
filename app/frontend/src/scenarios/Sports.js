@@ -24,17 +24,75 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTwitter } from '@fortawesome/free-brands-svg-icons';
 import { prepareGeoJSON } from './geo';
 
+const SPORTS = [
+    'Cricket',
+    'Tennis',
+    'Footy',
+    'Motorsport',
+    'Soccer',
+    'Exercise',
+];
+const SPORTS_ITEMS = [
+    [
+        'cricket',
+        'batsman',
+        'bowler',
+        't20',
+        'odi',
+        'mcg',
+        'scg',
+        'bbl',
+        'bigbash',
+    ],
+    [
+        'tennis',
+        'australianopen',
+        'nadal',
+        'djokovic',
+        'federer',
+        'kyrgios',
+        'barty',
+        'atp',
+        'williams',
+    ],
+    [
+        'afl',
+        'footy',
+        'aussierules',
+        'collingwoodfc',
+        'richmond_fc',
+        'sydneyswans',
+    ],
+    [
+        'ferrari',
+        'vettel',
+        'lewis',
+        'prix',
+        'ricciardo',
+        'formula1',
+        'f1',
+        'ausgp',
+        'motogp',
+        'motorsport',
+    ],
+    [
+        'fifa',
+        'aleague',
+        'soccer',
+        'liverpool',
+        'messi',
+        'ronaldo',
+        'epl',
+        'mufc',
+        'ffa',
+        'melcity',
+        'melbournevictory',
+    ],
+    ['exercise', 'workout', 'gym', 'yoga', 'jogging', 'aerobics', 'cardio'],
+];
+
 function Sports(props) {
     const plainGeo = props.geojson;
-
-    const SPORTS = [
-        'Cricket',
-        'Tennis',
-        'Footy',
-        'Motorsport',
-        'Soccer',
-        'Exercise',
-    ];
 
     // overall data
     const [loaded, setLoaded] = useState(false);
@@ -183,6 +241,14 @@ function Sports(props) {
                                     </Button>
                                 ))}
                             </ButtonGroup>
+                            {sport !== 'All' && (
+                                <p className="mt-4 mb-0">
+                                    <strong>Keywords: </strong>
+                                    {SPORTS_ITEMS[SPORTS.indexOf(sport)].join(
+                                        ', '
+                                    )}
+                                </p>
+                            )}
                         </Grid>
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
