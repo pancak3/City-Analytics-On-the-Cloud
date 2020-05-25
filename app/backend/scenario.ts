@@ -347,31 +347,59 @@ router.get(
                 fetch_ieo(),
                 fetch_ier(),
             ]);
-            const analysis_result: string = await analyse(
-                ['sentiment'],
-                JSON.stringify(aurin_ier) +
-                    '\n' +
-                    JSON.stringify(aurin_ieo) +
-                    '\n' +
-                    JSON.stringify(transformed)
-            );
-            const analysis_result_cleaned = analysis_result
-                .split(' ')
-                .map((value) =>
-                    value.replace(',', '').replace('(', '').replace(')', '')
-                );
+
+            // Get relevant info
+            const positive_ratio_ieo = [];
+            const ieo = [];
+            const positive_ratio_ier = [];
+            const ier = [];
 
             // Merge sentiments and aurin scores
+            // For all areas which has sentiment values
             for (const sentiment_area of transformed) {
-                if (areas[sentiment_area.area]) {
-                    areas[sentiment_area.area] = {
-                        ...areas[sentiment_area.area],
+                const area = sentiment_area.area;
+
+                // If area is found in areas (have ieo/ier)
+                if (areas[area]) {
+                    areas[area] = {
+                        ...areas[area],
                         ...sentiment_area,
                     };
+                    // Delete area code
                     delete sentiment_area.area;
+
+                    const positive: number = areas[area].positive || 0;
+                    const sum: number =
+                        positive + areas[area].negative ||
+                        0 + areas[area].neutral ||
+                        0;
+                    const pos_ratio: number = positive / sum;
+                    if (areas[area].ieo_score && sum > 0) {
+                        positive_ratio_ieo.push(pos_ratio);
+                        ieo.push(areas[area].ieo_score);
+                    }
+                    if (areas[area].ier_score && sum > 0) {
+                        positive_ratio_ier.push(pos_ratio);
+                        ier.push(areas[area].ier_score);
+                    }
                 }
             }
-            return res.json({ areas, correlation: analysis_result_cleaned });
+
+            // Extract relevant information
+            const ieo_result = await analyse(
+                ['sentiment'],
+                JSON.stringify(ieo) + '\n' + JSON.stringify(positive_ratio_ieo)
+            );
+            const ier_result = await analyse(
+                ['sentiment'],
+                JSON.stringify(ier) + '\n' + JSON.stringify(positive_ratio_ier)
+            );
+
+            return res.json({
+                areas,
+                ieo: ieo_result.split(' '),
+                ier: ier_result.split(' '),
+            });
         } catch (err) {
             return next(err);
         }
@@ -380,7 +408,7 @@ router.get(
 
 const analyse = (args: string[], stdin: string): Promise<string> => {
     return new Promise((resolve, reject) => {
-        const pyshell = new PythonShell('analysis/main.py', {
+        const pyshell = new PythonShell('analysis/corr.py', {
             mode: 'text',
             args: ['sentiment'],
         });
