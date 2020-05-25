@@ -111,11 +111,21 @@ function Sentiment(props) {
                                 aria-label="outlined primary button group"
                             >
                                 <Button
+                                    color={
+                                        datasetChosen === 'ieo'
+                                            ? 'primary'
+                                            : 'secondary'
+                                    }
                                     onClick={(e) => setDatasetChosen('ieo')}
                                 >
                                     IEO
                                 </Button>
                                 <Button
+                                    color={
+                                        datasetChosen === 'ier'
+                                            ? 'primary'
+                                            : 'secondary'
+                                    }
                                     onClick={(e) => setDatasetChosen('ier')}
                                 >
                                     IER

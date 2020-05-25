@@ -13,7 +13,10 @@ import { getGeoJSON } from './helper/api';
 const theme = createMuiTheme({
     palette: {
         primary: {
-            main: '#3b6aaf',
+            main: '#194585',
+        },
+        secondary: {
+            main: '#5f87c2',
         },
     },
     overrides: {
