@@ -448,74 +448,39 @@ router.get(
                     stale: 'ok',
                 }
             );
-            return res.json(
-                sportsExerciseVectors.rows
-            );
+            return res.json(sportsExerciseVectors.rows);
         } catch (err) {
             return next(err);
         }
     }
 );
 
-// // sentiment partitioned areas
-// router.get(
-//     '/partitioned/sports-exercise/',
-//     async (req: Request, res: Response, next: NextFunction) => {
-//         try {
-//             const status = nano.db.use('statuses');
-//             const area = req.query.area.toString();
-//             const doc = req.query.doc.toString() === 'true';
-//             // eslint-disable-next-line no-constant-condition
+// sport partitioned areas
+router.get(
+    '/sports-exercise/:area',
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const area = req.params.area;
+            const status = nano.db.use('statuses');
+            const sport = req.query.sport;
 
-//             if (!doc) {
-//                 const sportsExerciseVectors = await status.partitionedView(
-//                     area,
-//                     'more',
-//                     'sports-exercise',
-//                     {
-//                         group_level: 1,
-//                         reduce: true,
-//                         stale: 'ok',
-//                     }
-//                 );
-//                 return res.json(convert_sports_res(sportsExerciseVectors));
-//             } else {
-//                 const sportsExerciseVectors = await status.partitionedView(
-//                     area,
-//                     'more',
-//                     'sports-exercise',
-//                     {
-//                         reduce: false,
-//                         include_docs: doc,
-//                         stale: 'ok',
-//                         limit: 5,
-//                     }
-//                 );
-//                 return res.json(sportsExerciseVectors);
-//             }
-//         } catch (err) {
-//             return next(err);
-//         }
-//     }
-// );
-
-// const convert_sports_res = (sportsExerciseVectors: any): any => {
-//     const sportsExerciseFreqDict: { [area: string]: any } = {};
-//     for (const row of sportsExerciseVectors.rows) {
-//         if (sportsExerciseFreqDict[row.key]) {
-//             // @ts-ignore
-//             sportsExerciseFreqDict[row.key] =
-//                 sportsExerciseFreqDict[row.key] + row.value[which];
-//         } else {
-//             // @ts-ignore
-//             sportsExerciseFreqDict[row.key] = row.value[which];
-//         }
-//     }
-//     return sportsExerciseFreqDict;
-// };
-
-// const list_sum = (list_a: any, list_b: any): any => {
-//     for (let i = 0; i < list_a.length; ) {}
-// };
+            const sportsExerciseVectors = await status.partitionedView(
+                area,
+                'more',
+                'sports-exercise',
+                {
+                    key: sport === 'All' ? undefined : sport,
+                    reduce: false,
+                    include_docs: true,
+                    stale: 'ok',
+                    limit: 5,
+                }
+            );
+            return res.json(sportsExerciseVectors.rows);
+        } catch (err) {
+            return next(err);
+        }
+    }
+);
 
 export default router;

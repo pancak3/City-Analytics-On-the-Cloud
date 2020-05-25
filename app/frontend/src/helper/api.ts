@@ -66,6 +66,6 @@ export function getSportsExerciseFreq() {
 }
 
 // get sports and exercise by area
-export function getSportsExerciseFreqArea(areaCode: string) {
-    return getRequest(`/api/scenarios/partitioned/sports-exercise/?area=${areaCode}`);
+export function getSportsExerciseFreqArea(areaCode: string, sport: string) {
+    return getRequest(`/api/scenarios/sports-exercise/${areaCode}?sport=${sport}`);
 }

@@ -136,12 +136,22 @@ function Sports(props) {
                             >
                                 <Button
                                     key="All"
+                                    color={
+                                        sport === 'All'
+                                            ? 'primary'
+                                            : 'secondary'
+                                    }
                                     onClick={(e) => setSport('All')}
                                 >
                                     All
                                 </Button>
                                 {SPORTS.slice(0, 3).map((s) => (
                                     <Button
+                                        color={
+                                            sport === s
+                                                ? 'primary'
+                                                : 'secondary'
+                                        }
                                         key={s}
                                         onClick={(e) => setSport(s)}
                                     >
@@ -156,6 +166,11 @@ function Sports(props) {
                             >
                                 {SPORTS.slice(4, 8).map((s) => (
                                     <Button
+                                        color={
+                                            sport === s
+                                                ? 'primary'
+                                                : 'secondary'
+                                        }
                                         key={s}
                                         onClick={(e) => setSport(s)}
                                     >
@@ -246,14 +261,14 @@ function Sports(props) {
                                 <Grid>
                                     {tweets.map((tweet) => (
                                         <div className="tweet" key={tweet.url}>
-                                            <p>{tweet.text}</p>
-                                            {tweet.url ? (
+                                            <p>{tweet.doc.full_text}</p>
+                                            {tweet.doc.entities.urls.length > 0 ? (
                                                 <React.Fragment>
                                                     <FontAwesomeIcon
                                                         icon={faTwitter}
                                                     />
                                                     <a
-                                                        href={tweet.url}
+                                                        href={tweet.doc.entities.urls[0].url}
                                                         rel="noopener noreferrer"
                                                         target="_blank"
                                                     >
