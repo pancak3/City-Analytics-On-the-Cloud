@@ -82,7 +82,7 @@ function Sentiment(props) {
 
     // Sentiment tweet info for area
     const barInfo =
-        areaChosen && overall
+        areaChosen && overall && overall.areas[areaChosen]
             ? [
                   {
                       name: 'Positive',
