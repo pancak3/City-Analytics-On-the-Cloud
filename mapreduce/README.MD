@@ -1,4 +1,4 @@
-# analysis
+# Mapreduce
 
 ## Dependencies
 - python3
@@ -21,5 +21,7 @@ cat couchdb.json
 }
 ``` 
 
-## Documentation
+## Documentations
+
 - [cloudant](https://python-cloudant.readthedocs.io/en/latest/)
+- [Twitter Dev](https://developer.twitter.com/en/docs)

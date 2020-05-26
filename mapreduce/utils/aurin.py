@@ -42,7 +42,7 @@ def update_db(couch_db, db_name_file_map, extracted_path):
         logger.info("Updated database {}".format(db_name))
 
 
-if __name__ == '__main__':
+def save_aurin_data():
     compressed_path = "aurin_data/compressed"
     extracted_path = "aurin_data/extracted"
     db_name_file_map = {'aurin_ier': 'Economic_resource.geojson',
@@ -53,3 +53,7 @@ if __name__ == '__main__':
     couch_db = CouchDB()
     check_dbs(couch_db, db_name_file_map.keys())
     update_db(couch_db, db_name_file_map, extracted_path)
+
+
+if __name__ == '__main__':
+    save_aurin_data()

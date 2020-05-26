@@ -3,12 +3,12 @@ import json
 import logging
 import traceback
 import sys
-from pprint import pformat, pprint
+from pprint import pformat
 from time import asctime, localtime, time
 from tqdm import tqdm
 from utils.database import CouchDB
 from utils.logger import get_logger
-from cloudant.design_document import DesignDocument, Document
+from utils.aurin import save_aurin_data
 
 logger = get_logger('AreasUpdater', logging.DEBUG)
 
@@ -250,8 +250,9 @@ if __name__ == '__main__':
         os.mkdir(backup_path)
 
         backup_design_docs(ddocs_to_backup)
-        # check_all_dbs(ddocs_to_backup)
-        # update_areas()
+        check_all_dbs(ddocs_to_backup)
+        update_areas()
+        save_aurin_data()
 
     except Exception:
         traceback.print_exc(file=sys.stdout)

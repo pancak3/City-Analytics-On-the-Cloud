@@ -1,9 +1,6 @@
-import logging
-import json
 import os
 from time import sleep
 from cloudant.client import Cloudant
-from cloudant.replicator import Replicator
 from requests.exceptions import HTTPError
 from utils.config import Config
 from utils.logger import get_logger

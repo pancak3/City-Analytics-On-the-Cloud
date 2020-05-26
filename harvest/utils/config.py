@@ -1,5 +1,4 @@
 import json
-import logging
 from utils.logger import get_logger
 
 

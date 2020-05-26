@@ -1,4 +1,3 @@
-import logging
 import socket
 import threading
 import json
@@ -10,7 +9,6 @@ import re
 
 from math import ceil
 from time import sleep, time
-from pprint import pformat
 from collections import defaultdict
 from utils.config import Config
 from utils.database import CouchDB
@@ -710,6 +708,7 @@ class Worker:
         # The string representation of the unique identifier for this Tweet.
         # Implementations should use this rather than the large integer in id
         # https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object
+        # https://developer.twitter.com/en/docs/basics/twitter-ids
         try:
             if is_stream_code == 1:
                 user_json = status.author._json
