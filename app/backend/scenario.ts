@@ -351,12 +351,6 @@ router.get(
             // group sentiments by area
             const transformed: any = view_bool_process(sentiment.rows);
 
-            // correlation analysis
-            const [aurin_ieo, aurin_ier] = await Promise.all([
-                fetch_ieo(),
-                fetch_ier(),
-            ]);
-
             // Get relevant info
             const positive_ratio_ieo = [];
             const ieo = [];
