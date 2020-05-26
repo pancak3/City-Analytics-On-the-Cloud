@@ -335,7 +335,7 @@ function Sports(props) {
                             <Grid>
                                 <p>
                                     <strong>
-                                        Propertion of{' '}
+                                        Percentage of{' '}
                                         {sport === 'All'
                                             ? ' sport/exercise '
                                             : ` ${sport.toLowerCase()} `}{' '}
