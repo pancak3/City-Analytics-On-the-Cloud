@@ -1,5 +1,5 @@
-import {Router, Request, Response, NextFunction} from 'express';
-import {PythonShell} from 'python-shell';
+import { Router, Request, Response, NextFunction } from 'express';
+import { PythonShell } from 'python-shell';
 import nano from './app';
 
 const router = Router();
@@ -14,7 +14,7 @@ const fetch_geojson = (): Promise<any> => {
 
         // fetch all docs in areas db
         const area = nano.db.use('areas');
-        area.list({include_docs: true})
+        area.list({ include_docs: true })
             .then((body) => {
                 _geojson = body.rows
                     // get documents
@@ -114,19 +114,19 @@ router.get(
             // selection of tweets with keyword (e.g. first 10)
             const tweets: any = keyword
                 ? await status.partitionedView(area, 'api', 'keyword', {
-                    include_docs: true,
-                    key: keyword,
-                    group: false,
-                    reduce: false,
-                    limit: 5,
-                    stale: 'ok',
-                })
+                      include_docs: true,
+                      key: keyword,
+                      group: false,
+                      reduce: false,
+                      limit: 5,
+                      stale: 'ok',
+                  })
                 : // no keyword
-                await status.partitionedView(area, 'api', 'doc', {
-                    include_docs: true,
-                    limit: 5,
-                    stale: 'ok',
-                });
+                  await status.partitionedView(area, 'api', 'doc', {
+                      include_docs: true,
+                      limit: 5,
+                      stale: 'ok',
+                  });
             return res.json(tweets.rows.map((r: any) => r.value));
         } catch (err) {
             return next(err);
@@ -290,16 +290,16 @@ const fetch_ieo_ier = async () => {
         const area = ier['id'];
         const ier_pop = ier['key'][0];
         const ier_score = ier['key'][1];
-        ieo_ier[area] = {ier_pop, ier_score};
+        ieo_ier[area] = { ier_pop, ier_score };
     }
     for (const ieo of aurin_ieo) {
         const area = ieo['id'];
         const ieo_pop = ieo['key'][0];
         const ieo_score = ieo['key'][1];
         if (!ieo_ier[area]) {
-            ieo_ier[area] = {ieo_pop, ieo_score};
+            ieo_ier[area] = { ieo_pop, ieo_score };
         } else {
-            ieo_ier[area] = {...ieo_ier[area], ieo_pop, ieo_score};
+            ieo_ier[area] = { ...ieo_ier[area], ieo_pop, ieo_score };
         }
     }
 
@@ -385,11 +385,11 @@ router.get(
                         const pos_ratio: number = pos / sum;
                         if (areas[area].ieo_score) {
                             positive_ratio_ieo.push(pos_ratio);
-                            ieo.push(areas[area].ieo_normalised + 0.001);
+                            ieo.push(areas[area].ieo_score);
                         }
                         if (areas[area].ier_score) {
                             positive_ratio_ier.push(pos_ratio);
-                            ier.push(areas[area].ier_normalised + 0.001);
+                            ier.push(areas[area].ier_score);
                         }
                     }
                 }
