@@ -38,7 +38,31 @@ cat twitter.json
 ]
 
 ``` 
+## Usage
+Run help,
+```python
+python harvest.py -h
+usage: harvest.py [-h] [-r ROLE] [-i [IP]] [-l [LOG]]
 
+optional arguments:
+  -h, --help            show this help message and exit
+  -r ROLE, --role ROLE  specify the role in [reg,]
+  -i [IP], --ip [IP]    IP address that Registry used to communicate with
+                        workers.
+  -l [LOG], --log [LOG]
+                        output log level [critical, fatal, error, warning,
+                        warn ,info, debug, notset]
+```
+
+Run Master,
+```python
+python harvest.py -r reg -i 127.0.0.1
+```
+
+Run a Worker,
+```python
+python harvest.py -r worker
+```
 ## Documentations
 
 - [cloudant](https://python-cloudant.readthedocs.io/en/latest/)

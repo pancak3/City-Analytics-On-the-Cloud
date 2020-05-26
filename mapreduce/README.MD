@@ -1,5 +1,5 @@
 # Mapreduce
-
+Backing up design documents, update the design documents, update areas database and save Aurin data to the database.
 ## Dependencies
 - python3
 - pip3
@@ -20,7 +20,10 @@ cat couchdb.json
   "password": "password"
 }
 ``` 
-
+## Usage
+```python
+python check_couchdb_for_api.py
+```
 ## Documentations
 
 - [cloudant](https://python-cloudant.readthedocs.io/en/latest/)
