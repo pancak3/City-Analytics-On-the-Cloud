@@ -421,7 +421,7 @@ const analyse = (args: string[], stdin: string): Promise<string> => {
             return resolve(message);
         });
         pyshell.send(stdin);
-        pyshell.end((err, code) => {
+        pyshell.end((err) => {
             if (err) return reject(err);
         });
     });
