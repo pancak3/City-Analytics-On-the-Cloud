@@ -1,3 +1,7 @@
+"""
+@author Team 42, Melbourne, Zijie Pan, 1059454
+@author Team 42, Chengdu, China, Qifan Deng, 1077479
+"""
 import sys
 import json
 import pandas as pd

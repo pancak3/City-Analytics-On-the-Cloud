@@ -1,3 +1,5 @@
+// @author Team 42, Melbourne, Steven Tang, 832031
+
 import React, { useEffect, useState, useRef } from 'react';
 import Card from '../components/Card';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';

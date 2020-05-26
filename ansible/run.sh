@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# @author Team 42, Melbourne, Steven Tang, 832031
+# @author Team 42, Chengdu, China, Qifan Deng, 1077479
+
 # Exit when any err occurs
 set -o errexit
 # Path to private key

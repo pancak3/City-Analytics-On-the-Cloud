@@ -1,3 +1,5 @@
+[//]: <> (@author Team 42, Melbourne, Steven Tang, 832031)
+
 # react-leaflet-choropleth
 This component extends geoJson from react-leaflet and will use chroma to set the color, using a property or function value.
 This is highly based on [leaflet-choropleth](https://github.com/timwis/leaflet-choropleth) by timwis.

@@ -1,3 +1,6 @@
+"""
+@author Team 42, Melbourne, Mandeep Singh, 991857
+"""
 import nltk
 import re
 from nltk.sentiment.vader import SentimentIntensityAnalyzer

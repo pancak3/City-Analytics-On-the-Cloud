@@ -1,3 +1,5 @@
+// @author Team 42, Melbourne, Steven Tang, 832031
+
 import { GeoJSON, FeatureGroup } from 'react-leaflet'
 import chroma from 'chroma-js'
 import React, { Component, cloneElement, Children } from 'react'

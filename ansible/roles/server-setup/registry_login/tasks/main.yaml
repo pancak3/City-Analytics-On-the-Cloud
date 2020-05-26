@@ -1,3 +1,5 @@
+# @author Team 42, Melbourne, Steven Tang, 832031
+
 ---
 # Login to container registry
 - name: Login to registry

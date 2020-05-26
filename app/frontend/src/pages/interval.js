@@ -1,3 +1,5 @@
+// @author Team 42, Melbourne, Steven Tang, 832031
+
 import { useEffect, useRef } from 'react';
 
 // Setinterval for periodic polling

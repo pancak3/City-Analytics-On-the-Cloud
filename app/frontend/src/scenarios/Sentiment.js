@@ -268,11 +268,14 @@ function Sentiment(props) {
                                                 Population
                                             </TableCell>
                                             <TableCell>
-                                                {datasetChosen === 'ieo'
-                                                    ? overall.areas[areaChosen]
-                                                          .ieo_pop
-                                                    : overall.areas[areaChosen]
-                                                          .ier_pop}
+                                                {overall.areas[areaChosen] &&
+                                                    (datasetChosen === 'ieo'
+                                                        ? overall.areas[
+                                                              areaChosen
+                                                          ].ieo_pop
+                                                        : overall.areas[
+                                                              areaChosen
+                                                          ].ier_pop)}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
@@ -282,11 +285,14 @@ function Sentiment(props) {
                                                     : 'IER score'}
                                             </TableCell>
                                             <TableCell>
-                                                {datasetChosen === 'ieo'
-                                                    ? overall.areas[areaChosen]
-                                                          .ieo_score
-                                                    : overall.areas[areaChosen]
-                                                          .ier_score}
+                                                {overall.areas[areaChosen] &&
+                                                    (datasetChosen === 'ieo'
+                                                        ? overall.areas[
+                                                              areaChosen
+                                                          ].ieo_score
+                                                        : overall.areas[
+                                                              areaChosen
+                                                          ].ier_score)}
                                             </TableCell>
                                         </TableRow>
                                     </TableBody>

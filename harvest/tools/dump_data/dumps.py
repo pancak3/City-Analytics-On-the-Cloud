@@ -1,10 +1,11 @@
+"""
+@author Team 42, Chengdu, China, Qifan Deng, 1077479
+"""
 import json
 import threading
 import queue
 from tqdm import tqdm
 from cloudant.client import Cloudant
-from cloudant.database import CloudantDatabase
-from cloudant.result import Result
 
 q = queue.Queue()
 flag = False

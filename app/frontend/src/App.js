@@ -1,3 +1,5 @@
+// @author Team 42, Melbourne, Steven Tang, 832031
+
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
 import { createMuiTheme, ThemeProvider } from '@material-ui/core/styles';

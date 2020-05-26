@@ -1,8 +1,10 @@
+"""
+@author Team 42, Chengdu, China, Qifan Deng, 1077479
+"""
 import json
 import os
 from cloudant.client import Cloudant
 from tqdm import tqdm
-from database import CouchDB
 
 
 def rank_areas(areas_in_states, state_idx, area_idx):

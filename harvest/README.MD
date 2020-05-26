@@ -1,3 +1,5 @@
+[//]: <> (@author Team 42, Chengdu, China, Qifan Deng, 1077479)
+
 # harvest
 
 ## Dependencies

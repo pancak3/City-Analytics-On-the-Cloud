@@ -1,3 +1,5 @@
+// @author Team 42, Melbourne, Steven Tang, 832031
+
 import React, { useState } from 'react';
 import { Map, TileLayer, Marker } from 'react-leaflet';
 import Choropleth from '../react-leaflet-choropleth/choropleth';

@@ -1,3 +1,5 @@
+# @author Team 42, Melbourne, Steven Tang, 832031
+
 # Clone cloudant
 FROM alpine:latest as cloudant
 RUN apk add git

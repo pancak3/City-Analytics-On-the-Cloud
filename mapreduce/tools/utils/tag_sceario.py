@@ -1,4 +1,6 @@
-import nltk
+"""
+@author Team 42, Melbourne, Mandeep Singh, 991857
+"""
 import re
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize

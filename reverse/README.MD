@@ -1,3 +1,5 @@
+[//]: <> (@author Team 42, Melbourne, Steven Tang, 832031)
+
 # Reverse proxy configuration
 
 Reverse proxies one couch node and load balances app instances (with custom domain and HTTPs)  

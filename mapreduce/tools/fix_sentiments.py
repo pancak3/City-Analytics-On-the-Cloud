@@ -1,3 +1,7 @@
+"""
+@author Team 42, Melbourne, Mandeep Singh, 991857
+@author Team 42, Chengdu, China, Qifan Deng, 1077479
+"""
 import logging
 from tqdm import tqdm
 from utils.config import Config

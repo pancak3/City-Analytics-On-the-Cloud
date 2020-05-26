@@ -1,5 +1,7 @@
+"""
+@author Team 42, Chengdu, China, Qifan Deng, 1077479
+"""
 import logging
-import json
 import os
 from time import sleep
 from cloudant.client import Cloudant

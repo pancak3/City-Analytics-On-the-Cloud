@@ -1,5 +1,8 @@
+[//]: <> (@author Team 42, Chengdu, China, Qifan Deng, 1077479)
+
 # Mapreduce
 Backing up design documents, update the design documents, update areas database and save Aurin data to the database.
+
 ## Dependencies
 - python3
 - pip3

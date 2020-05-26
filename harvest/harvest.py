@@ -1,3 +1,6 @@
+"""
+@author Team 42, Chengdu, China, Qifan Deng, 1077479
+"""
 import argparse
 import logging
 from utils.registry import Registry

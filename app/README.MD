@@ -1,3 +1,5 @@
+[//]: <> (@author Team 42, Melbourne, Steven Tang, 832031)
+
 # API/Frontend
 API is in `backend/` and frontend is in `frontend/`
 

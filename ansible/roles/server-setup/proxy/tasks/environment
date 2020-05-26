@@ -1,3 +1,5 @@
+# @author Team 42, Melbourne, Steven Tang, 832031
+
 # Environment file to access external network
 # https://docs.cloud.unimelb.edu.au/guides/using_uom_internal_network/
 http_proxy=http://wwwproxy.unimelb.edu.au:8000/

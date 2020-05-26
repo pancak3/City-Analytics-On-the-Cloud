@@ -1,3 +1,5 @@
+# @author Team 42, Melbourne, Steven Tang, 832031
+
 ---
 # Get info about servers whose name starts with ins
 - name: Get instance info
