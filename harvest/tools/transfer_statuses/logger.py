@@ -1,3 +1,15 @@
+'''
+comp90024 team 42
+Qifan Deng
+1077479
+Zijie Pan
+1059454
+Mandeep Singh
+991857
+Steven Tang
+832031
+26/05/2020
+'''
 import logging
 
 

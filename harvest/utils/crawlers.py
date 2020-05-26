@@ -1,3 +1,15 @@
+'''
+comp90024 team 42
+Qifan Deng
+1077479
+Zijie Pan
+1059454
+Mandeep Singh
+991857
+Steven Tang
+832031
+26/05/2020
+'''
 """
 @author Qifan github.com/pancak3
 @time Created at: 28/4/20 6:51 pm
