@@ -13,8 +13,8 @@ logger = get_logger('Harvest', logging.DEBUG)
 def reg(ip, log_level):
     """
     create a registry(master) and run it
-    :param ip:
-    :param log_level: log level to filter logs
+    :param ip: string, ip address
+    :param log_level: string, log level to filter logs
     :return:
     """
     registry = Registry(ip, log_level)
@@ -24,7 +24,7 @@ def reg(ip, log_level):
 def worker(log_level):
     """
     create a worker and run it
-    :param log_level: log level to filter logs
+    :param log_level: string, log level to filter logs
     :return:
     """
     worker = Worker(log_level)
@@ -34,7 +34,7 @@ def worker(log_level):
 def parse_log_level(log_level):
     """
     parse log level to logging level names
-    :param log_level:
+    :param log_level: string, log level to filter logs
     :return:
     """
     options_map = {
@@ -53,7 +53,6 @@ def parse_log_level(log_level):
 def parse():
     """
     Parse the input args and run as the specific role
-    :return:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", "--role", help="specify the role in [reg,]")
@@ -64,8 +63,10 @@ def parse():
     args.log = parse_log_level(args.log)
     if args.role:
         if args.role == 'reg' and args.ip:
+            # Start master
             reg(args.ip, args.log)
         elif args.role == 'worker':
+            # Start worker
             worker(args.log)
         else:
             parser.print_help()

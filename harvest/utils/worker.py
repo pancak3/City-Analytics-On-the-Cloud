@@ -21,28 +21,45 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 
 class Task:
-    def __init__(self, _type, _ids):
-        self.type = _type
+    def __init__(self, task_type, _ids):
+        """
+        A task object
+        :param task_type: str, task type "friends" or "timeline", use string to make it expandable
+        :param _ids: list, user ids
+        """
+        self.type = task_type
         self.user_ids = _ids
 
 
 class RunningTask:
     def __init__(self):
+        """
+        Protected running task count
+        """
         self.count = 0
         self.lock = threading.Lock()
 
     def get_count(self):
+        """
+        :return: int, current count
+        """
         self.lock.acquire()
         c = self.count
         self.lock.release()
         return c
 
     def inc(self):
+        """
+        Increase 1
+        """
         self.lock.acquire()
         self.count += 1
         self.lock.release()
 
     def dec(self):
+        """
+        Decrease 1
+        """
         self.lock.acquire()
         if self.count > 0:
             self.count -= 1
@@ -54,15 +71,26 @@ class RunningTask:
 
 class Status:
     def __init__(self):
-        self.active = False
+        """
+        An object indicates a statuses
+        Used to manage a worker status in master's perspective
+        """
+        self.active = True
         self.lock = threading.Lock()
 
     def set(self, is_active):
+        """
+        set status
+        :param is_active: bool, is active or not
+        """
         self.lock.acquire()
         self.active = is_active
         self.lock.release()
 
     def is_active(self):
+        """
+        :return: bool, is active or not
+        """
         self.lock.acquire()
         status = self.active
         self.lock.release()
@@ -71,6 +99,10 @@ class Status:
 
 class Worker:
     def __init__(self, log_level):
+        """
+        start a worker
+        :param log_level: str, log printing level
+        """
         self.log_level = log_level
         self.logger = get_logger('Worker', log_level)
         self.active = Status()
@@ -110,15 +142,23 @@ class Worker:
         self.friends_tasks = queue.Queue()
 
     def get_registry(self):
+        """
+        get master info from database
+        :return: master's : ip, port and random token
+        """
         registry = self.client['control']['registry']
         return registry['ip'], registry['port'], registry['token']
 
     def connect_reg(self):
+        """
+        connect to master
+        """
         reg_ip, reg_port, token = self.reg_ip, self.reg_port, self.token
 
         try:
             socket_sender = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             socket_sender.connect((reg_ip, reg_port))
+            # if connected send a message to indicate this is a sender from worker
             msg = {'action': 'init', 'role': 'sender', 'token': self.token,
                    'api_keys_hashes': list(self.crawler.api_keys)}
             buffer = bytes(json.dumps(msg) + '\n', 'utf-8')
@@ -127,13 +167,16 @@ class Worker:
             if len(data):
                 first_pos = data.find('\n')
                 while first_pos == -1:
+                    # receive msg from buffer
                     data += socket_sender.recv(1024).decode('utf-8')
                     first_pos = data.find('\n')
                 msg_json = json.loads(data[:first_pos])
                 if 'token' in msg_json and msg_json['token'] == self.token:
+                    # check token
                     del msg_json['token']
                     self.active.set(True)
                     if msg_json['res'] == 'use_api_key':
+                        # use the api key that master allowed
                         valid_api_key_hash = msg_json['api_key_hash']
                         socket_receiver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         socket_receiver.connect((reg_ip, reg_port))
@@ -153,6 +196,9 @@ class Worker:
             self.exit("[!] Cannot connect to {}:{} using token {}. Exit: {}".format(reg_ip, reg_port, token, e))
 
     def msg_receiver(self):
+        """
+        a receiver thread that receive messages and put them into the message queue
+        """
         data = ''
         while True:
             data += self.socket_recv.recv(1024).decode('utf-8')
@@ -164,12 +210,18 @@ class Worker:
             if len(data) > 10240:
                 data = ''
 
-    @staticmethod
-    def exit(log):
-        self.self_logger.error(log)
+    def exit(self, log):
+        """
+        exit this worker
+        :param log: log to print
+        """
+        self.logger.error(log)
         os._exit(1)
 
     def msg_sender(self):
+        """
+        a sender that send messages to master
+        """
         while True:
             msg = self.msg_to_send.get()
             try:
@@ -181,6 +233,10 @@ class Worker:
             del msg
 
     def keep_alive(self):
+        """
+        a thread that make sure this worker is alive user heartbeats
+        and flag set frequently by other threads
+        """
         msg_json_str = json.dumps({'token': self.token, 'action': 'ping', 'worker_id': self.worker_id})
         self.active.set(True)
         to_sleep = self.config.max_heartbeat_lost_time
@@ -201,6 +257,9 @@ class Worker:
                 self.active.set(False)
 
     def msg_received_handler(self):
+        """
+        a thread handles the received msg from the queue
+        """
         while True:
             msg = self.msg_received.get()
             self.logger.debug("[{}] received: {}".format(self.worker_id, msg))
@@ -228,6 +287,10 @@ class Worker:
             del msg
 
     def handle_tasks(self, msg_json):
+        """
+        handle tasks
+        :param msg_json: json, the task details
+        """
         del msg_json['token']
         self.logger.info("[{}] Got task: {}".format(self.worker_id, msg_json))
         if 'friends_ids' in msg_json and len(msg_json['friends_ids']):
@@ -238,6 +301,11 @@ class Worker:
             self.tasks_queue.put(task)
 
     def decrease_rate_limit(self, entry):
+        """
+        Deprecated: decrease the rate limits cache
+        :param entry: string, the API name
+        :return: bool, true if successfully decreased otherwise false
+        """
         self.lock_rate_limit.acquire()
         if entry == 'friends':
             if self.crawler.rate_limits['resources']['friends']['/friends/ids']['remaining'] > 0:
@@ -270,6 +338,9 @@ class Worker:
             return False
 
     def refresh_local_rate_limit(self):
+        """
+        refresh local rate limit cache
+        """
         rate_limit = defaultdict(int)
         self.lock_rate_limit.acquire()
         now_timestamp = int(time())
@@ -314,6 +385,10 @@ class Worker:
         return rate_limit
 
     def stream(self, count=0):
+        """
+        start a stream listener
+        :param count: int, this method is recursively called, exit when failed multiple times
+        """
         if count > 5:
             self.exit("[{}] stream failed {} times, worker exit.".format(self.worker_id, count))
         else:
@@ -327,6 +402,10 @@ class Worker:
             self.logger.info("Started stream task")
 
     def timeline(self, thread_num):
+        """
+        task consumer, get user timeline
+        :param thread_num: this thead's name
+        """
         while True:
             (user_id, is_stream_user) = self.timeline_tasks.get()
             self.running_timeline.inc()
@@ -368,6 +447,10 @@ class Worker:
                                                              self.running_timeline.get_count()))
 
     def friends(self, thread_num):
+        """
+         task consumer, get user's friends ids
+        :param thread_num: int, thread number
+        """
         while True:
             stream_user_id = self.friends_tasks.get()
             self.active.set(True)
@@ -416,6 +499,10 @@ class Worker:
                                                                                      self.running_friends.get_count()))
 
     def task_requester(self):
+        """
+        task requester (producer) frequently request tasks
+        based on this worker's rate limits and idle workers count
+        """
         timeline_last_time_sent = int(time())
         friends_last_time_sent = int(time())
         while True:
@@ -454,6 +541,10 @@ class Worker:
             sleep(5)
 
     def task_handler(self):
+        """
+        get task message from the queue
+        and put it to different queue according to task type
+        """
         while True:
             task = self.tasks_queue.get()
             for task_content in task.user_ids:
@@ -464,13 +555,23 @@ class Worker:
             del task
 
     def stream_status_handler(self):
+        """
+        get stream status from a the stream status queue
+        and put it to statuses queue
+        """
         while True:
             status = self.stream_res_queue.get()
+            # 1 means this is a stream status
             self.statuses_queue.put((status, 1))
             del status
 
     @staticmethod
     def read_areas(path):
+        """
+        read areas from file
+        :param path: file path
+        :return: the areas details
+        """
         areas_collection = {}
         filenames = os.listdir(path)
         for filename in filenames:
@@ -486,6 +587,11 @@ class Worker:
 
     @staticmethod
     def calc_bbox_of_polygon(polygon):
+        """
+        calculate the bounding box of a polygon
+        :param polygon: polygon
+        :return: bounding box
+        """
         min_x, min_y, max_x, max_y = polygon[0][0], polygon[0][1], polygon[0][0], polygon[0][1]
         for (x, y) in polygon:
             if x < min_x:
@@ -501,6 +607,11 @@ class Worker:
 
     @staticmethod
     def calc_bbox_of_state(areas):
+        """
+        calculate bounding box of a state
+        :param areas: list, [coordinates]
+        :return: bounding box of this state
+        """
         bboxes = []
         for area in areas:
             for bbox in area['bboxes']:
@@ -520,6 +631,10 @@ class Worker:
         return [min_x, min_y, max_x, max_y]
 
     def preprocess_areas(self):
+        """
+        preprocess the are to boost Ray Casting algorithm.
+        :return: processed result
+        """
         new_sa2_2016 = self.read_areas(self.config.aus_sa2_2016_lv12_path)
 
         states = [{"hit": 0, "state_name": None, "bbox": [], "areas": []} for _ in range(len(new_sa2_2016))]
@@ -548,7 +663,12 @@ class Worker:
 
         return states
 
-    def rank_areas(self, state_idx, area_idx):
+    def sort_areas(self, state_idx, area_idx):
+        """
+        sort areas by the hit times
+        :param state_idx: int, state index
+        :param area_idx: int, area index
+        """
         # manipulate the rank of areas to allow iterator find the location faster
         self.areas_collection[state_idx]['areas'][area_idx]['hit'] += 1
         source_idx = area_idx
@@ -575,6 +695,11 @@ class Worker:
             self.areas_collection[source_idx] = tmp
 
     def retrieve_statuses_areas(self, status):
+        """
+        find the area where a tweet is located
+        :param status: status that does not have area information
+        :return: status that updated its area information
+        """
         # https://stackoverflow.com/questions/217578
         doc = status._json
         del status
@@ -625,17 +750,27 @@ class Worker:
                         doc['sa2_2016_lv12_name'] = self.areas_collection[i]['areas'][j]['feature_name']
                         doc['sa2_2016_lv12_state'] = self.areas_collection[i]['state_name']
                         doc['_id'] = doc['sa2_2016_lv12_code'] + doc['_id'][doc['_id'].find(':'):]
-                        self.rank_areas(i, j)
+                        self.sort_areas(i, j)
                         return doc
 
         return doc
 
     @staticmethod
     def clean_tweet(tweet):
+        """
+        clean a tweet content before run sentiment segmentation on it
+        :param tweet: tweet object
+        :return: cleaned tweet content
+        """
         # remove urls and other non english characters
         return ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t]) |(\w+:\/\/\S+)", " ", tweet).split())
 
     def generate_sentiment(self, text):
+        """
+        run sentiment segmentation on a text
+        :param text: a text string
+        :return: sentiment scores
+        """
         tweet_text = self.clean_tweet(text)
         sia = SentimentIntensityAnalyzer()
         sent_scores = sia.polarity_scores(tweet_text)
@@ -648,6 +783,13 @@ class Worker:
         return sent_scores
 
     def save_user(self, user_json, err_count=0):
+        """
+        save a user to database
+        :param user_json: user json
+        :param err_count: err count, this fun is recursive called if failed
+        when this count greater that a value, exit the worker
+        :return: the saved users count
+        """
         if err_count > self.config.max_network_err:
             self.exit("[{}] save user err {} times, exit".format(self.worker_id, self.config.max_network_err))
             return False
@@ -701,6 +843,15 @@ class Worker:
             return self.save_user(user_json=user_json, err_count=err_count + 1)
 
     def save_status(self, status, is_stream_code, err_count=0):
+        """
+        :param status: a tweet
+        :param is_stream_code: int,
+        0 indicates thi is not a stream tweet, 1 indicates this is,
+        2 indicates this tweet is from a stream user's timeline but not a stream status
+        :param err_count: rr count, this fun is recursive called if failed
+          when this count greater that a value, exit the worker
+        :return: the saved statuses count
+        """
         if err_count > self.config.max_network_err:
             self.exit("[{}] save status err {} times, exit: {}({})".format(self.worker_id,
                                                                            status.id,
@@ -765,6 +916,9 @@ class Worker:
             return self.save_status(status=status, is_stream_code=is_stream_code, err_count=err_count + 1)
 
     def check_db(self):
+        """
+        check the database, any missing will be created
+        """
         if 'statuses' not in self.client.all_dbs():
             self.client.create_database('statuses')
             self.logger.debug("[*] Statuses db is not in database; Created.")
@@ -774,6 +928,9 @@ class Worker:
             self.logger.debug("[*] Users db is not in database; Created.")
 
     def users_recorder(self):
+        """
+        a thread get users profile from the users queue, and call save_user to save it
+        """
         count = 0
         prev = 0
         while True:
@@ -785,7 +942,9 @@ class Worker:
             del user_json
 
     def statuses_recorder(self):
-
+        """
+         a thread get status from the status queue, and call save_status to save it
+            """
         count = 0
         prev = 0
         while True:
@@ -798,6 +957,9 @@ class Worker:
             del is_stream_code
 
     def run(self):
+        """
+        runt a worker
+        """
         try:
             nltk.download('vader_lexicon')
         except:
@@ -816,6 +978,7 @@ class Worker:
         threading.Thread(target=self.statuses_recorder).start()
         threading.Thread(target=self.keep_alive).start()
 
+        # run multiple task consumers according to the config
         for i in range(self.config.max_running_timeline):
             threading.Thread(target=self.timeline, args=(i,)).start()
         for i in range(self.config.max_running_friends):

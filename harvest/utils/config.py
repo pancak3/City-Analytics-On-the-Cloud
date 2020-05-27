@@ -3,14 +3,25 @@
 """
 import json
 from utils.logger import get_logger
+from collections import namedtuple
 
 
 class TwitterCredential:
     def __init__(self, api_key, api_secrete_key, access_token, access_token_secret):
+        """
+        A object contains twitter credentials
+        :param api_key: twitter api key
+        :param api_secrete_key: twitter secrete key
+        :param access_token: twitter  access token
+        :param access_token_secret: twitter access token secret
+        """
         self.api_key = api_key
         self.api_secrete_key = api_secrete_key
         self.access_token = access_token
         self.access_token_secret = access_token_secret
+
+
+def _json_object_hook(d): return namedtuple('X', d.keys())(*d.values())
 
 
 class CouchConfig:
@@ -32,6 +43,10 @@ class CouchConfig:
 
 class Config:
     def __init__(self, log_level):
+        """
+        load configs from files
+        :param log_level: logging level
+        """
         self.logger = get_logger('Config', log_level)
         with open("twitter.json") as t:
             t_json = json.loads(t.read())
@@ -40,34 +55,13 @@ class Config:
 
         with open("couchdb.json") as t:
             t_json = json.loads(t.read())
-            self.couch = CouchConfig(t_json["protocol"], t_json["host"], t_json["port"], t_json["username"],
-                                     t_json["password"])
+            self.couch = CouchConfig(t_json["protocol"],  t_json["host"], t_json["port"],
+                                     t_json["username"], t_json["password"])
             self.logger.debug(
                 "[*] Loaded CouchDB config -> {}://{}:{}".format(self.couch.protocol, self.couch.host, self.couch.port))
-        with open("harvest.json") as t:
-            harvest_json = json.loads(t.read())
-            self.registry_port = harvest_json['registry_port']
-            self.token = harvest_json['token']
-            self.melbourne_bbox = harvest_json['melbourne_bbox']
-            self.victoria_bbox = harvest_json['victoria_bbox']
-            self.hash_algorithm = harvest_json['hash_algorithm']
-            self.timeline_updating_window = harvest_json['timeline_updating_window']
-            self.friends_updating_window = harvest_json['friends_updating_window']
-            self.task_chunk_size = harvest_json['task_chunk_size']
-            self.heartbeat_time = harvest_json['heartbeat_time']
-            self.max_heartbeat_lost_time = harvest_json['max_heartbeat_lost_time']
-            self.user_timeline_max_statues = harvest_json['user_timeline_max_statues']
-            self.network_err_reconnect_time = harvest_json['network_err_reconnect_time']
-            self.max_network_err = harvest_json['max_network_err']
-            self.friends_max_ids = harvest_json['friends_max_ids']
-            self.max_save_tries = harvest_json['max_save_tries']
-            self.max_running_friends = harvest_json['max_running_friends']
-            self.max_running_timeline = harvest_json['max_running_timeline']
-            self.max_tasks_num = harvest_json['max_tasks_num']
-            self.max_task_runtime = harvest_json['max_task_runtime']
-            self.print_log_when_saved = harvest_json['print_log_when_saved']
-            self.max_ids_single_task = harvest_json['max_ids_single_task']
-            self.max_queue_size = harvest_json['max_queue_size']
-            self.aus_sa2_2016_lv12_path = harvest_json['aus_sa2_2016_lv12_path']
-            self.ignore_statuses_out_of_australia = harvest_json['ignore_statuses_out_of_australia']
-            self.bulk_size = harvest_json['bulk_size']
+
+        with open("harvest.json") as f:
+            content = f.read()
+            conf = json.loads(content, object_hook=_json_object_hook)
+            for key in conf._fields:
+                setattr(self, key, getattr(conf, key))
