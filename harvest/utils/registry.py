@@ -694,7 +694,7 @@ class Registry:
 
                 for doc in result:
                     self.timeline_tasks.put([doc['id'], doc['key'][3]])
-                self.logger.debug("Generated {} friends tasks.".format(len(result)))
+                self.logger.debug("Generated {} timeline tasks.".format(len(result)))
 
             except Exception:
                 traceback.format_exc()
