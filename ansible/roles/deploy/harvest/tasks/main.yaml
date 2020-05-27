@@ -58,6 +58,8 @@
     project_src: '{{ harvest.dir }}'
     build: yes
     state: present
+    scale:
+      worker:2
     remove_orphans: yes
     recreate: smart
   when: 'groups["COMP90024"][0] != inventory_hostname'
