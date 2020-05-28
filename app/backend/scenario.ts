@@ -125,8 +125,8 @@ router.get(
                       stale: 'ok',
                       descending:true
                   })
-                : // no keyword
-                  await status.partitionedView(area, 'api', 'doc', {
+                : // recent indicative tweets
+                  await status.partitionedView(area, 'indicative', 'statuses', {
                       include_docs: true,
                       limit: 5,
                       stale: 'ok',
