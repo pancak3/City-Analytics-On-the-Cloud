@@ -153,7 +153,7 @@ function Sentiment(props) {
                                             IEO Pearson correlation coefficient:{' '}
                                         </strong>{' '}
                                         {overall ? (
-                                            overall.ieo[0].substring(0, 8)
+                                            overall.ieo[0]
                                         ) : (
                                             <LoadingBlock>
                                                 <span>0.123456</span>
@@ -163,7 +163,7 @@ function Sentiment(props) {
                                     <Typography>
                                         <strong>p-value: </strong>
                                         {overall ? (
-                                            overall.ieo[1].substring(0, 8)
+                                            overall.ieo[1]
                                         ) : (
                                             <LoadingBlock>
                                                 <span>0.123456</span>
@@ -194,7 +194,7 @@ function Sentiment(props) {
                                             IEO Pearson correlation coefficient:{' '}
                                         </strong>{' '}
                                         {overall ? (
-                                            overall.ier[0].substring(0, 8)
+                                            overall.ier[0]
                                         ) : (
                                             <LoadingBlock>
                                                 <span>0.123456</span>
@@ -204,7 +204,7 @@ function Sentiment(props) {
                                     <Typography>
                                         <strong>p-value: </strong>
                                         {overall ? (
-                                            overall.ier[1].substring(0, 8)
+                                            overall.ier[1]
                                         ) : (
                                             <LoadingBlock>
                                                 <span>0.123456</span>

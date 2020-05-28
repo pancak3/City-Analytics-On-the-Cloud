@@ -58,6 +58,7 @@ app.use((req, res) => {
 });
 
 // Global error handler
+// eslint-disable-next-line
 app.use(function (err: Error, req: Request, res: Response, next: NextFunction) {
     res.status(500);
     return res.json({ status: 'error', message: err.message });

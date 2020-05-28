@@ -17,7 +17,7 @@ def solve(a_in, b_in):
     a_list = json.loads(a_in)
     b_list = json.loads(b_in)
     res = stats.pearsonr(a_list, b_list)
-    print(f'{res[0]} {res[1]}')
+    print(f'{res[0]:.4f} {res[1]:.4e}')
 
 
 if __name__ == '__main__':
