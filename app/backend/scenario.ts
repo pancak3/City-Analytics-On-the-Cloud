@@ -123,12 +123,14 @@ router.get(
                       reduce: false,
                       limit: 5,
                       stale: 'ok',
+                      descending:true
                   })
                 : // no keyword
                   await status.partitionedView(area, 'api', 'doc', {
                       include_docs: true,
                       limit: 5,
                       stale: 'ok',
+                      descending:true
                   });
             return res.json(tweets.rows.map((r: any) => r.value));
         } catch (err) {
