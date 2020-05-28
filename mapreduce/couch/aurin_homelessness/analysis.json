@@ -1,1 +1,1 @@
-{"_id": "_design/analysis", "views": {"general": {"map": "function (doc) {\n  emit(doc._id, doc.properties.hl_p_homeless_tot);\n}", "reduce": "_sum"}}, "language": "javascript", "shows": {}, "indexes": {}, "lists": {}}
+{"_id": "_design/analysis", "views": {"general": {"map": "function (doc) {\n  emit(doc._id, doc.properties.hl_p_homeless_tot);\n}", "reduce": "_sum"}}, "language": "javascript", "indexes": {}, "shows": {}, "lists": {}}

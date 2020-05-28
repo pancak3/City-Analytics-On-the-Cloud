@@ -1,1 +1,1 @@
-{"_id": "_design/analysis", "views": {"general": {"map": "function (doc) {\n  if(doc.properties.usual_res_pop&&doc.properties.ieo_score){\n    emit([doc.properties.usual_res_pop, doc.properties.ieo_score], 1);\n  }\n}"}}, "language": "javascript", "shows": {}, "indexes": {}, "lists": {}}
+{"_id": "_design/analysis", "views": {"general": {"map": "function (doc) {\n  if(doc.properties.usual_res_pop&&doc.properties.ieo_score){\n    emit([doc.properties.usual_res_pop, doc.properties.ieo_score], 1);\n  }\n}"}}, "language": "javascript", "indexes": {}, "shows": {}, "lists": {}}

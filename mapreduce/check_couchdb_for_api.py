@@ -230,7 +230,8 @@ if __name__ == '__main__':
             'api': '',
             'api-global': '',
             'more': '',
-            'more-global': ''
+            'more-global': '',
+            'indicative': ''
         },
         'users': {
             'api-global': '',

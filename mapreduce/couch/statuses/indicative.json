@@ -1,0 +1,1 @@
+{"_id": "_design/indicative", "views": {"statuses": {"map": "function (doc) {\n    var date= new Date(doc.created_at);\n    emit(date.getTime(), { text: doc.full_text, url: doc.entities.urls.length > 0 ? doc.entities.urls[0].url : null });\n}"}}, "language": "javascript", "options": {"partitioned": true}, "indexes": {}, "shows": {}, "lists": {}}
