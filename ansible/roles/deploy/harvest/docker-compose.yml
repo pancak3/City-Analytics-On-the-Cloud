@@ -15,9 +15,9 @@ services:
       - ./couchdb.json:/app/couchdb.json
       - ./harvest.json:/app/harvest.json
       - ./twitter.json:/app/twitter.json
-    deploy:
-      mode: replicated
-      replicas: 1
+#    deploy:
+#      mode: replicated
+#      replicas: 1
 
 networks:
   couch_comp90024:
