@@ -612,13 +612,15 @@ class Registry:
         :param conn: connection
         :param addr: address
         """
-        self.logger.debug("registry start msg handler")
+        self.logger.debug("registry starts msg handler")
         data = ''
         access_time = int(time())
+        entries = 100
         while True:
             try:
                 data += conn.recv(1024).decode('utf-8')
                 while data.find('\n') != -1:
+                    entries += 1
                     access_time = int(time())
                     first_pos = data.find('\n')
                     recv_json = json.loads(data[:first_pos])
@@ -629,7 +631,8 @@ class Registry:
                                 self.handle_action_init_sender(recv_json, conn, addr)
                             elif recv_json['role'] == 'receiver':
                                 self.handle_action_init_receiver(recv_json, conn, addr)
-                    exit(0)
+                        entries -= 100
+                entries -= 1
             except json.JSONDecodeError:
                 traceback.format_exc()
                 break
@@ -643,10 +646,11 @@ class Registry:
             if len(data) > 10240:
                 data = ''
 
-            if int(time()) - access_time > 60:
+            if int(time()) - access_time > 60 or not entries:
                 break
             else:
                 sleep(1)
+        self.logger.debug("registry ends msg handler")
 
     def tasks_generator(self):
         """
