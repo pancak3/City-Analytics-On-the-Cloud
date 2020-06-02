@@ -658,16 +658,17 @@ class Registry:
         """
         self.logger.info("TaskGenerator started.")
         while True:
-            self.generate_timeline_task()
-            self.generate_friends_task()
+            self.generate_timeline_task(hard=True)
+            self.generate_friends_task(hard=True)
             sleep(120)
 
-    def generate_friends_task(self):
+    def generate_friends_task(self, hard=False):
         """
         generate friends task
+        :param hard: generate friends tasks when ignore other rules
         """
-        if self.friends_tasks.empty() and self.generating_friends.acquire(blocking=False) \
-                and time() - self.generating_friends_time > 5:
+        if hard or (self.friends_tasks.empty() and self.generating_friends.acquire(
+                blocking=False) and time() - self.generating_friends_time > 5):
             try:
                 self.client.connect()
                 count = 0
@@ -684,13 +685,14 @@ class Registry:
         else:
             return
 
-    def generate_timeline_task(self, count=1):
+    def generate_timeline_task(self, count=1, hard=False):
         """
         generate timeline task
+        :param hard: generate timeline tasks when ignore other rules
         :param count: int, how many use ids in this task
         """
-        if self.timeline_tasks.qsize() < count and self.generating_timeline.acquire(blocking=False) \
-                and time() - self.generating_timeline_time > 2:
+        if hard or (self.timeline_tasks.qsize() < count and self.generating_timeline.acquire(blocking=False)
+                    and time() - self.generating_timeline_time > 2):
             try:
                 self.client.connect()
                 result = self.client['users'].get_view_result('_design/tasks', view_name='timeline',
