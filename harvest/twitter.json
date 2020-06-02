@@ -45,36 +45,6 @@
     ]
   },
   {
-    "api_key": "KNS2WhAXtXjdrXFVat0Zdv4G7",
-    "api_secret_key": "tDj0WmoKyBf4UCzR3CXnjJpmOtgk5NLzPiesq4beKgITEvkFJM",
-    "access_token": "1251700712733458434-Q5vMrxxY3X7OyGlAuoy7waKDbbU8hW",
-    "access_token_secret": "b18Skjos6v14sDltB6wpnNo66NYz54sYbOkiaBP7WQne7",
-    "owner": "Mandeep",
-    "app_id": 17788524,
-    "stream_area": "Queensland",
-    "stream_bbox": [
-      137.99595743999998,
-      -29.177897699499997,
-      153.552171232,
-      -9.142175977
-    ]
-  },
-  {
-    "api_key": "6X4dTsdIR3gMuLW4ldnjYUZad",
-    "api_secret_key": "AP0sxXMPlRtvD0HOE18I1C4APFXXbHauIedNvbFYagukExKy3n",
-    "access_token": "987670826953527298-C4GWt7asUHnbmvHXHtVbxem6KfoUgYZ",
-    "access_token_secret": "pamt6qXuUgkL0LVjD8JlnS6gjQFryPpo8WXFurEKCgcoz",
-    "owner": "Pan",
-    "app_id": 17757798,
-    "stream_area": "South Australia",
-    "stream_bbox": [
-      129.001336896,
-      -38.0626029895,
-      141.002955616,
-      -25.996146487500003
-    ]
-  },
-  {
     "api_key": "VHx2TVFFPD71maoI2wO1iM5Qy",
     "api_secret_key": "9t4pS9sgiXMPTPVqqd9clHr77yc9PhnSvjfFlXOM7iZQsOiv8V",
     "access_token": "704158221045379072-ULT8onJaIzqaFdmdvyYR5cilvPGUWia",
@@ -87,21 +57,6 @@
       -43.740509603,
       148.4986736,
       -39.20366165899999
-    ]
-  },
-  {
-    "api_key": "uHvhjLshNuWtHZt82L0sJWSiK",
-    "api_secret_key": "xMz0YGpsPqwTJ6UUw211MvmksMga607YkBVH74ylwuCFyD0IiG",
-    "access_token": "1251700712733458434-QjzKUojTQ4UDSvF1l2Gz6W0xEZaAfK",
-    "access_token_secret": "k892Tz4CQtQiI6nVgHnNsZm0BKaUPuZdCHUcK8yMyxMYj",
-    "owner": "Mandeep",
-    "app_id": 17980582,
-    "stream_area": "Western Australia",
-    "stream_bbox": [
-      112.921113952,
-      -35.134846436000004,
-      129.001930016,
-      -13.689492034999999
     ]
   }
 ]
