@@ -792,7 +792,7 @@ class Worker:
         """
         if err_count > self.config.max_network_err:
             self.exit("[{}] save user err {} times, exit".format(self.worker_id, self.config.max_network_err))
-            return False
+            return 0
         try:
             # https://developer.twitter.com/en/docs/basics/twitter-ids
             if 'id' in user_json:
