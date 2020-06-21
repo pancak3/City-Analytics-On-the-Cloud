@@ -14,7 +14,7 @@ on:
 
 jobs:
   build_harvest:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: Login to Gitlab Registry
@@ -40,7 +40,7 @@ jobs:
         working-directory: ./app
 
   build_mapreduce:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: Login to Gitlab Registry
