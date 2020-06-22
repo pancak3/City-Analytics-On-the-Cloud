@@ -6,6 +6,9 @@ A Cloud-based solution which runs across multiple VM instances on Melbourne Rese
 Tweets were harvested across the cities of Australia by the Twitter API, then stored in a clustered CouchDB database. <br > 
 Data is presented by a website which is inspired by [Covid-19 App](https://covid-dashboards.web.app/).
 
+An introduction [video on YouTube](https://youtu.be/aCsV5HDuACw) is also available.
+
+
 ## Modules
 There are five modules for the repository,
 
