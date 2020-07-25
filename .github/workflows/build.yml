@@ -22,9 +22,9 @@ jobs:
       - name: Build harvest image
         run: docker build . -t registry.gitlab.com/comp90024/project-2:harvest
         working-directory: ./harvest
-      - name: Push docker image
-        run: docker push registry.gitlab.com/comp90024/project-2:harvest
-        working-directory: ./harvest
+      # - name: Push docker image
+      #   run: docker push registry.gitlab.com/comp90024/project-2:harvest
+      #   working-directory: ./harvest
 
   build_app:
     runs-on: ubuntu-latest
@@ -35,9 +35,9 @@ jobs:
       - name: Build app image
         run: docker build . -t registry.gitlab.com/comp90024/project-2:app
         working-directory: ./app
-      - name: Push docker image
-        run: docker push registry.gitlab.com/comp90024/project-2:app
-        working-directory: ./app
+      # - name: Push docker image
+      #   run: docker push registry.gitlab.com/comp90024/project-2:app
+      #   working-directory: ./app
 
   build_mapreduce:
     runs-on: ubuntu-latest
@@ -48,6 +48,6 @@ jobs:
       - name: Build mapreduce image
         run: docker build . -t registry.gitlab.com/comp90024/project-2:mapreduce
         working-directory: ./mapreduce
-      - name: Push docker image
-        run: docker push registry.gitlab.com/comp90024/project-2:mapreduce
-        working-directory: ./mapreduce
+      # - name: Push docker image
+      #   run: docker push registry.gitlab.com/comp90024/project-2:mapreduce
+      #   working-directory: ./mapreduce
